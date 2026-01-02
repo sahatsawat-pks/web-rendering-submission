@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
-import { getDb, createUser, findUserByUsername } from "@/lib/db";
-import { hashPassword } from "@/lib/password"; // Correct import
+import { createUser, findUserByUsername, getAllUsers, deleteUser, getUserPermissions } from "@/lib/db";
 
 export async function GET() {
   const user = await getAuthUser();
@@ -9,17 +8,12 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const db = await getDb();
+  const users = await getAllUsers();
   
-  // Ensure userPermissions exists
-  if (!db.data.userPermissions) {
-    db.data.userPermissions = [];
-  }
-
   // Return users without passwords, but with permissions
-  const safeUsers = db.data.users.map(({ password, ...u }) => {
+  const safeUsers = await Promise.all(users.map(async ({ password, ...u }) => {
     // Get permissions for this user
-    const userPerms = db.data.userPermissions.filter(p => p.userId === u.id);
+    const userPerms = await getUserPermissions(u.id);
     
     // Convert to object format { itcs223: true, itcs227: false, ... }
     const permissions = {
@@ -30,7 +24,7 @@ export async function GET() {
     };
 
     return { ...u, permissions };
-  });
+  }));
   
   return NextResponse.json({ users: safeUsers });
 }
@@ -89,12 +83,9 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const db = await getDb();
-    const initialLength = db.data.users.length;
-    db.data.users = db.data.users.filter((u) => u.id !== id);
+    const deleted = await deleteUser(id);
 
-    if (db.data.users.length < initialLength) {
-      await db.write();
+    if (deleted) {
       return NextResponse.json({ success: true });
     }
 

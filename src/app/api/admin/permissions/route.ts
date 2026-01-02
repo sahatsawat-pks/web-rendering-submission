@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
-import { getDb } from "@/lib/db";
+import { getUserPermissions, getAllPermissions, upsertPermission } from "@/lib/db";
 
 // GET: Retrieve permissions for a specific user or all users
 export async function GET(request: NextRequest) {
@@ -11,19 +11,18 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get("userId");
-
-  const db = await getDb();
   
-  if (!db.data.userPermissions) {
-    db.data.userPermissions = [];
-  }
+  try {
+      if (userId) {
+        const userPerms = await getUserPermissions(userId);
+        return NextResponse.json({ permissions: userPerms });
+      }
 
-  if (userId) {
-    const userPerms = db.data.userPermissions.filter(p => p.userId === userId);
-    return NextResponse.json({ permissions: userPerms });
+      const allPerms = await getAllPermissions();
+      return NextResponse.json({ permissions: allPerms });
+  } catch (error: any) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  return NextResponse.json({ permissions: db.data.userPermissions });
 }
 
 // POST: Update permissions for a user
@@ -50,35 +49,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const db = await getDb();
-    
-    if (!db.data.userPermissions) {
-      db.data.userPermissions = [];
-    }
-
-    // Find existing permission
-    const existingIndex = db.data.userPermissions.findIndex(
-      p => p.userId === userId && p.subjectCode === subjectCode
-    );
-
-    if (existingIndex >= 0) {
-      // Update existing permission
-      db.data.userPermissions[existingIndex].canEdit = canEdit;
-      db.data.userPermissions[existingIndex].updatedAt = new Date().toISOString();
-    } else {
-      // Create new permission
-      db.data.userPermissions.push({
-        id: `perm_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        userId,
-        subjectCode,
-        canEdit,
-        grantedBy: authUser.userId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-    }
-
-    await db.write();
+    await upsertPermission(userId, subjectCode, canEdit, authUser.userId);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
