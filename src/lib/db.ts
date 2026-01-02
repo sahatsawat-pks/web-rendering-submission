@@ -24,6 +24,7 @@ export interface Lab {
 interface Database {
   users: User[];
   labs: Lab[];
+  userPermissions: any[];
 }
 
 let db: Low<Database> | null = null;
@@ -36,7 +37,7 @@ export async function getDb(): Promise<Low<Database>> {
   // Database file stored in project root
   const file = join(process.cwd(), "database.json");
   const adapter = new JSONFile<Database>(file);
-  db = new Low(adapter, { users: [], labs: [] });
+  db = new Low(adapter, { users: [], labs: [], userPermissions: [] });
 
   await db.read();
 
