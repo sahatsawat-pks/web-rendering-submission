@@ -7,9 +7,21 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Get permissions
+  const { getUserPermissions } = await import("@/lib/db");
+  const userPerms = await getUserPermissions(user.userId);
+  
+  const permissions = {
+    itcs223: userPerms.some(p => p.subjectCode === "itcs223" && p.canEdit),
+    itcs227: userPerms.some(p => p.subjectCode === "itcs227" && p.canEdit),
+    itge162: userPerms.some(p => p.subjectCode === "itge162" && p.canEdit),
+    itcs123: userPerms.some(p => p.subjectCode === "itcs123" && p.canEdit),
+  };
+
   // Return current user info
   return NextResponse.json({ 
     userId: user.userId, 
-    username: user.username 
+    username: user.username,
+    permissions
   });
 }

@@ -75,7 +75,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     async function fetchLabs() {
       try {
-        const res = await fetch("/api/labs?activeOnly=true")
+        const res = await fetch("/api/labs?activeOnly=true&subject=ITCS223")
         if (res.ok) {
           const data = await res.json()
           if (data.success) {
@@ -329,7 +329,7 @@ export default function AdminDashboard() {
                       </p>
                     </div>
                     <a
-                      href="/admin/labs"
+                      href="/admin/labs?subject=ITCS223"
                       className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 rounded-lg shadow-md shadow-teal-500/30 transition-all btn-hover-lift"
                     >
                       Manage

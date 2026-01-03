@@ -188,6 +188,17 @@ export async function deleteUser(id: string): Promise<boolean> {
     }
 }
 
+export async function updateUserPassword(id: string, passwordHash: string): Promise<boolean> {
+    await init();
+    const client = await getPool().connect();
+    try {
+        const res = await client.query('UPDATE users SET password = $1 WHERE id = $2', [passwordHash, id]);
+        return (res.rowCount || 0) > 0;
+    } finally {
+        client.release();
+    }
+}
+
 // -- LAB OPERATIONS --
 
 export async function getAllLabs(activeOnly: boolean = false, subject?: string): Promise<Lab[]> {

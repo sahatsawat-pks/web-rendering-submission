@@ -1,9 +1,10 @@
 "use client"
 
-import { Code2, BarChart3, Layers, Terminal, ArrowRight, Shield } from "lucide-react"
+import { Code2, BarChart3, Layers, Terminal, ArrowRight, Shield, Key } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
 import Link from "next/link"
+import { useState, useEffect } from "react"
 
 export default function AdminHub() {
   const modules = [
@@ -41,6 +42,74 @@ export default function AdminHub() {
     }
   ]
 
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [passwordLoading, setPasswordLoading] = useState(false)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [passwordSuccess, setPasswordSuccess] = useState(false)
+  const [username, setUsername] = useState<string>("")
+  const [permissions, setPermissions] = useState<any>({})
+  const [loading, setLoading] = useState(true)
+
+  // Fetch user data on mount
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then(res => res.json())
+      .then(data => {
+        if (data.username) {
+          setUsername(data.username)
+          setPermissions(data.permissions || {})
+        }
+        setLoading(false)
+      })
+      .catch(err => {
+        console.error("Failed to fetch user", err)
+        setLoading(false)
+      })
+  }, [])
+
+  async function handlePasswordChange(e: React.FormEvent) {
+      e.preventDefault()
+      setPasswordLoading(true)
+      setPasswordError(null)
+      setPasswordSuccess(false)
+
+      try {
+          const res = await fetch("/api/auth/change-password", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ currentPassword, newPassword })
+          })
+          
+          const data = await res.json()
+          
+          if (res.ok) {
+              setPasswordSuccess(true)
+              setCurrentPassword("")
+              setNewPassword("")
+              setTimeout(() => {
+                  setShowPasswordModal(false)
+                  setPasswordSuccess(false)
+              }, 2000)
+          } else {
+              setPasswordError(data.error || "Failed to change password")
+          }
+      } catch (err) {
+          setPasswordError("An unexpected error occurred")
+      } finally {
+          setPasswordLoading(false)
+      }
+  }
+
+  const visibleModules = modules.filter(mod => {
+      // Main admin sees all
+      if (username === "kanzaki_aito") return true;
+      // Check specific permission
+      const key = mod.code.toLowerCase();
+      return permissions[key] === true;
+  });
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans">
       {/* Navbar */}
@@ -56,10 +125,89 @@ export default function AdminHub() {
           </div>
           <div className="flex items-center gap-4">
             <ModeToggle />
+            <div className="relative">
+                <button 
+                    onClick={() => setShowPasswordModal(true)}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                >
+                    <Key className="w-4 h-4" />
+                    <span>Password</span>
+                </button>
+            </div>
             <LogoutButton />
            </div>
         </div>
       </nav>
+
+      {/* Password Change Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-md p-8 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 animate-scale-in relative">
+                <button 
+                    onClick={() => setShowPasswordModal(false)}
+                    className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+                
+                <div className="text-center mb-6">
+                    <div className="w-12 h-12 bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <Key className="w-6 h-6" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Change Password</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Update your account security credentials.</p>
+                </div>
+
+                <form onSubmit={handlePasswordChange} className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Current Password</label>
+                        <input 
+                            type="password" 
+                            required
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none transition-all"
+                            placeholder="Enter current password"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">New Password</label>
+                        <input 
+                            type="password" 
+                            required
+                            minLength={6}
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none transition-all"
+                            placeholder="Min. 6 characters"
+                        />
+                    </div>
+
+                    {passwordError && (
+                        <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg flex items-center gap-2">
+                             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                             {passwordError}
+                        </div>
+                    )}
+                    
+                    {passwordSuccess && (
+                        <div className="p-3 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-sm rounded-lg flex items-center gap-2">
+                             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                             Password updated successfully!
+                        </div>
+                    )}
+
+                    <button 
+                        type="submit"
+                        disabled={passwordLoading}
+                        className="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-teal-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {passwordLoading ? 'Updating...' : 'Change Password'}
+                    </button>
+                </form>
+            </div>
+        </div>
+      )}
 
       <main className="flex-1 container mx-auto max-w-7xl px-6 py-12">
         <div className="mb-12 text-center animate-slide-up">
@@ -72,7 +220,7 @@ export default function AdminHub() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto animate-scale-in">
-            {modules.map((mod, idx) => (
+            {visibleModules.map((mod, idx) => (
                 <Link 
                     key={mod.code} 
                     href={mod.href}
