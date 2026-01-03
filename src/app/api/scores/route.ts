@@ -60,6 +60,10 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Error updating scores:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ 
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+        details: JSON.stringify(error)
+    }, { status: 500 });
   }
 }
