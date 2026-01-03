@@ -232,3 +232,63 @@ export async function batchUpdateScores(updates: {username: string, labNumber: s
         await updateStudentLabScore(update.username, update.labNumber, update.score, update.feedback, update.sheetName);
     }
 }
+
+export async function fillMissingScores(subject: string, labNumber: string, value: string = '0') {
+  const sheets = await getSheetsClient();
+  const spreadsheetId = getSpreadsheetId(subject);
+  const sheetName = subject; // Assuming tab name is the subject code
+
+  // 1. Fetch all data to find the column and missing rows
+  const rows = await getSheetData(sheetName);
+  
+  if (rows.length === 0) return { success: false, message: "Sheet is empty" };
+
+  const headers = rows[0];
+  const labNum = labNumber.toString();
+  const labNumPad = labNum.length === 1 ? `0${labNum}` : labNum;
+
+  // Regex to find column Index (same as in updateStudentLabScore)
+  const labRegex = new RegExp(`^(Lab\\s*${labNum}|L${labNum}|L${labNumPad})(\\s*\\(.*\\))?$`, 'i');
+  let labIndex = headers.findIndex((h: string) => labRegex.test(h));
+
+  if (labIndex === -1) {
+      return { success: false, message: `Column for Lab ${labNumber} not found. Please grade at least one student or create the column manually.` };
+  }
+
+  const updates = [];
+
+  // 2. Iterate rows to find empty cells in that column
+  // Start from index 1 (skip header)
+  for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const cellValue = row[labIndex];
+
+      // If cell is undefined, null, or empty string, it needs filling
+      if (cellValue === undefined || cellValue === null || cellValue === '') {
+          // Construct the Range (e.g. C2)
+          // Row is i + 1 (0-based array) + 1 (1-based sheet) = i + 1 ?? No.
+          // rows[0] is Row 1. rows[1] is Row 2.
+          // So row index i corresponds to Sheet Row i + 1.
+          
+          updates.push({
+              range: `${sheetName}!${getColumnLetter(labIndex + 1)}${i + 1}`,
+              values: [[value]]
+          });
+      }
+  }
+
+  if (updates.length === 0) {
+      return { success: true, message: "No missing scores found.", count: 0 };
+  }
+
+  // 3. Batch Update
+  await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+          valueInputOption: 'RAW',
+          data: updates
+      }
+  });
+
+  return { success: true, message: `Filled ${updates.length} missing scores with '${value}'.`, count: updates.length };
+}

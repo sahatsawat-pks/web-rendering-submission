@@ -124,6 +124,42 @@ export default function AdminDashboard() {
     }
   }
 
+  const [isFilling, setIsFilling] = useState(false);
+
+  async function handleFillMissing() {
+      if (!selectedLab) {
+          alert("Please select a lab first.");
+          return;
+      }
+      if (!confirm(`Are you sure you want to fill ALL missing scores for Lab ${selectedLab} with 0?`)) {
+          return;
+      }
+
+      setIsFilling(true);
+      try {
+          const res = await fetch('/api/scores', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  action: 'fill_missing',
+                  labNumber: selectedLab,
+                  subject: 'ITCS227'
+              })
+          });
+
+          const data = await res.json();
+          if (data.success) {
+              alert(data.message);
+          } else {
+              alert("Error: " + data.message);
+          }
+      } catch (e) {
+          alert("Failed to fill scores.");
+      } finally {
+          setIsFilling(false);
+      }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-cyan-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950 relative overflow-hidden">
       {/* Animated Background - Further reduced opacity */}
@@ -143,20 +179,20 @@ export default function AdminDashboard() {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white font-bold shadow-lg shadow-indigo-500/30 text-xs">
                 DS
               </div>
-              <span className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100 hidden md:block">
-                ITCS227 Admin
+              <span className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+                ITCS227
               </span>
             </div>
 
-            <div className="hidden md:flex items-center gap-6">
+            <div className="flex items-center gap-4 md:gap-6">
               <a
                  href="/admin/dashboard"
-                 className="text-sm font-medium text-slate-500 hover:text-teal-600 transition-colors"
+                 className="text-sm font-medium text-slate-500 hover:text-teal-600 transition-colors whitespace-nowrap"
               >
-                &larr; Hub
+                &larr; <span className="hidden sm:inline">Hub</span>
               </a>
               <span
-                className="text-sm font-medium text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 dark:border-teal-400 h-16 flex items-center px-1"
+                className="text-sm font-medium text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 dark:border-teal-400 h-16 flex items-center px-1 whitespace-nowrap"
               >
                 Dashboard
               </span>
@@ -175,7 +211,7 @@ export default function AdminDashboard() {
         <div className="flex-1 space-y-8">
           {/* Welcome Section */}
           <div className="animate-slide-up">
-            <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-2">ITCS227 Dashboard</h1>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-2">ITCS227 Dashboard</h1>
             <p className="text-lg text-slate-600 dark:text-slate-400">Welcome back. Here's what's happening today.</p>
           </div>
 
@@ -253,12 +289,28 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                className="w-full md:w-auto px-6 py-3 text-sm font-medium text-white bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 rounded-xl shadow-md shadow-teal-500/30 transition-all btn-hover-lift"
-              >
-                Update Score to Spreadsheet
-              </button>
+              <div className="flex flex-col md:flex-row gap-4">
+                  <button
+                    type="submit"
+                    className="flex-1 px-6 py-3 text-sm font-medium text-white bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 rounded-xl shadow-md shadow-teal-500/30 transition-all btn-hover-lift flex items-center justify-center gap-2"
+                  >
+                    Update Score to Spreadsheet
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleFillMissing}
+                    disabled={isFilling || !selectedLab}
+                    className="px-6 py-3 text-sm font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-xl border border-amber-200 dark:border-amber-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    title="Fill all empty cells in this lab column with 0"
+                  >
+                     {isFilling ? (
+                         <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                     ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                     )}
+                     Fill Missing (0)
+                  </button>
+              </div>
 
               {gradingSuccess && (
                 <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 px-4 py-3 rounded-xl text-sm">
@@ -291,6 +343,10 @@ export default function AdminDashboard() {
                 <span className="px-3 py-1.5 bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-400 rounded-lg text-xs font-medium border border-teal-200 dark:border-teal-700 shadow-sm">
                   {labs.length} Active
                 </span>
+                <a href="/admin/labs" className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1">
+                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                   New Lab
+                </a>
               </div>
             </div>
 

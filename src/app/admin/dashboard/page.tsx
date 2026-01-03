@@ -1,6 +1,6 @@
 "use client"
 
-import { Code2, BarChart3, Layers, Terminal, ArrowRight, Shield, Key } from "lucide-react"
+import { Code2, BarChart3, Layers, Terminal, ArrowRight, Shield, Key, Home } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
 import Link from "next/link"
@@ -116,6 +116,9 @@ export default function AdminHub() {
       <nav className="sticky top-0 z-50 w-full glass border-b border-white/20 dark:border-slate-800 shadow-sm bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
         <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-4">
+             <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-teal-500 hover:text-white dark:hover:bg-teal-500 dark:hover:text-white transition-all shadow-sm hover:shadow-lg" title="Back to Main Page">
+                <Home className="h-5 w-5" />
+            </Link>
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white font-bold shadow-lg">
               <Shield className="h-5 w-5" />
             </div>
@@ -257,6 +260,8 @@ export default function AdminHub() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto animate-scale-in" style={{ animationDelay: '0.3s' }}>
+
+             {username === "kanzaki_aito" && (
              <Link 
                 href="/admin/users"
                 className="group relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
@@ -279,6 +284,7 @@ export default function AdminHub() {
                     <ArrowRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1 transition-transform group-hover:text-slate-900 dark:group-hover:text-slate-200" />
                 </div>
             </Link>
+            )}
 
             <Link 
                 href="/admin/labs"

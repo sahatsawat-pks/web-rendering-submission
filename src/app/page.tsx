@@ -1,10 +1,25 @@
 "use client"
 
-import { Github, Zap, Code2, BookOpen, Layers, BarChart3, Terminal } from "lucide-react"
+import { Github, Zap, Code2, Layers, BarChart3, Terminal } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import Link from "next/link"
+import { useEffect, useState } from "react"
+import LogoutButton from "@/components/LogoutButton"
 
 export default function LandingPage() {
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/auth/check')
+      .then(res => res.json())
+      .then(data => {
+        if (data.isAuthenticated) setIsAdmin(true)
+      })
+      .catch(err => console.error(err))
+      .finally(() => setLoading(false))
+  }, [])
+
   const subjects = [
     {
       id: "itcs223",
@@ -78,20 +93,39 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <a
-              href="/admin/login"
-              className="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors rounded-xl hover:bg-white/80 dark:hover:bg-slate-700/60 flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                />
-              </svg>
-              Admin
-            </a>
+            {!loading && (
+              <>
+                {isAdmin ? (
+                  <>
+                     <Link
+                      href="/admin/dashboard"
+                      className="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors rounded-xl hover:bg-white/80 dark:hover:bg-slate-700/60 flex items-center gap-2"
+                    >
+                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                      </svg>
+                      Dashboard
+                    </Link>
+                    <LogoutButton />
+                  </>
+                ) : (
+                  <Link
+                    href="/admin/login"
+                    className="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors rounded-xl hover:bg-white/80 dark:hover:bg-slate-700/60 flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      />
+                    </svg>
+                    Staff Login
+                  </Link>
+                )}
+              </>
+            )}
             <ModeToggle />
           </div>
         </div>

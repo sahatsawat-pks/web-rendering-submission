@@ -127,20 +127,20 @@ export default function AdminDashboard() {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-600 to-cyan-600 text-white font-bold shadow-lg shadow-teal-500/30 text-xs">
                 ICT
               </div>
-              <span className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100 hidden md:block">
-                ITCS223 Admin
+              <span className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+                ITCS223
               </span>
             </div>
 
-            <div className="hidden md:flex items-center gap-6">
+            <div className="flex items-center gap-4 md:gap-6">
               <a
                  href="/admin/dashboard"
-                 className="text-sm font-medium text-slate-500 hover:text-teal-600 transition-colors"
+                 className="text-sm font-medium text-slate-500 hover:text-teal-600 transition-colors whitespace-nowrap"
               >
-                &larr; Hub
+                &larr; <span className="hidden sm:inline">Hub</span>
               </a>
               <span
-                className="text-sm font-medium text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 dark:border-teal-400 h-16 flex items-center px-1"
+                className="text-sm font-medium text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 dark:border-teal-400 h-16 flex items-center px-1 whitespace-nowrap"
               >
                 Dashboard
               </span>
@@ -159,7 +159,7 @@ export default function AdminDashboard() {
         <div className="flex-1 space-y-8">
           {/* Welcome Section */}
           <div className="animate-slide-up">
-            <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-2">ITCS223 Dashboard</h1>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-2">ITCS223 Dashboard</h1>
             <p className="text-lg text-slate-600 dark:text-slate-400">Welcome back. Here's what's happening today.</p>
           </div>
 

@@ -5,6 +5,7 @@ import {
   getStudentAllScores,
   updateStudentLabScore,
   batchUpdateScores,
+  fillMissingScores,
 } from "@/lib/sheets";
 
 export async function GET(request: NextRequest) {
@@ -52,6 +53,9 @@ export async function POST(request: NextRequest) {
         await updateStudentLabScore(username, labNumber, score, feedback, subject);
     } else if (action === 'batch') {
         await batchUpdateScores(updates); // updates arr should contain subject if mixed, or we pass global subject
+    } else if (action === 'fill_missing') {
+        const result = await fillMissingScores(subject, labNumber, '0');
+        return NextResponse.json(result);
     } else {
         return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }

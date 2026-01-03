@@ -1,54 +1,405 @@
 "use client"
 
-import { Terminal, ArrowLeft, Settings, Plus } from "lucide-react"
-import { ModeToggle } from "@/components/mode-toggle"
-import LogoutButton from "@/components/LogoutButton"
+import type React from "react"
 
-export default function ITCS123Admin() {
+import LogoutButton from "@/components/LogoutButton"
+import { useState, useEffect } from "react"
+import { ModeToggle } from "@/components/mode-toggle"
+
+export default function AdminDashboard() {
+  const [labs, setLabs] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const [studentId, setStudentId] = useState("")
+  const [selectedLab, setSelectedLab] = useState("")
+  const [score, setScore] = useState("0")
+  const [gradingSuccess, setGradingSuccess] = useState(false)
+  const [gradingError, setGradingError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function fetchLabs() {
+      try {
+        const res = await fetch("/api/labs?activeOnly=true&subject=ITCS123")
+        if (res.ok) {
+          const data = await res.json()
+          if (data.success) {
+            setLabs(data.labs.sort((a: any, b: any) => a.labNumber.localeCompare(b.labNumber)))
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch labs", e)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchLabs()
+  }, [])
+
+  async function handleGradeSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setGradingError(null)
+    setGradingSuccess(false)
+
+    // Logic: Submit to API
+    try {
+        const res = await fetch('/api/scores', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'update',
+                username: studentId,
+                labNumber: selectedLab,
+                score: parseInt(score),
+                subject: 'ITCS123'
+            })
+        });
+
+        if (res.ok) {
+             setGradingSuccess(true);
+             setStudentId("");
+             setScore("0");
+             setTimeout(() => setGradingSuccess(false), 5000);
+        } else {
+            const data = await res.json();
+            setGradingError(data.error || "Failed to update score");
+        }
+    } catch (err: any) {
+        setGradingError(err.message || "An unexpected error occurred");
+    }
+  }
+
+  const [isFilling, setIsFilling] = useState(false);
+
+  async function handleFillMissing() {
+      if (!selectedLab) {
+          alert("Please select a lab first.");
+          return;
+      }
+      if (!confirm(`Are you sure you want to fill ALL missing scores for Lab ${selectedLab} with 0?`)) {
+          return;
+      }
+
+      setIsFilling(true);
+      try {
+          const res = await fetch('/api/scores', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  action: 'fill_missing',
+                  labNumber: selectedLab,
+                  subject: 'ITCS123'
+              })
+          });
+
+          const data = await res.json();
+          if (data.success) {
+              alert(data.message);
+          } else {
+              alert("Error: " + data.message);
+          }
+      } catch (e) {
+          alert("Failed to fill scores.");
+      } finally {
+          setIsFilling(false);
+      }
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans">
-      <nav className="sticky top-0 z-50 w-full glass border-b border-white/20 dark:border-slate-800 shadow-sm bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950 relative overflow-hidden">
+      {/* Animated Background - Further reduced opacity */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 -left-4 w-96 h-96 bg-orange-300 rounded-full mix-blend-multiply filter blur-xl opacity-5 animate-float"></div>
+        <div
+          className="absolute bottom-0 -right-4 w-96 h-96 bg-amber-300 rounded-full mix-blend-multiply filter blur-xl opacity-5 animate-float"
+          style={{ animationDelay: "3s" }}
+        ></div>
+      </div>
+
+      {/* Glass Navbar */}
+      <nav className="sticky top-0 z-50 w-full glass border-b border-white/20 shadow-sm">
         <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-6">
-          <div className="flex items-center gap-4">
-             <a href="/admin/dashboard" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
-                <ArrowLeft className="w-5 h-5 text-slate-500" />
-            </a>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-600 text-white font-bold shadow-lg">
-              <Terminal className="h-5 w-5" />
+          <div className="flex items-center gap-8">
+            <div className="flex items-center gap-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-600 to-amber-600 text-white font-bold shadow-lg shadow-orange-500/30 text-xs">
+                OOP
+              </div>
+              <span className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+                ITCS123
+              </span>
             </div>
-            <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
-              ITCS123 OOP Config
-            </span>
+
+            <div className="flex items-center gap-4 md:gap-6">
+              <a
+                 href="/admin/dashboard"
+                 className="text-sm font-medium text-slate-500 hover:text-orange-600 transition-colors whitespace-nowrap"
+              >
+                &larr; <span className="hidden sm:inline">Hub</span>
+              </a>
+              <span
+                className="text-sm font-medium text-orange-600 dark:text-orange-400 border-b-2 border-orange-600 dark:border-orange-400 h-16 flex items-center px-1 whitespace-nowrap"
+              >
+                Dashboard
+              </span>
+            </div>
           </div>
+
           <div className="flex items-center gap-4">
             <ModeToggle />
             <LogoutButton />
-           </div>
+          </div>
         </div>
       </nav>
 
-      <main className="flex-1 container mx-auto max-w-4xl px-6 py-12">
-        <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Test Case Configuration</h1>
-            <button className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-bold shadow-md transition-all">
-                <Plus className="w-4 h-4" />
-                Add Test Suite
-            </button>
+      <main className="container mx-auto max-w-7xl px-4 py-8 flex flex-col lg:flex-row gap-8 relative z-10">
+        {/* Main Content Column */}
+        <div className="flex-1 space-y-8">
+          {/* Welcome Section */}
+          <div className="animate-slide-up">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-2">ITCS123 Dashboard</h1>
+            <p className="text-lg text-slate-600 dark:text-slate-400">Welcome back. Here's what's happening today.</p>
+          </div>
+
+          {/* Grading Interface Section */}
+          <div className="glass-card p-8 animate-scale-in hover:shadow-2xl hover:shadow-orange-500/5 transition-all duration-300 border-white/40">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <svg
+                  className="w-5 h-5 text-orange-600 dark:text-orange-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+                  />
+                </svg>
+                Quick Grade Student
+              </h3>
+              <span className="px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-lg text-xs font-medium border border-amber-200 dark:border-amber-800 shadow-sm">
+                Sheets Mode
+              </span>
+            </div>
+
+            <form onSubmit={handleGradeSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    Student ID
+                  </label>
+                  <input
+                    type="text"
+                    value={studentId}
+                    onChange={(e) => setStudentId(e.target.value)}
+                    placeholder="e.g., 6488001"
+                    required
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 shadow-sm hover:border-orange-300 dark:hover:border-orange-600 transition-all font-mono"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Ref: Column A2:A9999</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    Lab Assignment
+                  </label>
+                  <select
+                    value={selectedLab}
+                    onChange={(e) => setSelectedLab(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 shadow-sm hover:border-orange-300 dark:hover:border-orange-600 transition-all"
+                  >
+                    <option value="">Select Lab</option>
+                    {labs.map((lab) => (
+                      <option key={lab.id} value={lab.labNumber}>
+                        Lab {lab.labNumber}: {lab.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Score</label>
+                  <select
+                    value={score}
+                    onChange={(e) => setScore(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 shadow-sm hover:border-orange-300 dark:hover:border-orange-600 transition-all"
+                  >
+                    <option value="0">0 - Incomplete</option>
+                    <option value="1">1 - Partial</option>
+                    <option value="2">2 - Complete</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex flex-col md:flex-row gap-4">
+                  <button
+                    type="submit"
+                    className="flex-1 px-6 py-3 text-sm font-medium text-white bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 rounded-xl shadow-md shadow-orange-500/30 transition-all btn-hover-lift flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Write to Spreadsheet
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleFillMissing}
+                    disabled={isFilling || !selectedLab}
+                    className="px-6 py-3 text-sm font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-xl border border-amber-200 dark:border-amber-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    title="Fill all empty cells in this lab column with 0"
+                  >
+                     {isFilling ? (
+                         <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                     ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                     )}
+                     Fill Missing (0)
+                  </button>
+              </div>
+
+              {gradingSuccess && (
+                <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 px-4 py-3 rounded-xl text-sm flex items-center gap-3">
+                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <div>
+                    <span className="font-semibold">Success!</span>
+                    <p className="text-xs opacity-90 mt-0.5">
+                       Score updated for Student {studentId} in ITCS123 Sheet.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </form>
+          </div>
+
+          {/* Timeline / Labs Section */}
+          <div className="glass-card p-8 animate-scale-in hover:shadow-2xl hover:shadow-orange-500/5 transition-all duration-300 border-white/40">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <svg
+                  className="w-5 h-5 text-orange-600 dark:text-orange-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+                Active Labs
+              </h3>
+              <div className="flex gap-2">
+                <span className="px-3 py-1.5 bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 rounded-lg text-xs font-medium border border-orange-200 dark:border-orange-700 shadow-sm">
+                  {labs.length} Active
+                </span>
+                <a href="/admin/labs" className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1">
+                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                   New Lab
+                </a>
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="py-12 text-center">
+                <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-orange-200 dark:border-orange-800 border-t-orange-600 dark:border-t-orange-400"></div>
+                <p className="text-slate-500 dark:text-slate-400 mt-4">Loading labs...</p>
+              </div>
+            ) : labs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-slate-400 dark:text-slate-500">
+                <div className="h-16 w-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-8 h-8"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
+                <p className="text-base font-medium">No active labs found</p>
+                <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Create a new lab to get started</p>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {labs.map((lab) => (
+                  <div
+                    key={lab.id}
+                    className="flex items-center gap-5 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 hover:border-orange-300 dark:hover:border-orange-600 hover:shadow-lg hover:shadow-orange-500/5 transition-all smooth-transition group"
+                  >
+                    <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-orange-500 to-amber-500 rounded-2xl flex items-center justify-center text-2xl font-bold text-white shadow-lg shadow-orange-500/20 group-hover:scale-105 transition-transform duration-300">
+                      {lab.labNumber}
+                    </div>
+                    <div className="flex-grow">
+                      <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-1">{lab.title}</h4>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
+                        </svg>
+                        {lab.deadline ? `Due: ${lab.deadline}` : "No deadline set"}
+                      </p>
+                    </div>
+                    <a
+                      href="/admin/labs"
+                      className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 rounded-lg shadow-md shadow-orange-500/30 transition-all btn-hover-lift"
+                    >
+                      Manage
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          
         </div>
 
-        <div className="grid gap-4">
-            {[1, 2, 3].map(i => (
-                <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between hover:border-orange-300 transition-colors">
-                    <div>
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Lab {i}: Intro to Java</h3>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Contains 5 test cases. Last updated 2 days ago.</p>
-                    </div>
-                    <button className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-orange-100 dark:hover:bg-orange-900/20 text-slate-600 dark:text-slate-300 hover:text-orange-600 transition-colors">
-                        <Settings className="w-5 h-5" />
-                    </button>
+        {/* Right Sidebar */}
+        <aside className="w-full lg:w-80 flex-shrink-0">
+          <div className="sticky top-24 space-y-6">
+            {/* User Card */}
+            <div className="glass-card p-8 text-center animate-scale-in border-white/40">
+              <div className="w-24 h-24 bg-gradient-to-br from-orange-500 to-amber-500 rounded-3xl mx-auto mb-5 flex items-center justify-center text-5xl shadow-xl shadow-orange-500/20">
+                👨‍💻
+              </div>
+              <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-lg">Admin User</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">System Administrator</p>
+              <div className="mt-4 pt-4 border-t border-white/30 dark:border-slate-700/50">
+                <div className="flex items-center justify-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-slow"></div>
+                  <span>Online</span>
                 </div>
-            ))}
-        </div>
+              </div>
+            </div>
+
+            {/* Quote Card */}
+            <div className="rounded-2xl border border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 p-6 shadow-sm animate-fade-in">
+              <svg className="w-8 h-8 text-blue-400 dark:text-blue-500 mb-3" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
+              </svg>
+              <p className="text-sm text-blue-800 dark:text-blue-300 font-medium leading-relaxed">
+                Object-oriented programming offers a sustainable way to write spaghetti code. It lets you accrete programs as a series of patches.
+              </p>
+            </div>
+          </div>
+        </aside>
       </main>
     </div>
   )
