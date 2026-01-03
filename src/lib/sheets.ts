@@ -1,12 +1,29 @@
 import { google } from 'googleapis';
 
-const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_SPREADSHEET_ID!;
+const DEFAULT_SPREADSHEET_ID = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
 const GOOGLE_CLIENT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL!;
 const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')!;
 
+// Helper to determine spreadsheet ID based on subject
+function getSpreadsheetId(subject: string): string {
+    // Normalize subject to uppercase to match env convention (e.g. ITGE162 -> GOOGLE_SHEETS_ID_ITGE162)
+    const upperSubject = subject.toUpperCase();
+    const envVar = `GOOGLE_SHEETS_ID_${upperSubject}`;
+    const specificId = process.env[envVar];
+    
+    if (specificId) {
+        return specificId;
+    }
+    
+    if (!DEFAULT_SPREADSHEET_ID) {
+         throw new Error('Missing Google Sheets environment variables');
+    }
+    return DEFAULT_SPREADSHEET_ID;
+}
+
 async function getSheetsClient() {
-  if (!SPREADSHEET_ID || !GOOGLE_CLIENT_EMAIL || !GOOGLE_PRIVATE_KEY) {
-    throw new Error('Missing Google Sheets environment variables');
+  if (!GOOGLE_CLIENT_EMAIL || !GOOGLE_PRIVATE_KEY) {
+    throw new Error('Missing Google Sheets credential environment variables');
   }
 
   const auth = new google.auth.GoogleAuth({
@@ -22,11 +39,32 @@ async function getSheetsClient() {
 
 async function getSheetData(sheetName: string = 'Sheet1') {
   const sheets = await getSheetsClient();
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `${sheetName}!A1:Z1000`, // Adjust range as needed
-  });
-  return response.data.values || [];
+  const spreadsheetId = getSpreadsheetId(sheetName); // assume sheetName acts as subject (e.g. ITGE162)
+  
+  // If specific spreadsheet is used, the "Sheet Name" inside that file might just be "Sheet1" or something else.
+  // However, current architecture assumes `sheetName` = `subject` = Tab Name (e.g. "ITGE162").
+  // If user splits into files, they might name the internal tab "Sheet1" or "Scores".
+  // For backwards compatibility: 
+  // If individual file exists, try reading 'Sheet1' (default) OR keep using the subject name if they kept the same tab name in the new file.
+  // Best guess: Try reading the subject name tab first.
+  
+  try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `${sheetName}!A1:Z1000`, 
+      });
+      return response.data.values || [];
+  } catch (err: any) {
+      // Fallback: If tab "ITGE162" doesn't exist in the specific ITGE162 file, try "Sheet1"
+      if (err.code === 400 && spreadsheetId !== DEFAULT_SPREADSHEET_ID) {
+           const response = await sheets.spreadsheets.values.get({
+            spreadsheetId,
+            range: `Sheet1!A1:Z1000`, 
+          });
+          return response.data.values || [];
+      }
+      throw err;
+  }
 }
 
 export async function getAllScores(sheetName: string = 'Sheet1') {
@@ -81,13 +119,24 @@ export async function getStudentLabScore(username: string, labNumber: string, sh
 
 export async function updateStudentLabScore(username: string, labNumber: string, score: number, feedback?: string, sheetName: string = 'Sheet1') {
   const sheets = await getSheetsClient();
+  const spreadsheetId = getSpreadsheetId(sheetName);
+  
+  // Logic to determine internal "Tab Name"
+  // Default: Use sheetName (e.g. "ITGE162") as Tab Name
+  // Exception: If using a custom file (ID matches subject), maybe fallback to "Sheet1" if "ITGE162" tab is missing?
+  // For writing, checking existence is expensive. Let's assume standard config:
+  // If separated files -> Tab is expected to be "Sheet1" OR the Subject Name.
+  // Let's stick to using `sheetName` variable as the Tab Target for now.
+  // If user splits files, they should rename the tab to "ITGE162" to match, OR we need config for "Tab Name".
+  // Simplest fix: Just use `sheetName`.
+  
   const rows = await getSheetData(sheetName);
   
   if (rows.length === 0) {
       // Initialize sheet if empty
       const headers = ['Username', `Lab ${labNumber}`, `Lab ${labNumber} Feedback`];
       await sheets.spreadsheets.values.update({
-          spreadsheetId: SPREADSHEET_ID,
+          spreadsheetId,
           range: `${sheetName}!A1`,
           valueInputOption: 'RAW',
           requestBody: { values: [headers] }
@@ -118,24 +167,20 @@ export async function updateStudentLabScore(username: string, labNumber: string,
       headers.push(`Lab ${labNumber}`);
       // Update headers
       await sheets.spreadsheets.values.update({
-        spreadsheetId: SPREADSHEET_ID,
+        spreadsheetId,
         range: `${sheetName}!${getColumnLetter(labIndex + 1)}1`,
         valueInputOption: 'RAW',
         requestBody: { values: [[`Lab ${labNumber}`]] }
       });
   }
+  
   // Optional: Only create feedback column if specifically requested or to keep schema consistent
+  // User requested "don't add feedback", so we SKIP automatic creation.
+  /* 
   if (feedbackIndex === -1) {
-      feedbackIndex = headers.length;
-      headers.push(`Lab ${labNumber} Feedback`);
-       // Update headers
-       await sheets.spreadsheets.values.update({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `${sheetName}!${getColumnLetter(feedbackIndex + 1)}1`,
-        valueInputOption: 'RAW',
-        requestBody: { values: [[`Lab ${labNumber} Feedback`]] }
-      });
+     ...
   }
+  */
 
   let rowIndex = rows.findIndex((row) => row[0] === username);
   if (rowIndex === -1) {
@@ -143,30 +188,27 @@ export async function updateStudentLabScore(username: string, labNumber: string,
     rowIndex = rows.length;
     const newRow = [username];
     await sheets.spreadsheets.values.append({
-        spreadsheetId: SPREADSHEET_ID,
+        spreadsheetId,
         range: `${sheetName}!A:A`,
         valueInputOption: 'RAW',
         requestBody: { values: [newRow] }
     });
   } else {
-     // User exists, adjust rowIndex because rows array includes header at 0, but sheet is 1-indexed.
-     // Also rows variable is 0-indexed.
-     // If row is found at rows[1], that is Sheet Row 2.
-     // So Sheet Row = rowIndex + 1.
+     // User exists
   }
 
   // Update Score
   await sheets.spreadsheets.values.update({
-      spreadsheetId: SPREADSHEET_ID,
+      spreadsheetId,
       range: `${sheetName}!${getColumnLetter(labIndex + 1)}${rowIndex + 1}`,
       valueInputOption: 'RAW',
       requestBody: { values: [[score]] }
   });
 
-  // Update Feedback
-  if (feedback !== undefined) {
+  // Update Feedback - Only if column exists and feedback is provided
+  if (feedback !== undefined && feedbackIndex !== -1) {
     await sheets.spreadsheets.values.update({
-        spreadsheetId: SPREADSHEET_ID,
+        spreadsheetId,
         range: `${sheetName}!${getColumnLetter(feedbackIndex + 1)}${rowIndex + 1}`,
         valueInputOption: 'RAW',
         requestBody: { values: [[feedback]] }

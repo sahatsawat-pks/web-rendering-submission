@@ -369,46 +369,7 @@ export default function AdminDashboard() {
             )}
           </div>
 
-          {/* Recently Accessed Tools */}
-          <div className="space-y-4 animate-fade-in">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Quick Access</h2>
-            </div>
-
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {RECENT_TOOLS.map((tool) => (
-                <a
-                  key={tool.code}
-                  href={tool.href}
-                  className="group relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm transition-all hover:shadow-2xl hover:shadow-teal-500/10 hover:border-teal-200 dark:hover:border-teal-700 smooth-transition h-full"
-                >
-                  <div className={`h-32 w-full relative overflow-hidden bg-gradient-to-br ${tool.color}`}>
-                    <div className="absolute inset-0 bg-gradient-to-br from-transparent to-black/20"></div>
-                    <div className="absolute bottom-4 left-4 text-white">{tool.icon}</div>
-                    <div className="absolute top-3 right-3 opacity-10 group-hover:opacity-20 transition-opacity">
-                      <div className="w-20 h-20 rounded-full border-4 border-white"></div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-1 flex-col p-6">
-                    <div className="mb-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      {tool.code}
-                    </div>
-                    <h3 className="mb-3 text-lg font-bold text-slate-900 dark:text-slate-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
-                      {tool.title}
-                    </h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mb-4 flex-1">
-                      {tool.description}
-                    </p>
-                    <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between text-xs text-slate-400 dark:text-slate-500">
-                      <span>Open tool</span>
-                      <span className="group-hover:translate-x-1 transition-transform">→</span>
-                    </div>
-                  </div>
-                </a>
-              ))}
-            </div>
-          </div>
+          
         </div>
 
         {/* Right Sidebar */}

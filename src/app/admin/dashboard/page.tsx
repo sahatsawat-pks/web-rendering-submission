@@ -98,6 +98,63 @@ export default function AdminHub() {
                 </Link>
             ))}
         </div>
+
+        <div className="mt-16 mb-8 text-center animate-slide-up" style={{ animationDelay: '0.2s' }}>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+                Global Management
+            </h2>
+            <p className="text-slate-600 dark:text-slate-400">
+                System-wide settings and configurations.
+            </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto animate-scale-in" style={{ animationDelay: '0.3s' }}>
+             <Link 
+                href="/admin/users"
+                className="group relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+            >
+                <div className="h-2 animate-pulse bg-gradient-to-r from-purple-500 to-pink-500"></div>
+                <div className="p-8 flex items-start gap-6">
+                    <div className="flex-shrink-0 h-16 w-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white shadow-lg">
+                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                    </div>
+                    <div className="flex-1">
+                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Account Management</h3>
+                         <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">System Admins</h4>
+                        <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                            Manage admin users and permissions.
+                        </p>
+                    </div>
+                </div>
+                 <div className="bg-slate-50 dark:bg-slate-800/50 px-8 py-4 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
+                    <span className="text-sm font-bold text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200 transition-colors">Manage Accounts</span>
+                    <ArrowRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1 transition-transform group-hover:text-slate-900 dark:group-hover:text-slate-200" />
+                </div>
+            </Link>
+
+            <Link 
+                href="/admin/labs"
+                className="group relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+            >
+                <div className="h-2 animate-pulse bg-gradient-to-r from-blue-500 to-cyan-500"></div>
+                <div className="p-8 flex items-start gap-6">
+                    <div className="flex-shrink-0 h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white shadow-lg">
+                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                    </div>
+                    <div className="flex-1">
+                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Lab Management</h3>
+                         <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Assignments</h4>
+                        <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                            Create and configure lab assignments.
+                        </p>
+                    </div>
+                </div>
+                 <div className="bg-slate-50 dark:bg-slate-800/50 px-8 py-4 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
+                    <span className="text-sm font-bold text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200 transition-colors">Manage Labs</span>
+                    <ArrowRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1 transition-transform group-hover:text-slate-900 dark:group-hover:text-slate-200" />
+                </div>
+            </Link>
+        </div>
       </main>
     </div>
   )
