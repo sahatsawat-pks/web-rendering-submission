@@ -44,11 +44,17 @@ export default function StudentStatusPage() {
     }
   }
 
-  // Parse scores object into array for table
   // API returns object like: { username: "...", "Lab 1": "2", "Lab 2": "1", ... }
   // We need to map this to rows.
   // Assumption: Labs are "Lab 1", "Lab 2", etc.
-  const labRows = []
+  
+  interface LabRow {
+      lab: string;
+      title: string;
+      score: string;
+  }
+
+  const labRows: LabRow[] = []
   if (scores) {
       // Find all keys starting with "Lab " but NOT ending with "Feedback"
       Object.keys(scores).forEach(key => {

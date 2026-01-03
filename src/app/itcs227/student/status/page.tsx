@@ -48,7 +48,17 @@ export default function StudentStatusPage() {
   // API returns object like: { username: "...", "Lab 1": "2", "Lab 2": "1", ... }
   // We need to map this to rows.
   // Assumption: Labs are "Lab 1", "Lab 2", etc.
-  const labRows = []
+  // API returns object like: { username: "...", "Lab 1": "2", "Lab 2": "1", ... }
+  // We need to map this to rows.
+  // Assumption: Labs are "Lab 1", "Lab 2", etc.
+  
+  interface LabRow {
+      lab: string;
+      title: string;
+      score: string;
+  }
+  
+  const labRows: LabRow[] = []
   if (scores) {
       // Find all keys starting with "Lab " but NOT ending with "Feedback"
       Object.keys(scores).forEach(key => {
@@ -56,8 +66,7 @@ export default function StudentStatusPage() {
               const labNum = key.replace("Lab ", "")
               labRows.push({
                   lab: labNum.padStart(2, '0'),
-                  title: `Lab Assignment ${labNum}`, // Title is generic unless we fetch labs metadata too. 
-                  // Ideally we fetch /api/labs?subject=ITCS227 for titles, but for now generic.
+                  title: `Lab Assignment ${labNum}`, 
                   score: scores[key] || "-"
               })
           }
