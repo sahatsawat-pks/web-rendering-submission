@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { Github, Search, Loader2, ArrowLeft } from "lucide-react"
+import { Search, Loader2, ArrowLeft } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
 
@@ -50,14 +50,12 @@ export default function Home() {
             >
               <ArrowLeft className="w-5 h-5" />
             </a>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-green-500 text-white font-bold shadow-lg shadow-emerald-500/30">
-              <Github className="h-6 w-6" />
-            </div>
+            <img src="/logo.png" alt="Logo" className="h-11 w-11 rounded-xl shadow-lg shadow-emerald-500/20" />
             <div>
               <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                ITGE162 Physical Science
+                ITGE162
               </span>
-              <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Computational Science</p>
+              <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Physical Science</p>
             </div>
           </div>
           <div className="flex items-center gap-4">

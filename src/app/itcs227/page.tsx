@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Github, Search, Loader2, ArrowLeft } from "lucide-react"
+import { Search, Loader2, ArrowLeft } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
 
@@ -273,12 +273,10 @@ export default function Home() {
             >
               <ArrowLeft className="w-5 h-5" />
             </a>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white font-bold shadow-lg shadow-indigo-500/30">
-              <Github className="h-6 w-6" />
-            </div>
+            <img src="/logo.png" alt="Logo" className="h-11 w-11 rounded-xl shadow-lg shadow-indigo-500/20" />
             <div>
               <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                ITCS227 Data Science
+                ITCS227
               </span>
               <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">Data Science Labs</p>
             </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { Github, Zap, Code2, Layers, BarChart3, Terminal } from "lucide-react"
+import { Zap, Code2, Layers, BarChart3, Terminal } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import Link from "next/link"
 import { useEffect, useState } from "react"
@@ -82,9 +82,7 @@ export default function LandingPage() {
       <nav className="sticky top-0 z-50 w-full glass border-b border-white/30 dark:border-slate-700/50 shadow-lg">
         <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 text-white font-bold shadow-lg shadow-slate-500/30">
-              <Github className="h-6 w-6" />
-            </div>
+            <img src="/logo.png" alt="Logo" className="h-11 w-11 rounded-xl shadow-lg shadow-slate-500/20" />
             <div>
               <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
                 MUICT Submissions

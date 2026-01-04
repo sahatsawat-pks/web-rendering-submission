@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { Github, Zap, Eye, FileCode, Menu, CheckCircle2, XCircle, AlertCircle, Play, ArrowLeft } from "lucide-react"
+import { Zap, Eye, FileCode, Menu, CheckCircle2, XCircle, AlertCircle, Play, ArrowLeft } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 
 interface FetchResult {
@@ -238,9 +238,7 @@ export default function Home() {
             >
               <ArrowLeft className="w-5 h-5" />
             </a>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-cyan-500 text-white font-bold shadow-lg shadow-teal-500/30">
-              <Github className="h-6 w-6" />
-            </div>
+            <img src="/logo.png" alt="Logo" className="h-11 w-11 rounded-xl shadow-lg shadow-teal-500/20" />
             <div>
               <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
                 Submission Viewer
@@ -272,7 +270,7 @@ export default function Home() {
         {/* Hero Section */}
         <div className="mx-auto max-w-3xl mb-16 text-center animate-slide-up">
           <h1 className="text-6xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 sm:text-7xl mb-6">
-            ITCS213 <span className="gradient-text">Submissions</span>
+            ITCS223 <span className="gradient-text">Submissions</span>
           </h1>
         </div>
 
