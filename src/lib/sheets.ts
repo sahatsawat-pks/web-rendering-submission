@@ -90,6 +90,10 @@ export async function getAllScores(sheetName: string = 'Sheet1') {
             student[`Lab ${labNum}`] = row[index + 1];
         } else if (header.match(/Feedback/i)) {
              student[header] = row[index + 1];
+        } else if (header.match(/^(name|firstname)$/i)) {
+             student['name'] = row[index + 1];
+        } else if (header.match(/^(surname|lastname)$/i)) {
+             student['surname'] = row[index + 1];
         } else {
              // Keep original for other cols
              student[header] = row[index + 1];

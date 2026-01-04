@@ -131,8 +131,14 @@ function StatusChecker() {
                             ID
                          </div>
                          <div>
-                            <h2 className="text-lg font-bold">Student {searchedId}</h2>
-                            <p className="text-xs text-slate-400">Lab Performance Report</p>
+                            <h2 className="text-lg font-bold">
+                                {scores.name || scores.surname ? 
+                                    `${scores.name || ''} ${scores.surname || ''}` : 
+                                    `Student ${searchedId}`}
+                            </h2>
+                            <p className="text-xs text-indigo-400">
+                                {scores.name || scores.surname ? `ID: ${searchedId}` : "Lab Performance Report"}
+                            </p>
                          </div>
                     </div>
                 </div>
