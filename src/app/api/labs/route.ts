@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { labNumber, title, fileName, isActive, deadline, subject } = body;
+    const { labNumber, title, fileName, isActive, deadline, subject, testCases } = body;
 
     if (!labNumber || !title) {
       return NextResponse.json(
@@ -58,7 +58,8 @@ export async function POST(request: NextRequest) {
       fileName || "index.html",
       subject, // Defaults to ITGE162 in db.ts if undefined, or we can enforce it.
       isActive !== undefined ? isActive : true,
-      deadline
+      deadline,
+      testCases
     );
 
     return NextResponse.json({

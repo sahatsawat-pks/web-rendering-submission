@@ -176,11 +176,8 @@ export default function AdminDashboard() {
                     d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
                   />
                 </svg>
-                Quick Grade Student
+                Student Lab Grader
               </h3>
-              <span className="px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-lg text-xs font-medium border border-amber-200 dark:border-amber-800 shadow-sm">
-                Sheets Mode
-              </span>
             </div>
 
             <form onSubmit={handleGradeSubmit} className="space-y-4">

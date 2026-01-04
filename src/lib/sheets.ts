@@ -21,93 +21,212 @@ function getSpreadsheetId(subject: string): string {
     return DEFAULT_SPREADSHEET_ID;
 }
 
-async function getSheetsClient() {
+import * as XLSX from 'xlsx';
+
+async function getAuthClient() {
   if (!GOOGLE_CLIENT_EMAIL || !GOOGLE_PRIVATE_KEY) {
     throw new Error('Missing Google Sheets credential environment variables');
   }
-
-  const auth = new google.auth.GoogleAuth({
+  return new google.auth.GoogleAuth({
     credentials: {
       client_email: GOOGLE_CLIENT_EMAIL,
       private_key: GOOGLE_PRIVATE_KEY,
     },
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    scopes: [
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive.readonly' 
+    ],
   });
+}
 
+async function getSheetsClient() {
+  const auth = await getAuthClient();
   return google.sheets({ version: 'v4', auth });
 }
 
-export async function getSheetData(sheetName: string = 'Sheet1') {
+async function getDriveClient() {
+    const auth = await getAuthClient();
+    return google.drive({ version: 'v3', auth });
+}
+
+async function getXlsxData(spreadsheetId: string, tabName: string) {
+    console.log(`[getXlsxData] Fallback for XLSX: ${spreadsheetId}, Tab: ${tabName}`);
+    try {
+        const drive = await getDriveClient();
+        const res = await drive.files.get({
+            fileId: spreadsheetId,
+            alt: 'media',
+        }, { responseType: 'arraybuffer' });
+
+        const buffer = Buffer.from(res.data as ArrayBuffer);
+        const workbook = XLSX.read(buffer, { type: 'buffer' });
+
+        // Determine sheet name
+        // "Sec1" might match "Sec1" in Excel.
+        // If tabName doesn't exist, maybe use first sheet?
+        let targetSheet = tabName;
+        if (!workbook.Sheets[targetSheet]) {
+            // Check if tabName is arguably the subject code like "ITGE162" but sheet is named "Sheet1"
+            if (workbook.SheetNames.length > 0) {
+                 // But wait, ITCS123 has Sec1, Sec2. 
+                 // If we requested Sec1 and it's missing, we should fail or return empty.
+                 // However, we can try to be smart matching?
+                 // For now, assume exact match or fail unless it's the "Subject" fallback which might map to "Sheet1"
+                 
+                 if (workbook.Sheets['Sheet1']) {
+                     console.log(`[getXlsxData] Tab '${tabName}' not found, trying 'Sheet1' fallback.`);
+                     targetSheet = 'Sheet1';
+                 } else {
+                     // Last resort: First sheet
+                     console.log(`[getXlsxData] Tab '${tabName}' not found, using first sheet '${workbook.SheetNames[0]}'.`);
+                     targetSheet = workbook.SheetNames[0];
+                 }
+            }
+        }
+
+        const worksheet = workbook.Sheets[targetSheet];
+        if (!worksheet) return [];
+
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        return jsonData as any[][];
+
+    } catch (e: any) {
+        console.error(`[getXlsxData] Failed to parse XLSX: ${e.message}`);
+        return [];
+    }
+}
+
+export async function getSheetData(subject: string = 'Sheet1', tabName?: string) {
   const sheets = await getSheetsClient();
-  const spreadsheetId = getSpreadsheetId(sheetName); // assume sheetName acts as subject (e.g. ITGE162)
-  
-  // If specific spreadsheet is used, the "Sheet Name" inside that file might just be "Sheet1" or something else.
-  // However, current architecture assumes `sheetName` = `subject` = Tab Name (e.g. "ITGE162").
-  // If user splits into files, they might name the internal tab "Sheet1" or "Scores".
-  // For backwards compatibility: 
-  // If individual file exists, try reading 'Sheet1' (default) OR keep using the subject name if they kept the same tab name in the new file.
-  // Best guess: Try reading the subject name tab first.
-  
+  const spreadsheetId = getSpreadsheetId(subject);
+  const targetTab = tabName || subject;
+
   try {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `${sheetName}!A1:Z1000`, 
+        range: `${targetTab}!A1:Z1000`, 
       });
       return response.data.values || [];
   } catch (err: any) {
-      // Fallback: If tab "ITGE162" doesn't exist in the specific ITGE162 file, try "Sheet1"
-      if (err.code === 400 && spreadsheetId !== DEFAULT_SPREADSHEET_ID) {
-           const response = await sheets.spreadsheets.values.get({
-            spreadsheetId,
-            range: `Sheet1!A1:Z1000`, 
-          });
-          return response.data.values || [];
+      // Check for XLSX error (400 Bad Request usually, or specific message)
+      // Message: "This operation is not supported for this document"
+      const isXlsxError = err.code === 400 || (err.message && err.message.includes('not supported'));
+      
+      if (isXlsxError) {
+          console.log(`[getSheetData] Detected potential XLSX file (Error ${err.code}), attempting fallback.`);
+          return await getXlsxData(spreadsheetId, targetTab);
+      }
+
+      // Existing fallback for mismatched tab names on standard sheets
+      if (err.code === 400 && !tabName && targetTab !== 'Sheet1') {
+           try {
+                const response = await sheets.spreadsheets.values.get({
+                    spreadsheetId,
+                    range: `Sheet1!A1:Z1000`, 
+                });
+                return response.data.values || [];
+           } catch (e) {
+               throw err;
+           }
       }
       throw err;
   }
 }
 
-export async function getAllScores(sheetName: string = 'Sheet1') {
-  const rows = await getSheetData(sheetName);
+// Helper to map raw rows to student objects
+function mapRowsToStudents(rows: any[][], subject: string): any[] {
   if (rows.length === 0) return [];
 
   const headers = rows[0];
   const data = rows.slice(1);
+  const idIndex = subject === 'ITCS123' ? 1 : 0;
 
   return data.map((row) => {
-    const student: any = { username: row[0] };
+    const rawUsername = row[idIndex];
+    const student: any = { username: rawUsername ? String(rawUsername).trim() : "" };
     
-    // Instead of hardcoding keys, valid keys should be found via Regex or matching
-    // But since `getAllScores` usually returns the whole object, the Frontend might expect specific keys like "Lab 1".
-    // Strategy: Map actual Headers to "Standardized Keys" for the Frontend.
+    if (subject === 'ITCS123') {
+        // Specific mapping allows for Thai names
+        // Index 3: First, 4: Last, 5: Nickname
+        student['name'] = row[3];
+        student['surname'] = row[4];
+        student['nickname'] = row[5];
+    }
     
-    headers.slice(1).forEach((header, index) => {
+    headers.slice(1).forEach((header: string, index: number) => {
+        // Safe access to row data
+         const cellValue = row[index + 1];
+
         // Try to identify if this is a Lab Column
         const match = header.match(/^(?:Lab\s*|L)(\d+)(?:\s*\(.*\))?$/i);
+        const chMatch = header.match(/^(?:Ch\s*|Challenge\s*)(\d+)(?:\s*\(.*\))?$/i);
+        
         if (match) {
             // It's a lab column, e.g. "L01 (2)" -> "1"
             const labNum = parseInt(match[1]).toString(); 
-            student[`Lab ${labNum}`] = row[index + 1];
+            student[`Lab ${labNum}`] = cellValue;
+        } else if (chMatch) {
+            // It's a challenge column, e.g. "Ch01 (2)" -> "1"
+            const chNum = parseInt(chMatch[1]).toString();
+            student[`Challenge ${chNum}`] = cellValue;
         } else if (header.match(/Feedback/i)) {
-             student[header] = row[index + 1];
+             student[header] = cellValue;
         } else if (header.match(/^\s*(name|firstname)\s*$/i)) {
-             student['name'] = row[index + 1];
+             if (subject !== 'ITCS123') student['name'] = cellValue;
         } else if (header.match(/^\s*(surname|lastname)\s*$/i)) {
-             student['surname'] = row[index + 1];
+             if (subject !== 'ITCS123') student['surname'] = cellValue;
         } else if (header.match(/^\s*(Sum|Total)(?:\s*\((\d+)\))?\s*$/i)) {
-             // e.g. "Sum (26)" -> total: value, max_score: 26
-             student['total'] = row[index + 1];
+             student['total'] = cellValue;
              const match = header.match(/\((\d+)\)/);
              if (match) {
                  student['max_score'] = match[1];
              }
         } else {
              // Keep original for other cols
-             student[header] = row[index + 1];
+             student[header] = cellValue;
         }
     });
     return student;
   });
+}
+
+export async function getAllScores(subject: string = 'Sheet1') {
+  if (subject === 'ITCS123') {
+      try {
+        // Fetch from Sec1, Sec2, Sec3
+        const [sec1, sec2, sec3] = await Promise.all([
+            getSheetData(subject, 'Sec1').catch(() => []),
+            getSheetData(subject, 'Sec2').catch(() => []), 
+            getSheetData(subject, 'Sec3').catch(() => [])
+        ]);
+
+        let allStudents: any[] = [];
+        const sections = [
+            { data: sec1, id: '1' },
+            { data: sec2, id: '2' },
+            { data: sec3, id: '3' }
+        ];
+
+        for (const sec of sections) {
+            if (sec.data && sec.data.length > 0) {
+                 const studs = mapRowsToStudents(sec.data, subject);
+                 // Inject Section ID
+                 studs.forEach(s => s.Section = sec.id);
+                 allStudents = [...allStudents, ...studs];
+            }
+        }
+        
+        return allStudents;
+
+      } catch (e) {
+          console.error("Error fetching ITCS123 sections:", e);
+          return [];
+      }
+  }
+
+  // Standard Logic
+  const rows = await getSheetData(subject);
+  return mapRowsToStudents(rows, subject);
 }
 
 export async function getStudentAllScores(username: string, sheetName: string = 'Sheet1') {
@@ -193,7 +312,15 @@ export async function updateStudentLabScore(username: string, labNumber: string,
   }
   */
 
-  let rowIndex = rows.findIndex((row) => row[0] === username);
+  // Determine ID column index
+  const idIndex = sheetName === 'ITCS123' ? 1 : 0;
+  console.log(`[updateStudentLabScore] Sheet: ${sheetName}, idIndex: ${idIndex}, SearchUser: ${username}`);
+  
+  let rowIndex = rows.findIndex((row) => {
+      const val = row[idIndex];
+      // console.log(`Checking row: ${val} vs ${username}`);
+      return String(val).trim() === String(username).trim();
+  });
   if (rowIndex === -1) {
     // specific to new row
     rowIndex = rows.length;

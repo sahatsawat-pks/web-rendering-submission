@@ -17,6 +17,7 @@ export interface Lab {
   subject: string;
   isActive: boolean;
   deadline?: string;
+  testCases?: string; // JSON string
   createdAt: string;
 }
 
@@ -87,6 +88,16 @@ async function ensureTables() {
                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
         `);
+        // Add test_cases column if not exists (Migration-like)
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'labs' AND column_name = 'test_cases') THEN 
+                    ALTER TABLE labs ADD COLUMN test_cases TEXT; 
+                END IF; 
+            END $$;
+        `);
+
         
         // Seed initial admin if needed
         const targetUsername = "kanzaki_aito";
@@ -229,6 +240,7 @@ export async function getAllLabs(activeOnly: boolean = false, subject?: string):
             subject: r.subject,
             isActive: r.is_active,
             deadline: r.deadline,
+            testCases: r.test_cases,
             createdAt: r.created_at.toString()
         }));
     } finally {
@@ -275,6 +287,7 @@ export async function getLabByNumber(labNumber: string): Promise<Lab | undefined
               subject: r.subject,
               isActive: r.is_active,
               deadline: r.deadline,
+              testCases: r.test_cases,
               createdAt: r.created_at.toString()
         };
     } finally {
@@ -288,16 +301,17 @@ export async function createLab(
   fileName: string = "index.html",
   subject: string = "ITGE162",
   isActive: boolean = true,
-  deadline?: string
+  deadline?: string,
+  testCases?: string
 ): Promise<Lab> {
     await init();
     const client = await getPool().connect();
     try {
         const res = await client.query(`
-            INSERT INTO labs (lab_number, title, file_name, subject, is_active, deadline)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO labs (lab_number, title, file_name, subject, is_active, deadline, test_cases)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING *
-        `, [labNumber, title, fileName, subject, isActive, deadline || null]);
+        `, [labNumber, title, fileName, subject, isActive, deadline || null, testCases || null]);
         
         const r = res.rows[0];
         return {
@@ -308,6 +322,7 @@ export async function createLab(
             subject: r.subject,
             isActive: r.is_active,
             deadline: r.deadline,
+            testCases: r.test_cases,
             createdAt: r.created_at.toString()
         };
     } finally {
@@ -333,6 +348,7 @@ export async function updateLab(
         if (updates.subject !== undefined) { fields.push(`subject = $${idx++}`); values.push(updates.subject); }
         if (updates.isActive !== undefined) { fields.push(`is_active = $${idx++}`); values.push(updates.isActive); }
         if (updates.deadline !== undefined) { fields.push(`deadline = $${idx++}`); values.push(updates.deadline); }
+        if (updates.testCases !== undefined) { fields.push(`test_cases = $${idx++}`); values.push(updates.testCases); }
 
         if (fields.length === 0) return getLabById(id).then(l => l || null); // No updates
 
@@ -353,6 +369,7 @@ export async function updateLab(
             subject: r.subject,
             isActive: r.is_active,
             deadline: r.deadline,
+            testCases: r.test_cases,
             createdAt: r.created_at.toString()
         };
     } finally {
