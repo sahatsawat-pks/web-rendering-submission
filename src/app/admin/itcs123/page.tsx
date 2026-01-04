@@ -296,6 +296,9 @@ export default function AdminDashboard() {
                 <span className="px-3 py-1.5 bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 rounded-lg text-xs font-medium border border-orange-200 dark:border-orange-700 shadow-sm">
                   {labs.length} Active
                 </span>
+                <a href="/admin/itcs123/tests" className="px-3 py-1.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-lg text-xs font-medium border border-orange-200 dark:border-orange-800 shadow-sm hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors">
+                Manage Test Cases
+              </a>
                 <a href="/admin/labs" className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1">
                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                    New Lab
@@ -368,35 +371,7 @@ export default function AdminDashboard() {
           
         </div>
 
-        {/* Right Sidebar */}
-        <aside className="w-full lg:w-80 flex-shrink-0">
-          <div className="sticky top-24 space-y-6">
-            {/* User Card */}
-            <div className="glass-card p-8 text-center animate-scale-in border-white/40">
-              <div className="w-24 h-24 bg-gradient-to-br from-orange-500 to-amber-500 rounded-3xl mx-auto mb-5 flex items-center justify-center text-5xl shadow-xl shadow-orange-500/20">
-                👨‍💻
-              </div>
-              <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-lg">Admin User</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">System Administrator</p>
-              <div className="mt-4 pt-4 border-t border-white/30 dark:border-slate-700/50">
-                <div className="flex items-center justify-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-slow"></div>
-                  <span>Online</span>
-                </div>
-              </div>
-            </div>
 
-            {/* Quote Card */}
-            <div className="rounded-2xl border border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 p-6 shadow-sm animate-fade-in">
-              <svg className="w-8 h-8 text-blue-400 dark:text-blue-500 mb-3" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
-              </svg>
-              <p className="text-sm text-blue-800 dark:text-blue-300 font-medium leading-relaxed">
-                Object-oriented programming offers a sustainable way to write spaghetti code. It lets you accrete programs as a series of patches.
-              </p>
-            </div>
-          </div>
-        </aside>
       </main>
     </div>
   )

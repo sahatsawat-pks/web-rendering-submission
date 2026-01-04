@@ -27,7 +27,7 @@ export default function AdminHub() {
     {
       code: "ITGE162",
       title: "Physical Science and Computation",
-      desc: "CG lab score submissions and weekly tracking.",
+      desc: "Gradebook management and score tracking.",
       icon: <Layers className="w-8 h-8" />,
       color: "from-emerald-500 to-green-500",
       href: "/admin/itge162"
@@ -111,7 +111,7 @@ export default function AdminHub() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950 relative overflow-hidden animate-fade-in">
       {/* Navbar */}
       <nav className="sticky top-0 z-50 w-full glass border-b border-white/20 dark:border-slate-800 shadow-sm bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
         <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-6">

@@ -45,7 +45,7 @@ export default function LandingPage() {
       id: "itge162",
       code: "ITGE162",
       title: "Physical Science and Computation",
-      description: "Computer graphics weekly score submissions.",
+      description: "Lab score tracking and grading system.",
       icon: <Layers className="w-6 h-6" />,
       color: "from-emerald-500 to-green-500",
       shadow: "shadow-emerald-500/30",
@@ -64,7 +64,7 @@ export default function LandingPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950 relative overflow-hidden flex flex-col font-sans">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950 relative overflow-hidden animate-fade-in flex flex-col font-sans">
       {/* Animated Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 -left-4 w-96 h-96 bg-teal-300 dark:bg-teal-900 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-20 dark:opacity-10 animate-float"></div>

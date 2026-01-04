@@ -11,6 +11,7 @@ interface Lab {
   title: string;
   subject: string;
   isActive: boolean;
+  fileName?: string;
   testCases?: string; // JSON string
 }
 
@@ -19,6 +20,7 @@ interface TestCase {
   name: string;
   input: string;
   expectedOutput: string;
+  matchMode?: 'trim' | 'exact';
 }
 
 export default function ManageTestCasesPage() {
@@ -37,6 +39,7 @@ export default function ManageTestCasesPage() {
   const [testName, setTestName] = useState("");
   const [testInput, setTestInput] = useState("");
   const [testOutput, setTestOutput] = useState("");
+  const [testMatchMode, setTestMatchMode] = useState<'trim' | 'exact'>('trim');
 
   useEffect(() => {
     fetchLabs();
@@ -79,11 +82,13 @@ export default function ManageTestCasesPage() {
       setTestName(test.name);
       setTestInput(test.input);
       setTestOutput(test.expectedOutput);
+      setTestMatchMode(test.matchMode || 'trim');
     } else {
       setCurrentTest(null);
       setTestName("");
       setTestInput("");
       setTestOutput("");
+      setTestMatchMode('trim');
     }
     setIsModalOpen(true);
   };
@@ -95,7 +100,7 @@ export default function ManageTestCasesPage() {
       // Edit
       setTestCases(prev => prev.map(t => 
         t.id === currentTest.id 
-          ? { ...t, name: testName, input: testInput, expectedOutput: testOutput }
+          ? { ...t, name: testName, input: testInput, expectedOutput: testOutput, matchMode: testMatchMode }
           : t
       ));
     } else {
@@ -104,7 +109,8 @@ export default function ManageTestCasesPage() {
         id: crypto.randomUUID(),
         name: testName,
         input: testInput,
-        expectedOutput: testOutput
+        expectedOutput: testOutput,
+        matchMode: testMatchMode
       };
       setTestCases(prev => [...prev, newTest]);
     }
@@ -149,7 +155,7 @@ export default function ManageTestCasesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f1115] text-slate-200 p-8 font-['Inter']">
+    <div className="min-h-screen bg-[#0f1115] text-slate-200 p-8 font-['Inter'] animate-fade-in">
       <div className="max-w-6xl mx-auto space-y-8">
         
         {/* Header */}
@@ -188,7 +194,7 @@ export default function ManageTestCasesPage() {
                                 }`}
                             >
                                 <div className="font-medium">{lab.title}</div>
-                                <div className="text-xs opacity-70 mt-1">File: {lab.fileName}</div>
+                                <div className="text-xs opacity-70 mt-1">Lab {lab.labNumber}</div>
                             </button>
                         ))
                     )}
@@ -253,6 +259,9 @@ export default function ManageTestCasesPage() {
                                                 {index + 1}
                                             </div>
                                             <h3 className="font-semibold text-white text-lg">{test.name}</h3>
+                                            {test.matchMode === 'exact' && (
+                                                <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] font-bold border border-purple-500/30">EXACT</span>
+                                            )}
                                         </div>
                                         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button 
@@ -343,23 +352,34 @@ export default function ManageTestCasesPage() {
                         </div>
                         
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-300">Input Arguments</label>
+                            <label className="text-sm font-medium text-slate-300">Input (standard in)</label>
                             <textarea 
                                 value={testInput}
                                 onChange={(e) => setTestInput(e.target.value)}
-                                placeholder="Arguments separated by spaces"
-                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors font-mono min-h-[80px]"
+                                placeholder="The input for the test"
+                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors font-mono min-h-[120px]"
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-300">Expected Output</label>
+                            <label className="text-sm font-medium text-slate-300">Expected output</label>
                             <textarea 
                                 value={testOutput}
                                 onChange={(e) => setTestOutput(e.target.value)}
-                                placeholder="Exact expected output string"
-                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors font-mono min-h-[80px]"
+                                placeholder="The expected output for the test"
+                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors font-mono min-h-[120px]"
                             />
+                        </div>
+
+                        <div className="space-y-2">
+                             <select
+                                value={testMatchMode}
+                                onChange={(e) => setTestMatchMode(e.target.value as 'trim' | 'exact')}
+                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-slate-300 focus:outline-none focus:border-blue-500 transition-colors"
+                             >
+                                <option value="trim">Match (Trim Whitespace)</option>
+                                <option value="exact">Match (Exact)</option>
+                             </select>
                         </div>
                     </div>
                     <div className="p-6 border-t border-white/5 flex justify-end gap-3 bg-[#0d1117]/50">

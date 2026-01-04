@@ -12,12 +12,23 @@ interface TestCase {
   actualOutput?: string
   status: 'pending' | 'running' | 'pass' | 'fail'
   errorMessage?: string
+  matchMode?: 'trim' | 'exact'
 }
 
 export default function JavaTestRunner() {
-  const [code, setCode] = useState(`public class Solution {
-    public int add(int a, int b) {
-        return a + b;
+  const [code, setCode] = useState(`import java.util.Scanner;
+
+public class Solution {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        // Write your code here
+        // Example: Read two integers and print their sum
+        if (scanner.hasNextInt()) {
+            int a = scanner.nextInt();
+            int b = scanner.nextInt();
+            System.out.println(a + b);
+        }
+        scanner.close();
     }
 }`)
   const [labNumber, setLabNumber] = useState("")
@@ -27,6 +38,32 @@ export default function JavaTestRunner() {
 
   // Expanded results state
   const [expandedTestId, setExpandedTestId] = useState<string | null>(null)
+  
+  // Custom Run State
+  const [customInput, setCustomInput] = useState("");
+  const [customOutput, setCustomOutput] = useState<string | null>(null);
+
+  const runCustomTest = async () => {
+      setIsRunning(true);
+      setCustomOutput(null);
+      
+      try {
+        const response = await fetch('/api/run-java', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                code,
+                input: customInput
+            })
+        });
+        const result = await response.json();
+        setCustomOutput((result.output || "") + (result.error ? `\nError:\n${result.error}` : ""));
+      } catch (e) {
+          setCustomOutput("Execution failed: Server Error");
+      } finally {
+          setIsRunning(false);
+      }
+  };
 
   // Load labs on mount
   useEffect(() => {
@@ -77,36 +114,82 @@ export default function JavaTestRunner() {
     setIsRunning(true)
     
     // Reset statuses
-    setTestCases(prev => prev.map(t => ({ ...t, status: 'running', actualOutput: undefined })))
+    setTestCases(prev => prev.map(t => ({ ...t, status: 'running', actualOutput: undefined, errorMessage: undefined })))
 
-    // Processing Loop
-    for (let i = 0; i < testCases.length; i++) {
-        await new Promise(resolve => setTimeout(resolve, 800)) // Simulate per-test delay
+    // Processing Loop - Sequential to avoid server overload and mixed output
+    const newCases = [...testCases];
+    
+    for (let i = 0; i < newCases.length; i++) {
+        const test = newCases[i];
         
-        setTestCases(prev => {
-            const newCases = [...prev]
-            const test = newCases[i]
+        try {
+            const response = await fetch('/api/run-java', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    code,
+                    input: test.input
+                })
+            });
             
-            // Mock Logic: 
-            // If expected output is a number, try to match it.
-            // If Input is "error", fail it.
-            // Otherwise randomly pass/fail if logic is complex, OR just fail for demo if needed.
-            // For now, let's PASS everything unless input contains "fail"
+            const result = await response.json();
             
-            const shouldPass = !test.input.toLowerCase().includes('fail')
-            
-            test.status = shouldPass ? 'pass' : 'fail'
-            test.actualOutput = shouldPass ? test.expectedOutput : 'Error: Unexpected output'
-            
-            return newCases
-        })
+            // Update the specific test in the list
+            setTestCases(prev => {
+                const current = [...prev];
+                const activeTest = current[i];
+                
+                if (result.error && !result.output) {
+                     // Compilation error or crash without output
+                     activeTest.status = 'fail';
+                     activeTest.actualOutput = result.output || ''; // Output usually contains compiler error in this API design
+                     activeTest.errorMessage = result.error;
+                } else {
+                    // We have output, check correctness
+                    const rawActual = result.output || '';
+                    const rawExpected = activeTest.expectedOutput;
+                    
+                    // Normalize CRLF to LF for consistency across OS
+                    const actualNorm = rawActual.replace(/\r\n/g, '\n');
+                    const expectedNorm = rawExpected.replace(/\r\n/g, '\n');
+                    
+                    const mode = activeTest.matchMode || 'trim';
+                    let passed = false;
+                    
+                    if (mode === 'trim') {
+                        passed = actualNorm.trim() === expectedNorm.trim();
+                    } else {
+                        // Exact match
+                        passed = actualNorm === expectedNorm;
+                    }
+                    
+                    if (passed) {
+                        activeTest.status = 'pass';
+                    } else {
+                        activeTest.status = 'fail';
+                    }
+                    activeTest.actualOutput = (result.output || '') + (result.error ? `\n\nError Stream:\n${result.error}` : '');
+                }
+                
+                return current;
+            });
+
+        } catch (e: any) {
+            console.error("Test execution failed", e);
+             setTestCases(prev => {
+                const current = [...prev];
+                current[i].status = 'fail';
+                current[i].errorMessage = "Network or Server Error";
+                return current;
+            });
+        }
     }
     
     setIsRunning(false)
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-mono">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-mono animate-fade-in">
        {/* Navigation */}
        <nav className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md">
         <div className="container mx-auto max-w-7xl flex h-14 items-center justify-between px-4">
@@ -155,7 +238,10 @@ export default function JavaTestRunner() {
             <div className="bg-slate-900 px-4 py-2 border-b border-slate-800 flex justify-between items-center">
                 <span className="text-xs text-slate-400 flex items-center gap-2">
                     <Code2 className="w-4 h-4" />
-                    Solution.java
+                    {(() => {
+                        const match = code.match(/public\s+class\s+(\w+)/);
+                        return match ? `${match[1]}.java` : 'Solution.java';
+                    })()}
                 </span>
             </div>
             
@@ -177,16 +263,43 @@ export default function JavaTestRunner() {
                 </div>
             </div>
 
-            <div className="p-4 flex gap-2 border-b border-slate-800 bg-slate-900/30">
-
-                <button 
-                    onClick={runTests}
-                    disabled={isRunning || !labNumber}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-900/20 transition-all text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    {isRunning ? <div className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full"></div> : <Play className="w-4 h-4 fill-current" />}
-                    Run tests
-                </button>
+            {/* Custom Test runner */}
+            <div className="p-4 border-b border-slate-800 bg-slate-900/30 space-y-3">
+                 <div className="flex gap-2">
+                    <button 
+                        onClick={runTests}
+                        disabled={isRunning || !labNumber || testCases.length === 0}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-900/20 transition-all text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-700"
+                    >
+                        {isRunning ? <div className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full"></div> : <Play className="w-4 h-4 fill-current" />}
+                        {testCases.length === 0 ? "No Tests Configured" : "Run All Tests"}
+                    </button>
+                </div>
+                
+                <div className="pt-2 border-t border-white/5">
+                    <label className="text-[10px] uppercase font-bold text-slate-500 mb-1.5 block">Custom Input Test</label>
+                    <div className="flex gap-2">
+                         <input 
+                            value={customInput} 
+                            onChange={(e) => setCustomInput(e.target.value)}
+                            className="flex-1 bg-slate-950 border border-slate-800 rounded px-2 py-1.5 text-xs font-mono text-slate-300 focus:outline-none focus:border-blue-500" 
+                            placeholder="Enter input here..."
+                         />
+                         <button
+                            onClick={runCustomTest}
+                            disabled={isRunning}
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-bold transition-colors disabled:opacity-50"
+                         >
+                            Run
+                         </button>
+                    </div>
+                    {customOutput && (
+                        <div className="mt-2 bg-slate-950 p-2 rounded border border-slate-800 animate-fade-in">
+                            <span className="text-[10px] text-slate-500 block mb-1">Output:</span>
+                            <div className="font-mono text-xs text-slate-300 whitespace-pre-wrap">{customOutput}</div>
+                        </div>
+                    )}
+                </div>
             </div>
             
             <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-950/50">

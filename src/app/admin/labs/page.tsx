@@ -33,7 +33,7 @@ export default function LabManagement() {
     deadline: "",
     subject: "ITGE162" // Default
   })
-  const [testFile, setTestFile] = useState<File | null>(null)
+
 
   useEffect(() => {
     fetchLabs()
@@ -80,29 +80,11 @@ export default function LabManagement() {
         throw new Error(data.error || "Operation failed")
       }
 
-      // Handle File Upload for ITCS123
-      if (formData.subject === 'ITCS123' && testFile) {
-          const uploadData = new FormData();
-          uploadData.append('file', testFile);
-          uploadData.append('labNumber', formData.labNumber);
-          uploadData.append('subject', 'ITCS123');
 
-          const uploadRes = await fetch('/api/labs/test-upload', {
-              method: 'POST',
-              body: uploadData
-          });
-
-          if (!uploadRes.ok) {
-              const errData = await uploadRes.json();
-              console.warn("Test file upload failed:", errData.error);
-              alert(`Lab created, but test file upload failed: ${errData.error}`);
-              // Don't throw, let the lab creation stand
-          }
-      }
 
       // Reset form and refresh
       setFormData({ labNumber: "", title: "", fileName: "index.html", isActive: true, deadline: "", subject: "ITGE162" })
-      setTestFile(null)
+
       setEditingLab(null)
       fetchLabs()
     } catch (err: any) {
@@ -326,20 +308,7 @@ export default function LabManagement() {
                   />
                 </div>
 
-                {formData.subject === 'ITCS123' && (
-                    <div>
-                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                            JUnit Test File (.java)
-                        </label>
-                        <input
-                            type="file"
-                            accept=".java"
-                            onChange={(e) => setTestFile(e.target.files?.[0] || null)}
-                            className="w-full text-sm text-slate-500 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/40 dark:file:text-blue-300 transition-all"
-                        />
-                        <p className="text-xs text-slate-400 mt-1">Upload the JUnit test file associated with this lab.</p>
-                    </div>
-                )}
+
 
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-50/50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
                   <input
