@@ -299,7 +299,7 @@ export default function Home() {
         {/* Hero Section */}
         <div className="mx-auto max-w-3xl mb-16 text-center animate-slide-up">
           <h1 className="text-6xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 sm:text-7xl mb-6">
-            ITCS227 <span className="gradient-text">Submissions</span>
+            ITCS227 <span className="gradient-text">Data Science</span>
           </h1>
         </div>
 
