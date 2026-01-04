@@ -14,6 +14,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "MUICT Submission Viewer - GitHub Web Rendering",
   description: "Modern platform for viewing and managing student web development submissions with real-time rendering",
+  icons: {
+    icon: '/logo.png',
+  },
 }
 
 export default function RootLayout({
