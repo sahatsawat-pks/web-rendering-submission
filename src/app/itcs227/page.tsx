@@ -201,6 +201,22 @@ function StatusChecker() {
                         </tbody>
                     </table>
                 </div>
+                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 flex flex-col sm:flex-row gap-4 justify-between items-center bg-opacity-50">
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1.5">
+                           <span className="w-2.5 h-2.5 rounded-full bg-red-100 border border-red-200 block"></span>
+                           <span>0 = Incorrect / No Submission</span>
+                        </div>
+                         <div className="flex items-center gap-1.5">
+                           <span className="w-2.5 h-2.5 rounded-full bg-yellow-100 border border-yellow-200 block"></span>
+                           <span>1 = Incomplete / Minor Issues</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                           <span className="w-2.5 h-2.5 rounded-full bg-green-100 border border-green-200 block"></span>
+                           <span>2 = Complete / Verified</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         )}
     </div>
