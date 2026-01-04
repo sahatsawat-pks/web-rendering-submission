@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { Github, Zap, Eye, FileCode, Menu, CheckCircle2, XCircle, AlertCircle, Play } from "lucide-react"
+import { Github, Zap, Eye, FileCode, Menu, CheckCircle2, XCircle, AlertCircle, Play, ArrowLeft } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 
 interface FetchResult {
@@ -231,6 +231,13 @@ export default function Home() {
       <nav className="sticky top-0 z-50 w-full glass border-b border-white/30 dark:border-slate-700/50 shadow-lg">
         <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-3">
+            <a
+              href="/"
+              className="flex items-center justify-center w-10 h-10 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+              title="Back to Main Page"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </a>
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-cyan-500 text-white font-bold shadow-lg shadow-teal-500/30">
               <Github className="h-6 w-6" />
             </div>

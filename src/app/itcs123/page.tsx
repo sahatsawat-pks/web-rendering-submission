@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Github, Play, Code2, AlertCircle, CheckCircle2, XCircle } from "lucide-react"
+import { Github, Play, Code2, AlertCircle, CheckCircle2, XCircle, ArrowLeft } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 
 export default function JavaTestRunner() {
@@ -81,6 +81,13 @@ export default function JavaTestRunner() {
        <nav className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md">
         <div className="container mx-auto max-w-7xl flex h-14 items-center justify-between px-4">
           <div className="flex items-center gap-3">
+             <a
+              href="/"
+              className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-800 transition-colors text-slate-400 hover:text-slate-100"
+              title="Back to Main Page"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </a>
              <div className="flex h-8 w-8 items-center justify-center rounded bg-orange-600 text-white font-bold">
               <span className="text-xs">JS</span>
             </div>
@@ -89,7 +96,6 @@ export default function JavaTestRunner() {
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <a href="/" className="text-xs font-medium text-slate-400 hover:text-orange-400">Home</a>
             <ModeToggle />
           </div>
         </div>
