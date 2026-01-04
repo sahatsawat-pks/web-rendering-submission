@@ -154,7 +154,8 @@ function StatusChecker() {
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {labRows.length > 0 ? (
-                                labRows.map((row) => (
+                                <>
+                                {labRows.map((row) => (
                                     <tr key={row.lab} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                         <td className="px-6 py-4 text-slate-900 dark:text-slate-200 font-mono">
                                             <span className="inline-block bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-xs font-bold text-slate-600 dark:text-slate-400">
@@ -174,7 +175,22 @@ function StatusChecker() {
                                             </span>
                                         </td>
                                     </tr>
-                                ))
+                                ))}
+                                {/* Summary Row */}
+                                <tr className="bg-slate-50 dark:bg-slate-900/50 font-bold border-t border-slate-200 dark:border-slate-700">
+                                    <td colSpan={2} className="px-6 py-4 text-right text-slate-700 dark:text-slate-300">
+                                        Total Score (Max {scores.max_score || 26})
+                                    </td>
+                                    <td className="px-6 py-4 text-right text-indigo-600 dark:text-indigo-400">
+                                        {scores.total || 0} 
+                                        {scores.total ? (
+                                            <span className="text-xs text-slate-500 ml-2">
+                                                ({((parseFloat(scores.total) / (parseFloat(scores.max_score) || 26)) * 100).toFixed(1)}%)
+                                            </span>
+                                        ): ''}
+                                    </td>
+                                </tr>
+                                </>
                             ) : (
                                 <tr>
                                     <td colSpan={3} className="px-6 py-12 text-center text-slate-400">

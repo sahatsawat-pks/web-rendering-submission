@@ -257,7 +257,8 @@ function StatusChecker() {
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {labRows.length > 0 ? (
-                                labRows.map((row) => (
+                                <>
+                                {labRows.map((row) => (
                                     <tr key={row.lab} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                         <td className="px-6 py-4 text-slate-900 dark:text-slate-200 font-mono">
                                             <span className="inline-block bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-xs font-bold text-slate-600 dark:text-slate-400">
@@ -280,7 +281,33 @@ function StatusChecker() {
                                             {row.feedback}
                                         </td>
                                     </tr>
-                                ))
+                                ))}
+                                {/* ITGE162 Summary: Full Score = 30 */}
+                                {(() => {
+                                    // Calculate total obtained score
+                                    const totalScore = labRows.reduce((acc, row) => {
+                                        const val = parseFloat(row.score);
+                                        return acc + (isNaN(val) ? 0 : val);
+                                    }, 0);
+                                    const maxScore = 30;
+                                    const percentage = (totalScore / maxScore) * 100;
+                                    
+                                    return (
+                                        <tr className="bg-slate-50 dark:bg-slate-900/50 font-bold border-t border-slate-200 dark:border-slate-700">
+                                            <td colSpan={2} className="px-6 py-4 text-right text-slate-700 dark:text-slate-300">
+                                                Total Score (Max {maxScore})
+                                            </td>
+                                            <td className="px-6 py-4 text-right text-teal-600 dark:text-teal-400">
+                                                {totalScore}
+                                                <span className="text-xs text-slate-500 ml-2">
+                                                    ({percentage.toFixed(1)}%)
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4"></td>
+                                        </tr>
+                                    );
+                                })()}
+                                </>
                             ) : (
                                 <tr>
                                     <td colSpan={4} className="px-6 py-12 text-center text-slate-400">
