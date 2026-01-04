@@ -90,13 +90,12 @@ export async function getAllScores(sheetName: string = 'Sheet1') {
             student[`Lab ${labNum}`] = row[index + 1];
         } else if (header.match(/Feedback/i)) {
              student[header] = row[index + 1];
-        } else if (header.match(/^(name|firstname)$/i)) {
+        } else if (header.match(/^\s*(name|firstname)\s*$/i)) {
              student['name'] = row[index + 1];
-        } else if (header.match(/^(surname|lastname)$/i)) {
+        } else if (header.match(/^\s*(surname|lastname)\s*$/i)) {
              student['surname'] = row[index + 1];
-        } else if (header.match(/^(Sum|Total)(?:\s*\((\d+)\))?$/i)) {
+        } else if (header.match(/^\s*(Sum|Total)(?:\s*\((\d+)\))?\s*$/i)) {
              // e.g. "Sum (26)" -> total: value, max_score: 26
-             // or "Total" -> total: value
              student['total'] = row[index + 1];
              const match = header.match(/\((\d+)\)/);
              if (match) {
