@@ -127,8 +127,10 @@ function StatusChecker() {
             <div className="glass-card rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-black/50 animate-scale-in">
                 <div className="bg-slate-900 text-white p-6 border-b border-slate-800 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                         <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold">
-                            ID
+                         <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold text-sm">
+                            {scores.name && scores.surname ? 
+                                `${scores.name.charAt(0)}${scores.surname.charAt(0)}`.toUpperCase() : 
+                                'ID'}
                          </div>
                          <div>
                             <h2 className="text-lg font-bold">
@@ -176,20 +178,30 @@ function StatusChecker() {
                                         </td>
                                     </tr>
                                 ))}
-                                {/* Summary Row */}
-                                <tr className="bg-slate-50 dark:bg-slate-900/50 font-bold border-t border-slate-200 dark:border-slate-700">
-                                    <td colSpan={2} className="px-6 py-4 text-right text-slate-700 dark:text-slate-300">
-                                        Total Score (Max {scores.max_score || 26})
-                                    </td>
-                                    <td className="px-6 py-4 text-right text-indigo-600 dark:text-indigo-400">
-                                        {scores.total || 0} 
-                                        {scores.total ? (
-                                            <span className="text-xs text-slate-500 ml-2">
-                                                ({((parseFloat(scores.total) / (parseFloat(scores.max_score) || 26)) * 100).toFixed(1)}%)
-                                            </span>
-                                        ): ''}
-                                    </td>
-                                </tr>
+                                {/* ITCS227 Summary: Calculate from lab scores */}
+                                {(() => {
+                                    // Calculate total obtained score
+                                    const totalScore = labRows.reduce((acc, row) => {
+                                        const val = parseFloat(row.score);
+                                        return acc + (isNaN(val) ? 0 : val);
+                                    }, 0);
+                                    const maxScore = 26; // Fixed maximum score for ITCS227
+                                    const percentage = (totalScore / maxScore) * 20;
+                                    
+                                    return (
+                                        <tr className="bg-slate-50 dark:bg-slate-900/50 font-bold border-t border-slate-200 dark:border-slate-700">
+                                            <td colSpan={2} className="px-6 py-4 text-right text-slate-700 dark:text-slate-300">
+                                                Total Score (Max {maxScore})
+                                            </td>
+                                            <td className="px-6 py-4 text-right text-indigo-600 dark:text-indigo-400">
+                                                {totalScore}
+                                                <span className="text-xs text-slate-500 ml-2">
+                                                    ({percentage.toFixed(2)}% / 20%)
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })()}
                                 </>
                             ) : (
                                 <tr>
@@ -205,15 +217,15 @@ function StatusChecker() {
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-1.5">
                            <span className="w-2.5 h-2.5 rounded-full bg-red-100 border border-red-200 block"></span>
-                           <span>0 = Incorrect / No Submission</span>
+                           <span>0 = No Submission</span>
                         </div>
                          <div className="flex items-center gap-1.5">
                            <span className="w-2.5 h-2.5 rounded-full bg-yellow-100 border border-yellow-200 block"></span>
-                           <span>1 = Incomplete / Minor Issues</span>
+                           <span>1 = Incomplete</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                            <span className="w-2.5 h-2.5 rounded-full bg-green-100 border border-green-200 block"></span>
-                           <span>2 = Complete / Verified</span>
+                           <span>2 = Complete</span>
                         </div>
                     </div>
                 </div>

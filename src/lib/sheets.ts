@@ -37,7 +37,7 @@ async function getSheetsClient() {
   return google.sheets({ version: 'v4', auth });
 }
 
-async function getSheetData(sheetName: string = 'Sheet1') {
+export async function getSheetData(sheetName: string = 'Sheet1') {
   const sheets = await getSheetsClient();
   const spreadsheetId = getSpreadsheetId(sheetName); // assume sheetName acts as subject (e.g. ITGE162)
   
