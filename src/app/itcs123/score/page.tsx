@@ -208,10 +208,14 @@ function StatusChecker() {
                                         return acc + (isNaN(val) ? 0 : val);
                                     }, 0);
                                     
+                                    const maxLabScore = 26; // Maximum possible lab score (13 labs × 2 points)
+                                    const percentage = (totalScore / maxLabScore) * 10; // Lab scores count for 10% only
+                                    
                                     return (
-                                        <tr className="bg-slate-50 dark:bg-slate-900/50 font-bold border-t border-slate-200 dark:border-slate-700">
+                                        <>
+                                        <tr className="bg-slate-50 dark:bg-slate-800/50 font-semibold border-t border-slate-200 dark:border-slate-700">
                                             <td colSpan={2} className="px-6 py-4 text-right text-slate-700 dark:text-slate-300">
-                                                Totals
+                                                Subtotals
                                             </td>
                                             <td className="px-6 py-4 text-right text-orange-600 dark:text-orange-400">
                                                 {totalScore}
@@ -220,6 +224,18 @@ function StatusChecker() {
                                                 {totalChallenge}
                                             </td>
                                         </tr>
+                                        <tr className="bg-orange-50 dark:bg-orange-900/20 font-bold border-t-2 border-orange-200 dark:border-orange-800">
+                                            <td colSpan={2} className="px-6 py-4 text-right text-slate-900 dark:text-slate-100">
+                                                Total Lab Score (Max {maxLabScore})
+                                            </td>
+                                            <td colSpan={2} className="px-6 py-4 text-right text-orange-600 dark:text-orange-400 text-lg">
+                                                {totalScore}
+                                                <span className="text-xs text-slate-500 dark:text-slate-400 ml-2">
+                                                    ({percentage.toFixed(2)}% / 10%)
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        </>
                                     );
                                 })()}
                                 </>

@@ -6,71 +6,18 @@ import LogoutButton from "@/components/LogoutButton"
 import { useState, useEffect } from "react"
 import { ModeToggle } from "@/components/mode-toggle"
 
-// Mock Data for "Recently Accessed"
-const RECENT_TOOLS = [
-  {
-    title: "Lab Management",
-    code: "MUICT_LABS",
-    href: "/admin/labs",
-    color: "from-blue-600 to-cyan-500",
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-        />
-      </svg>
-    ),
-    description: "Manage lab assignments and file structures.",
-  },
-  {
-    title: "Account Management",
-    code: "ADMIN_USERS",
-    href: "/admin/users",
-    color: "from-purple-600 to-pink-500",
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-        />
-      </svg>
-    ),
-    description: "Manage system administrators and permissions.",
-  },
-  {
-    title: "Submission Viewer",
-    code: "VIEWER_SITE",
-    href: "/",
-    color: "from-teal-600 to-emerald-500",
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-        />
-      </svg>
-    ),
-    description: "View student submissions and renders.",
-  },
-]
-
 export default function AdminDashboard() {
   const [labs, setLabs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [role, setRole] = useState<'LA' | 'Lecturer'>('LA')
+  const [username, setUsername] = useState('')
 
   const [studentId, setStudentId] = useState("")
   const [selectedLab, setSelectedLab] = useState("")
   const [score, setScore] = useState("0")
   const [gradingSuccess, setGradingSuccess] = useState(false)
   const [gradingError, setGradingError] = useState<string | null>(null)
+  const [lastSubmittedStudentId, setLastSubmittedStudentId] = useState("")
 
   useEffect(() => {
     async function fetchLabs() {
@@ -89,6 +36,19 @@ export default function AdminDashboard() {
       }
     }
     fetchLabs()
+    
+    // Fetch user role
+    fetch("/api/auth/me")
+      .then(res => res.json())
+      .then(data => {
+        if (data.role) {
+          setRole(data.role)
+        }
+        if (data.username) {
+          setUsername(data.username)
+        }
+      })
+      .catch(err => console.error("Failed to fetch user role", err))
   }, [])
 
   async function handleGradeSubmit(e: React.FormEvent) {
@@ -96,16 +56,68 @@ export default function AdminDashboard() {
     setGradingError(null)
     setGradingSuccess(false)
 
-    // Placeholder: This would connect to OneDrive/Excel API in production
-    console.log("[v0] Grading submission:", { studentId, lab: selectedLab, score })
+    try {
+        const res = await fetch('/api/scores', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'update',
+                username: studentId,
+                labNumber: selectedLab,
+                score: parseInt(score),
+                subject: 'ITCS223'
+            })
+        });
 
-    // Simulate API call
-    setTimeout(() => {
-      setGradingSuccess(true)
-      setStudentId("")
-      setScore("0")
-      setTimeout(() => setGradingSuccess(false), 3000)
-    }, 500)
+        if (res.ok) {
+             setLastSubmittedStudentId(studentId);
+             setGradingSuccess(true);
+             setStudentId("");
+             setScore("0");
+             setTimeout(() => setGradingSuccess(false), 5000);
+        } else {
+            const data = await res.json();
+            setGradingError(data.error || "Failed to update score");
+        }
+    } catch (err: any) {
+        setGradingError(err.message || "An unexpected error occurred");
+    }
+  }
+
+  const [isFilling, setIsFilling] = useState(false)
+
+  async function handleFillMissing() {
+      if (!selectedLab) {
+          alert("Please select a lab first.")
+          return
+      }
+      if (!confirm(`Are you sure you want to fill ALL missing scores for Lab ${selectedLab} with 0?`)) {
+          return
+      }
+
+      setIsFilling(true)
+      try {
+          const res = await fetch('/api/scores', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  action: 'fill_missing',
+                  labNumber: selectedLab,
+                  subject: 'ITCS223'
+              })
+          })
+
+          const data = await res.json()
+          if (data.success) {
+              alert(data.message)
+          } else {
+              alert("Error: " + data.message)
+          }
+      } catch (e) {
+          alert("Failed to fill scores.")
+      } finally {
+          setIsFilling(false)
+      }
   }
 
   return (
@@ -125,7 +137,7 @@ export default function AdminDashboard() {
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-600 to-cyan-600 text-white font-bold shadow-lg shadow-teal-500/30 text-xs">
-                ICT
+                WD
               </div>
               <span className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
                 ITCS223
@@ -196,7 +208,7 @@ export default function AdminDashboard() {
                     onChange={(e) => setStudentId(e.target.value)}
                     placeholder="e.g., 6488001"
                     required
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 shadow-sm hover:border-teal-300 dark:hover:border-teal-600 transition-all"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 shadow-sm hover:border-teal-300 dark:hover:border-teal-600 transition-all font-mono"
                   />
                 </div>
 
@@ -234,16 +246,32 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                className="w-full md:w-auto px-6 py-3 text-sm font-medium text-white bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 rounded-xl shadow-md shadow-teal-500/30 transition-all btn-hover-lift"
-              >
-                Update Score to Spreadsheet
-              </button>
+              <div className="flex flex-col md:flex-row gap-4">
+                  <button
+                    type="submit"
+                    className="flex-1 px-6 py-3 text-sm font-medium text-white bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 rounded-xl shadow-md shadow-teal-500/30 transition-all btn-hover-lift flex items-center justify-center gap-2"
+                  >
+                    Update Score to Spreadsheet
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleFillMissing}
+                    disabled={isFilling || !selectedLab}
+                    className="px-6 py-3 text-sm font-medium text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20 hover:bg-cyan-100 dark:hover:bg-cyan-900/40 rounded-xl border border-cyan-200 dark:border-cyan-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    title="Fill all empty cells in this lab column with 0"
+                  >
+                     {isFilling ? (
+                         <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                     ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                     )}
+                     Fill Missing (0)
+                  </button>
+              </div>
 
               {gradingSuccess && (
                 <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 px-4 py-3 rounded-xl text-sm">
-                  Score updated successfully! (Placeholder - will sync to OneDrive/Excel)
+                   Score updated for Student {lastSubmittedStudentId} in ITCS223 Sheet.
                 </div>
               )}
             </form>
@@ -272,6 +300,12 @@ export default function AdminDashboard() {
                 <span className="px-3 py-1.5 bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-400 rounded-lg text-xs font-medium border border-teal-200 dark:border-teal-700 shadow-sm">
                   {labs.length} Active
                 </span>
+                {(role === 'Lecturer' || username === 'kanzaki_aito') && (
+                <a href="/admin/labs" className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1">
+                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                   New Lab
+                </a>
+                )}
               </div>
             </div>
 
@@ -325,57 +359,18 @@ export default function AdminDashboard() {
                         {lab.deadline ? `Due: ${lab.deadline}` : "No deadline set"}
                       </p>
                     </div>
+                    {(role === 'Lecturer' || username === 'kanzaki_aito') && (
                     <a
-                      href="/admin/labs?subject=ITCS223"
+                      href="/admin/labs"
                       className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 rounded-lg shadow-md shadow-teal-500/30 transition-all btn-hover-lift"
                     >
                       Manage
                     </a>
+                    )}
                   </div>
                 ))}
               </div>
             )}
-          </div>
-
-          {/* Recently Accessed Tools */}
-          <div className="space-y-4 animate-fade-in">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Quick Access</h2>
-            </div>
-
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {RECENT_TOOLS.map((tool) => (
-                <a
-                  key={tool.code}
-                  href={tool.href}
-                  className="group relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm transition-all hover:shadow-2xl hover:shadow-teal-500/10 hover:border-teal-200 dark:hover:border-teal-700 smooth-transition h-full"
-                >
-                  <div className={`h-32 w-full relative overflow-hidden bg-gradient-to-br ${tool.color}`}>
-                    <div className="absolute inset-0 bg-gradient-to-br from-transparent to-black/20"></div>
-                    <div className="absolute bottom-4 left-4 text-white">{tool.icon}</div>
-                    <div className="absolute top-3 right-3 opacity-10 group-hover:opacity-20 transition-opacity">
-                      <div className="w-20 h-20 rounded-full border-4 border-white"></div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-1 flex-col p-6">
-                    <div className="mb-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      {tool.code}
-                    </div>
-                    <h3 className="mb-3 text-lg font-bold text-slate-900 dark:text-slate-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
-                      {tool.title}
-                    </h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mb-4 flex-1">
-                      {tool.description}
-                    </p>
-                    <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between text-xs text-slate-400 dark:text-slate-500">
-                      <span>Open tool</span>
-                      <span className="group-hover:translate-x-1 transition-transform">→</span>
-                    </div>
-                  </div>
-                </a>
-              ))}
-            </div>
           </div>
         </div>
 

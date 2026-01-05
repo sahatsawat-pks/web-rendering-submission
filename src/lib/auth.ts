@@ -5,8 +5,8 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || "your-secret-key-change-this-in-production"
 );
 
-export async function createToken(userId: string, username: string) {
-  const token = await new SignJWT({ userId, username })
+export async function createToken(userId: string, username: string, role: 'LA' | 'Lecturer') {
+  const token = await new SignJWT({ userId, username, role })
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime("7d")
     .sign(JWT_SECRET);
@@ -17,7 +17,7 @@ export async function createToken(userId: string, username: string) {
 export async function verifyToken(token: string) {
   try {
     const verified = await jwtVerify(token, JWT_SECRET);
-    return verified.payload as { userId: string; username: string };
+    return verified.payload as { userId: string; username: string; role: 'LA' | 'Lecturer' };
   } catch (error) {
     return null;
   }

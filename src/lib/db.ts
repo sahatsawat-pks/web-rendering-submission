@@ -6,6 +6,7 @@ export interface User {
   id: string;
   username: string;
   password: string;
+  role: 'LA' | 'Lecturer';
   createdAt: string;
 }
 
@@ -60,6 +61,7 @@ async function ensureTables() {
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 username TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
+                role TEXT DEFAULT 'LA',
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
         `);
@@ -96,6 +98,21 @@ async function ensureTables() {
                     ALTER TABLE labs ADD COLUMN test_cases TEXT; 
                 END IF; 
             END $$;
+        `);
+        
+        // Add role column to users table if not exists
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'role') THEN 
+                    ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'LA'; 
+                END IF; 
+            END $$;
+        `);
+        
+        // Set kanzaki_aito as Lecturer if exists
+        await client.query(`
+            UPDATE users SET role = 'Lecturer' WHERE username = 'kanzaki_aito' AND role != 'Lecturer';
         `);
 
         
@@ -143,6 +160,7 @@ export async function findUserByUsername(username: string): Promise<User | undef
             id: r.id,
             username: r.username,
             password: r.password,
+            role: r.role || 'LA',
             createdAt: r.created_at.toString()
         };
     } finally {
@@ -150,21 +168,22 @@ export async function findUserByUsername(username: string): Promise<User | undef
     }
 }
 
-export async function createUser(username: string, password: string): Promise<User> {
+export async function createUser(username: string, password: string, role: 'LA' | 'Lecturer' = 'LA'): Promise<User> {
     await init();
     const client = await getPool().connect();
     try {
         const hashed = await hashPassword(password);
         const res = await client.query(`
-            INSERT INTO users (username, password)
-            VALUES ($1, $2)
+            INSERT INTO users (username, password, role)
+            VALUES ($1, $2, $3)
             RETURNING *
-        `, [username, hashed]);
+        `, [username, hashed, role]);
         const r = res.rows[0];
         return {
             id: r.id,
             username: r.username,
             password: r.password,
+            role: r.role || 'LA',
             createdAt: r.created_at.toString()
         };
     } finally {
@@ -181,6 +200,7 @@ export async function getAllUsers(): Promise<User[]> {
             id: r.id,
             username: r.username,
             password: r.password,
+            role: r.role || 'LA',
             createdAt: r.created_at.toString()
         }));
     } finally {
@@ -193,6 +213,17 @@ export async function deleteUser(id: string): Promise<boolean> {
     const client = await getPool().connect();
     try {
         const res = await client.query('DELETE FROM users WHERE id = $1', [id]);
+        return (res.rowCount || 0) > 0;
+    } finally {
+        client.release();
+    }
+}
+
+export async function updateUserRole(id: string, role: 'LA' | 'Lecturer'): Promise<boolean> {
+    await init();
+    const client = await getPool().connect();
+    try {
+        const res = await client.query('UPDATE users SET role = $1 WHERE id = $2', [role, id]);
         return (res.rowCount || 0) > 0;
     } finally {
         client.release();

@@ -49,6 +49,7 @@ export default function AdminHub() {
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [passwordSuccess, setPasswordSuccess] = useState(false)
   const [username, setUsername] = useState<string>("")
+  const [role, setRole] = useState<'LA' | 'Lecturer'>('LA')
   const [permissions, setPermissions] = useState<any>({})
   const [loading, setLoading] = useState(true)
 
@@ -59,6 +60,7 @@ export default function AdminHub() {
       .then(data => {
         if (data.username) {
           setUsername(data.username)
+          setRole(data.role || 'LA')
           setPermissions(data.permissions || {})
         }
         setLoading(false)
@@ -286,6 +288,7 @@ export default function AdminHub() {
             </Link>
             )}
 
+            {(role === 'Lecturer' || username === 'kanzaki_aito') && (
             <Link 
                 href="/admin/labs"
                 className="group relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
@@ -308,6 +311,7 @@ export default function AdminHub() {
                     <ArrowRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1 transition-transform group-hover:text-slate-900 dark:group-hover:text-slate-200" />
                 </div>
             </Link>
+            )}
         </div>
       </main>
     </div>

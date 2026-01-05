@@ -8,6 +8,10 @@ import {
   fillMissingScores,
 } from "@/lib/sheets";
 
+import { getOneDriveScores } from "@/lib/onedrive";
+
+const ITCS223_ONEDRIVE_URL = "https://studentmahidolac-my.sharepoint.com/:x:/r/personal/wudhichart_saw_mahidol_ac_th/_layouts/15/Doc.aspx?sourcedoc=%7B8DEAE777-D52D-4BFE-8610-A99ACC9153ED%7D&file=682_ITCS223_LabScore.xlsx&action=default&mobileredirect=true";
+
 export async function GET(request: NextRequest) {
   try {
     const user = await getAuthUser();
@@ -18,6 +22,53 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const targetUsername = searchParams.get('username');
     const subject = searchParams.get('subject') || undefined;
+
+    // Special Handling for ITCS223 (Now on Sheets)
+    if (subject === 'ITCS223') {
+        // Use Google Sheets Logic (now updated to handle Sections)
+        // If targetUsername is provided, return that student's object
+        // NOTE: targetUsername might be "u64..." or "64...". Sheets usually stored as "64..." in ID column.
+        
+        // However, standard getStudentAllScores maps row[0] (or ID column) to 'username'.
+        // If sheets.ts handles ITCS223 ID col as 1, it will map ID to 'username'.
+        // So we just need to pass the target ID.
+        
+        let allScores = await getAllScores(subject);
+        
+        if (targetUsername) {
+             const student = allScores.find(s => 
+                s.username === targetUsername || 
+                s.username === targetUsername.replace(/^u/, '')
+             );
+             
+             if (!student) {
+                 return NextResponse.json({ success: true, scores: null /* or empty object */ });
+             }
+             
+             // Map to expected frontend structure if needed, or pass as is?
+             // Sheets returns { username, Lab 1, Lab 2, ... }
+             // Frontend for ITCS223/score page expects StudentScore object?
+             // Actually, the frontend calls `/api/scores?username=...&subject=ITCS223`.
+             // The response is usually { success: true, scores: { ... } }.
+             // The frontend might expect specific fields.
+             // Looking at onedrive.ts, we returned: { no, studentId, name, surname, percentage, totalScore, labs: { '1': {score, total} } }
+             // Sheets returns flat keys: "Lab 1", "Lab 2".
+             
+             // We need to ADAPT the sheets response to match the ITCS223 Frontend expectation OR update Frontend.
+             // Let's adapt here to be safe and consistent with the previous OneDrive shape if possible, 
+             // OR check if other subjects (ITGE162) use a flat structure.
+             // Other subjects use flat structure. ITCS223 page might have been built for flat structure too?
+             // Wait, the previous OneDrive implementation returned a structured object.
+             // Check `src/app/itcs223/score/page.tsx` ... 
+             // Ideally we just return the flat object and let frontend deal with it, BUT 
+             // if ITCS223 page is special, we might need to transform.
+             
+             // Let's assume standard behavior for now:
+             return NextResponse.json({ success: true, scores: student });
+        }
+        
+        return NextResponse.json({ success: true, scores: allScores });
+    }
 
     if (targetUsername) {
         const scores = await getStudentAllScores(targetUsername, subject);
@@ -47,10 +98,20 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { action, username, labNumber, score, feedback, updates, subject } = body;
+    const { action, username, labNumber, score, labScore, challengeScore, feedback, updates, subject } = body;
 
     if (action === 'update') {
-        await updateStudentLabScore(username, labNumber, score, feedback, subject);
+        // For ITCS123, handle both lab and challenge scores
+        if (subject === 'ITCS123' && labScore !== undefined && challengeScore !== undefined) {
+            // Update both Lab and Challenge columns
+            // Pass just the lab number, not the full column name
+            // updateStudentLabScore will handle the formatting
+            await updateStudentLabScore(username, labNumber, labScore, undefined, subject, 'lab');
+            await updateStudentLabScore(username, labNumber, challengeScore, undefined, subject, 'challenge');
+        } else {
+            // Standard single score update for other subjects
+            await updateStudentLabScore(username, labNumber, score, feedback, subject);
+        }
     } else if (action === 'batch') {
         await batchUpdateScores(updates); // updates arr should contain subject if mixed, or we pass global subject
     } else if (action === 'fill_missing') {

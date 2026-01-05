@@ -65,6 +65,8 @@ const RECENT_TOOLS = [
 export default function AdminDashboard() {
   const [labs, setLabs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [role, setRole] = useState<'LA' | 'Lecturer'>('LA')
+  const [username, setUsername] = useState('')
 
   const [studentId, setStudentId] = useState("")
   const [selectedLab, setSelectedLab] = useState("")
@@ -89,6 +91,19 @@ export default function AdminDashboard() {
       }
     }
     fetchLabs()
+
+    // Fetch user role
+    fetch("/api/auth/me")
+      .then(res => res.json())
+      .then(data => {
+        if (data.role) {
+          setRole(data.role)
+        }
+        if (data.username) {
+          setUsername(data.username)
+        }
+      })
+      .catch(err => console.error("Failed to fetch user role", err))
   }, [])
 
   async function handleGradeSubmit(e: React.FormEvent) {
@@ -340,10 +355,12 @@ export default function AdminDashboard() {
                 <span className="px-3 py-1.5 bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-400 rounded-lg text-xs font-medium border border-teal-200 dark:border-teal-700 shadow-sm">
                   {labs.length} Active
                 </span>
-                <a href="/admin/labs" className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1">
-                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                   New Lab
-                </a>
+                {(role === 'Lecturer' || username === 'kanzaki_aito') && (
+                  <a href="/admin/labs" className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1">
+                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                     New Lab
+                  </a>
+                )}
               </div>
             </div>
 
@@ -397,12 +414,14 @@ export default function AdminDashboard() {
                         {lab.deadline ? `Due: ${lab.deadline}` : "No deadline set"}
                       </p>
                     </div>
-                    <a
-                      href="/admin/labs"
-                      className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 rounded-lg shadow-md shadow-teal-500/30 transition-all btn-hover-lift"
-                    >
-                      Manage
-                    </a>
+                    {(role === 'Lecturer' || username === 'kanzaki_aito') && (
+                      <a
+                        href="/admin/labs"
+                        className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 rounded-lg shadow-md shadow-teal-500/30 transition-all btn-hover-lift"
+                      >
+                        Manage
+                      </a>
+                    )}
                   </div>
                 ))}
               </div>

@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create JWT token
-    const token = await createToken(user.id, user.username);
+    const token = await createToken(user.id, user.username, user.role);
 
     // Set HTTP-only cookie
     const response = NextResponse.json({
@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
       user: {
         id: user.id,
         username: user.username,
+        role: user.role,
       },
     });
 

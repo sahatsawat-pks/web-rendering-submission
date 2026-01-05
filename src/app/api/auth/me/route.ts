@@ -22,6 +22,7 @@ export async function GET() {
   return NextResponse.json({ 
     userId: user.userId, 
     username: user.username,
+    role: user.role,
     permissions
   });
 }

@@ -140,6 +140,11 @@ function StatusChecker() {
                             </h2>
                             <p className="text-xs text-indigo-400">
                                 {scores.name || scores.surname ? `ID: ${searchedId}` : "Lab Performance Report"}
+                                {scores.Section && (
+                                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-500 font-bold border border-indigo-500/20">
+                                        Section: {scores.Section}
+                                    </span>
+                                )}
                             </p>
                          </div>
                     </div>
@@ -188,10 +193,10 @@ function StatusChecker() {
                                     return (
                                         <tr className="bg-slate-50 dark:bg-slate-900/50 font-bold border-t border-slate-200 dark:border-slate-700">
                                             <td colSpan={2} className="px-6 py-4 text-right text-slate-700 dark:text-slate-300">
-                                                Total Score
+                                                Total Score (Max 22)
                                             </td>
                                             <td className="px-6 py-4 text-right text-indigo-600 dark:text-indigo-400">
-                                                {totalScore}
+                                                {totalScore} <span className="text-xs text-slate-500 font-normal">({((totalScore / 22) * 100).toFixed(0)}%)</span>
                                             </td>
                                         </tr>
                                     );
@@ -261,9 +266,9 @@ export default function ITCS223ScorePage() {
         <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-3">
             <a
-              href="/itcs223"
+              href="/"
               className="flex items-center justify-center w-10 h-10 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-              title="Back"
+              title="Back to Main Page"
             >
               <ArrowLeft className="w-5 h-5" />
             </a>

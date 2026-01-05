@@ -140,6 +140,11 @@ function StatusChecker() {
                             </h2>
                             <p className="text-xs text-indigo-400">
                                 {scores.name || scores.surname ? `ID: ${searchedId}` : "Lab Performance Report"}
+                                {scores.Section && (
+                                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 font-bold border border-indigo-500/20">
+                                        Section: {scores.Section}
+                                    </span>
+                                )}
                             </p>
                          </div>
                     </div>

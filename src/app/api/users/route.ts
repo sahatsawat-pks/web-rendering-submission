@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
-import { createUser, findUserByUsername, getAllUsers, deleteUser, getUserPermissions } from "@/lib/db";
+import { createUser, findUserByUsername, getAllUsers, deleteUser, getUserPermissions, updateUserRole } from "@/lib/db";
 
 export async function GET() {
   const user = await getAuthUser();
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { username, password } = await request.json();
+    const { username, password, role } = await request.json();
 
     if (!username || !password) {
       return NextResponse.json(
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Creating user automatically hashes password in createUser
-    const newUser = await createUser(username, password);
+    const newUser = await createUser(username, password, role || 'LA');
     const { password: _, ...safeUser } = newUser;
 
     return NextResponse.json({ success: true, user: safeUser });
@@ -86,6 +86,42 @@ export async function DELETE(request: NextRequest) {
     const deleted = await deleteUser(id);
 
     if (deleted) {
+      return NextResponse.json({ success: true });
+    }
+
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  const authUser = await getAuthUser();
+  if (!authUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Only kanzaki_aito can modify roles
+  if (authUser.username !== "kanzaki_aito") {
+    return NextResponse.json({ 
+      error: "Only the main admin can modify user roles" 
+    }, { status: 403 });
+  }
+
+  try {
+    const { id, role } = await request.json();
+
+    if (!id || !role) {
+      return NextResponse.json({ error: "User ID and role are required" }, { status: 400 });
+    }
+
+    if (role !== 'LA' && role !== 'Lecturer') {
+      return NextResponse.json({ error: "Invalid role. Must be 'LA' or 'Lecturer'" }, { status: 400 });
+    }
+
+    const updated = await updateUserRole(id, role);
+
+    if (updated) {
       return NextResponse.json({ success: true });
     }
 

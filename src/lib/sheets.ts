@@ -11,6 +11,8 @@ function getSpreadsheetId(subject: string): string {
     const envVar = `GOOGLE_SHEETS_ID_${upperSubject}`;
     const specificId = process.env[envVar];
     
+    console.log(`[getSpreadsheetId] Subject: ${subject}, EnvVar: ${envVar}, ID found: ${specificId ? 'Yes' : 'No'}`);
+
     if (specificId) {
         return specificId;
     }
@@ -34,7 +36,8 @@ async function getAuthClient() {
     },
     scopes: [
         'https://www.googleapis.com/auth/spreadsheets',
-        'https://www.googleapis.com/auth/drive.readonly' 
+        'https://www.googleapis.com/auth/drive.readonly',
+        'https://www.googleapis.com/auth/drive.file' 
     ],
   });
 }
@@ -139,10 +142,12 @@ function mapRowsToStudents(rows: any[][], subject: string): any[] {
 
   const headers = rows[0];
   const data = rows.slice(1);
-  const idIndex = subject === 'ITCS123' ? 1 : 0;
+  // ITCS123 and ITCS223 use index 1 (Column B) for ID
+  const idIndex = (subject === 'ITCS123' || subject === 'ITCS223') ? 1 : 0;
 
   return data.map((row) => {
     const rawUsername = row[idIndex];
+    // console.log(`[mapRows] ${subject} ID: ${rawUsername}`);
     const student: any = { username: rawUsername ? String(rawUsername).trim() : "" };
     
     if (subject === 'ITCS123') {
@@ -151,6 +156,13 @@ function mapRowsToStudents(rows: any[][], subject: string): any[] {
         student['name'] = row[3];
         student['surname'] = row[4];
         student['nickname'] = row[5];
+    } else if (subject === 'ITCS223') {
+        // ITCS223 Layout: B=ID(1), C=Name(2), D=Surname(3)
+        student['name'] = row[2];
+        student['surname'] = row[3];
+    } else if (subject === 'ITCS227') {
+        // ITCS227 Layout: A=ID(0), B-E=Other columns, F=Section(5)
+        student['Section'] = row[5]; // Column F
     }
     
     headers.slice(1).forEach((header: string, index: number) => {
@@ -172,9 +184,9 @@ function mapRowsToStudents(rows: any[][], subject: string): any[] {
         } else if (header.match(/Feedback/i)) {
              student[header] = cellValue;
         } else if (header.match(/^\s*(name|firstname)\s*$/i)) {
-             if (subject !== 'ITCS123') student['name'] = cellValue;
+             if (subject !== 'ITCS123' && subject !== 'ITCS223') student['name'] = cellValue;
         } else if (header.match(/^\s*(surname|lastname)\s*$/i)) {
-             if (subject !== 'ITCS123') student['surname'] = cellValue;
+             if (subject !== 'ITCS123' && subject !== 'ITCS223') student['surname'] = cellValue;
         } else if (header.match(/^\s*(Sum|Total)(?:\s*\((\d+)\))?\s*$/i)) {
              student['total'] = cellValue;
              const match = header.match(/\((\d+)\)/);
@@ -186,6 +198,19 @@ function mapRowsToStudents(rows: any[][], subject: string): any[] {
              student[header] = cellValue;
         }
     });
+    
+    // ITCS223 Specific Calculation if Total is missing
+    if (subject === 'ITCS223' && !student['total']) {
+        const totalScoreVal = Object.keys(student).reduce((acc, key) => {
+            if (key.startsWith('Lab ')) {
+                return acc + (parseFloat(student[key]) || 0);
+            }
+            return acc;
+        }, 0);
+        student['total'] = totalScoreVal.toFixed(2).replace(/\.00$/, '');
+        student['max_score'] = '22';
+    }
+
     return student;
   });
 }
@@ -223,6 +248,43 @@ export async function getAllScores(subject: string = 'Sheet1') {
           return [];
       }
   }
+  
+  if (subject === 'ITCS223') {
+      try {
+        // Fetch from Section 1, Section 2, Section 3 (User confirmed spaces)
+        const [sec1, sec2, sec3] = await Promise.all([
+            getSheetData(subject, 'Section 1').catch((e) => {
+                 // Fallback to "Section1" if "Section 1" fails?
+                 console.log("Failed Section 1, trying valid fallback if needed", e.message);
+                 return getSheetData(subject, 'Section1').catch(() => []);
+            }),
+            getSheetData(subject, 'Section 2').catch(() => getSheetData(subject, 'Section2').catch(() => [])), 
+            getSheetData(subject, 'Section 3').catch(() => getSheetData(subject, 'Section3').catch(() => []))
+        ]);
+
+        let allStudents: any[] = [];
+        const sections = [
+            { data: sec1, id: '1' },
+            { data: sec2, id: '2' },
+            { data: sec3, id: '3' }
+        ];
+
+        for (const sec of sections) {
+            if (sec.data && sec.data.length > 0) {
+                 const studs = mapRowsToStudents(sec.data, subject);
+                 // Inject Section ID
+                 studs.forEach(s => s.Section = sec.id);
+                 allStudents = [...allStudents, ...studs];
+            }
+        }
+        
+        return allStudents;
+
+      } catch (e) {
+          console.error("Error fetching ITCS223 sections:", e);
+          return [];
+      }
+  }
 
   // Standard Logic
   const rows = await getSheetData(subject);
@@ -247,122 +309,269 @@ export async function getStudentLabScore(username: string, labNumber: string, sh
     };
 }
 
-export async function updateStudentLabScore(username: string, labNumber: string, score: number, feedback?: string, sheetName: string = 'Sheet1') {
-  const sheets = await getSheetsClient();
-  const spreadsheetId = getSpreadsheetId(sheetName);
+export async function updateStudentLabScore(
+  username: string, 
+  labNumber: string, 
+  score: number, 
+  feedback?: string, 
+  sheetName: string = 'Sheet1',
+  scoreType?: 'lab' | 'challenge' // For ITCS123 dual scoring
+) {
+  console.log(`[updateStudentLabScore] START: User=${username}, Lab=${labNumber}, Score=${score}, Subject=${sheetName}, Type=${scoreType || 'standard'}`);
   
-  // Logic to determine internal "Tab Name"
-  // Default: Use sheetName (e.g. "ITGE162") as Tab Name
-  // Exception: If using a custom file (ID matches subject), maybe fallback to "Sheet1" if "ITGE162" tab is missing?
-  // For writing, checking existence is expensive. Let's assume standard config:
-  // If separated files -> Tab is expected to be "Sheet1" OR the Subject Name.
-  // Let's stick to using `sheetName` variable as the Tab Target for now.
-  // If user splits files, they should rename the tab to "ITGE162" to match, OR we need config for "Tab Name".
-  // Simplest fix: Just use `sheetName`.
-  
-  const rows = await getSheetData(sheetName);
-  
-  if (rows.length === 0) {
-      // Initialize sheet if empty
-      const headers = ['Username', `Lab ${labNumber}`, `Lab ${labNumber} Feedback`];
-      await sheets.spreadsheets.values.update({
-          spreadsheetId,
-          range: `${sheetName}!A1`,
-          valueInputOption: 'RAW',
-          requestBody: { values: [headers] }
-      });
-      // Recursively call to proceed with update
-      return updateStudentLabScore(username, labNumber, score, feedback, sheetName);
-  }
-
-  const headers = rows[0];
-  
-  // Normalize labNumber (e.g., "1" -> "01" and "1")
-  const labNum = labNumber.toString();
-  const labNumPad = labNum.length === 1 ? `0${labNum}` : labNum;
-
-  // Flexible Regex to find column Index
-  // Matches: "Lab 1", "L01", "L01 (2)", "Lab 01 (10)"
-  const labRegex = new RegExp(`^(Lab\\s*${labNum}|L${labNum}|L${labNumPad})(\\s*\\(.*\\))?$`, 'i');
-  
-  let labIndex = headers.findIndex((h: string) => labRegex.test(h));
-  
-  // Feedback check (standardize on "Feedback" suffix or "Lxx Feedback")
-  const feedbackRegex = new RegExp(`^(Lab\\s*${labNum}|L${labNum}|L${labNumPad})\\s*Feedback$`, 'i');
-  let feedbackIndex = headers.findIndex((h: string) => feedbackRegex.test(h));
-
-  // Add columns if they don't exist (Default to "Lab X")
-  if (labIndex === -1) {
-      labIndex = headers.length;
-      headers.push(`Lab ${labNumber}`);
-      // Update headers
-      await sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range: `${sheetName}!${getColumnLetter(labIndex + 1)}1`,
-        valueInputOption: 'RAW',
-        requestBody: { values: [[`Lab ${labNumber}`]] }
-      });
+  // For ITCS123, format the column name based on score type
+  let actualLabNumber = labNumber;
+  if (sheetName === 'ITCS123' && scoreType) {
+    const labNumPadded = labNumber.padStart(2, '0');
+    actualLabNumber = scoreType === 'lab' 
+      ? `Lab${labNumPadded} (2)` 
+      : `Ch${labNumPadded} (2)`;
+    console.log(`[updateStudentLabScore] ITCS123 formatted column: ${actualLabNumber}`);
   }
   
-  // Optional: Only create feedback column if specifically requested or to keep schema consistent
-  // User requested "don't add feedback", so we SKIP automatic creation.
-  /* 
-  if (feedbackIndex === -1) {
-     ...
-  }
-  */
+  // Handle Multi-Section Subjects (ITCS123, ITCS223)
+  const isMultiSection = sheetName === 'ITCS123' || sheetName === 'ITCS223';
+  if (isMultiSection) {
+       // We need to find which section the student is in.
+       // We can iterate sections.
+       const sections = sheetName === 'ITCS123' 
+            ? ['Sec1', 'Sec2', 'Sec3'] 
+            : ['Section 1', 'Section 2', 'Section 3'];
+       
+       let foundSection = null;
+       console.log(`[updateStudentLabScore] Checking sections: ${sections.join(', ')}`);
 
-  // Determine ID column index
-  const idIndex = sheetName === 'ITCS123' ? 1 : 0;
-  console.log(`[updateStudentLabScore] Sheet: ${sheetName}, idIndex: ${idIndex}, SearchUser: ${username}`);
-  
-  let rowIndex = rows.findIndex((row) => {
-      const val = row[idIndex];
-      // console.log(`Checking row: ${val} vs ${username}`);
-      return String(val).trim() === String(username).trim();
-  });
-  if (rowIndex === -1) {
-    // specific to new row
-    rowIndex = rows.length;
-    const newRow = [username];
-    await sheets.spreadsheets.values.append({
-        spreadsheetId,
-        range: `${sheetName}!A:A`,
-        valueInputOption: 'RAW',
-        requestBody: { values: [newRow] }
-    });
-  } else {
-     // User exists
+       for (const sec of sections) {
+           const data = await getSheetData(sheetName, sec).catch((e) => {
+               console.log(`[updateStudentLabScore] Check ignored for ${sec}: ${e.message}`);
+               return [];
+           });
+           // Map to find user
+           const idIndex = (sheetName === 'ITCS123' || sheetName === 'ITCS223') ? 1 : 0;
+           
+           // Robust matching: Try exact, or try stripping first char if 'u'/'U'
+           const exists = data.some(row => {
+               const sheetId = String(row[idIndex] || '').trim();
+               const inputId = String(username).trim();
+               const inputIdNoU = inputId.replace(/^[uU]/, '');
+               const sheetIdNoU = sheetId.replace(/^[uU]/, '');
+               
+               return sheetId === inputId || sheetIdNoU === inputIdNoU;
+           });
+           
+           if (exists) {
+               console.log(`[updateStudentLabScore] Found user ${username} in ${sec}`);
+               foundSection = sec;
+               break;
+           }
+       }
+       
+       if (foundSection) {
+           return updateSpecificTab(sheetName, foundSection, username, actualLabNumber, score, feedback);
+       } else {
+           console.log(`[updateStudentLabScore] User ${username} NOT FOUND in any section. Defaulting to ${sections[0]}`);
+           // Student not found in any section. Default to first.
+           return updateSpecificTab(sheetName, sections[0], username, actualLabNumber, score, feedback);
+       }
   }
 
-  // Update Score
-  await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `${sheetName}!${getColumnLetter(labIndex + 1)}${rowIndex + 1}`,
-      valueInputOption: 'RAW',
-      requestBody: { values: [[score]] }
-  });
-
-  // Update Feedback - Only if column exists and feedback is provided
-  if (feedback !== undefined && feedbackIndex !== -1) {
-    await sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range: `${sheetName}!${getColumnLetter(feedbackIndex + 1)}${rowIndex + 1}`,
-        valueInputOption: 'RAW',
-        requestBody: { values: [[feedback]] }
-    });
-  }
+  // Single Sheet Standard Logic
+  console.log(`[updateStudentLabScore] Standard sheet: ${sheetName}`);
+  return updateSpecificTab(sheetName, sheetName, username, actualLabNumber, score, feedback);
 }
 
-// Helper to convert index to letter (0 -> A, 1 -> B, etc.)
-function getColumnLetter(colIndex: number) {
-  let temp, letter = '';
-  while (colIndex > 0) {
-    temp = (colIndex - 1) % 26;
-    letter = String.fromCharCode(temp + 65) + letter;
-    colIndex = (colIndex - temp - 1) / 26;
+// Helper to update XLSX file directly (Download -> Modify -> Upload)
+async function updateXlsxData(spreadsheetId: string, tabName: string, updates: { col: number, row: number, value: any }[]) {
+    console.log(`[updateXlsxData] Fallback for XLSX Write: ${spreadsheetId}, Tab: ${tabName}, Updates: ${updates.length}`);
+    try {
+        const drive = await getDriveClient();
+        
+        // 1. Download File
+        const res = await drive.files.get({
+            fileId: spreadsheetId,
+            alt: 'media',
+        }, { responseType: 'arraybuffer' });
+
+        // 2. Parse User's XLSX
+        const buffer = Buffer.from(res.data as ArrayBuffer);
+        const workbook = XLSX.read(buffer, { type: 'buffer' });
+        
+        // 3. Find correct sheet
+        let targetSheetName = tabName;
+        if (!workbook.Sheets[targetSheetName]) {
+             // Try fallback mapping similar to read
+             if (workbook.Sheets['Sheet1']) targetSheetName = 'Sheet1';
+             else targetSheetName = workbook.SheetNames[0];
+        }
+        
+        const worksheet = workbook.Sheets[targetSheetName];
+        if (!worksheet) throw new Error(`Sheet ${tabName} not found in XLSX file.`);
+        
+        // 4. Apply Updates
+        const range = XLSX.utils.decode_range(worksheet['!ref'] || "A1:Z100");
+        
+        updates.forEach(u => {
+            const cellAddress = XLSX.utils.encode_cell({ c: u.col - 1, r: u.row - 1 });
+            const cell = { v: u.value, t: typeof u.value === 'number' ? 'n' : 's' };
+            worksheet[cellAddress] = cell;
+            
+            if (u.col - 1 > range.e.c) range.e.c = u.col - 1;
+            if (u.row - 1 > range.e.r) range.e.r = u.row - 1;
+        });
+        
+        worksheet['!ref'] = XLSX.utils.encode_range(range);
+        
+        // 5. Write back to Buffer
+        const newBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        
+        // 6. Upload (Update) File
+        const { Readable } = require('stream');
+        const stream = new Readable();
+        stream.push(newBuffer);
+        stream.push(null);
+
+        await drive.files.update({
+            fileId: spreadsheetId,
+            media: {
+                mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                body: stream
+            }
+        });
+        
+        console.log("[updateXlsxData] Successfully updated XLSX file.");
+        return true;
+
+    } catch (e: any) {
+        console.error(`[updateXlsxData] Failed: ${e.message}`);
+        throw e;
+    }
+}
+
+// Internal helper for actual update logic
+async function updateSpecificTab(subject: string, tabName: string, username: string, labNumber: string, score: number, feedback?: string) {
+  const sheets = await getSheetsClient();
+  const spreadsheetId = getSpreadsheetId(subject);
+  
+  const rows = await getSheetData(subject, tabName);
+  
+  let headers = rows.length > 0 ? rows[0] : [];
+  let isNewSheet = rows.length === 0;
+
+  if (isNewSheet) {
+      headers = ['Username', `Lab ${labNumber}`, `Lab ${labNumber} Feedback`];
+      try {
+        await sheets.spreadsheets.values.update({
+            spreadsheetId,
+            range: `${tabName}!A1`,
+            valueInputOption: 'RAW',
+            requestBody: { values: [headers] }
+        });
+      } catch (e: any) {
+           // If update fails on new sheet with not supported, we can't really init XLSX easily via API.
+           // But updateXlsx below might handle it if we push to updates.
+           // For now, ignore init error and try normal flow, fallback will catch.
+      }
   }
-  return letter;
+
+  /* 
+     Fix for Lab/Challenge matching: 
+     Handle exact column name matching for ITCS123 format like "Lab01 (2)", "Ch01 (2)"
+     Also support legacy formats: "Lab 1", "Lab1", "L1", etc.
+  */
+  const labInt = parseInt(labNumber.toString().replace(/[^\d]/g, '')).toString(); // Extract just numbers: "Lab01 (2)" -> "1"
+  const labNumPad = labInt.length === 1 ? `0${labInt}` : labInt; // "01"
+  
+  // First try exact match (for "Lab01 (2)", "Ch01 (2)")
+  let labIndex = headers.findIndex((h: string) => h === labNumber);
+  
+  // If no exact match, try regex patterns (for legacy formats)
+  if (labIndex === -1) {
+    // Use word boundary \b to ensure we match exact numbers (Lab01, not Lab011 or Lab1)
+    // Match: Lab 1, Lab 01, Lab1, Lab01, L1, L01, Ch1, Ch01, etc.
+    const labRegex = new RegExp(`^(Lab|Ch|L)\\s*(${labInt}|${labNumPad})(\\s*\\(.*\\))?$`, 'i');
+    labIndex = headers.findIndex((h: string) => labRegex.test(h));
+  }
+  
+  const feedbackRegex = new RegExp(`^(Lab\\s*${labInt}|L${labInt}|L${labNumPad})\\s*Feedback$`, 'i');
+  let feedbackIndex = headers.findIndex((h: string) => feedbackRegex.test(h));
+  
+  const pendingUpdates : any[] = [];
+  const xlsxUpdates : { col: number, row: number, value: any }[] = [];
+
+  // 1. Add Header if missing
+  if (labIndex === -1) {
+      labIndex = headers.length; 
+      // Use the labNumber as-is if it's already formatted (contains "Lab" or "Ch"), otherwise format it
+      const headerValue = labNumber.match(/^(Lab|Ch)/i) ? labNumber : `Lab ${labNumber}`;
+      headers.push(headerValue);
+      
+      pendingUpdates.push({
+          range: `${tabName}!${getColumnLetter(labIndex + 1)}1`,
+          values: [[headerValue]]
+      });
+      xlsxUpdates.push({ col: labIndex + 1, row: 1, value: headerValue });
+  }
+
+  // 2. Find row
+  const idIndex = (subject === 'ITCS123' || subject === 'ITCS223') ? 1 : 0;
+  let rowIndex = rows.findIndex((row) => {
+      const val = row[idIndex];
+      return String(val).trim() === String(username).trim();
+  });
+  
+  if (rowIndex === -1) {
+    rowIndex = rows.length;
+    let newRow = [username];
+    if (idIndex === 1) {
+         newRow = [(rowIndex).toString(), username, "", ""]; 
+    }
+    
+    pendingUpdates.push({
+        range: `${tabName}!A${rowIndex + 1}`,
+        values: [newRow]
+    });
+    
+    newRow.forEach((val, idx) => {
+        xlsxUpdates.push({ col: idx + 1, row: rowIndex + 1, value: val });
+    });
+  }
+
+  // 3. Score Update
+  pendingUpdates.push({
+      range: `${tabName}!${getColumnLetter(labIndex + 1)}${rowIndex + 1}`,
+      values: [[score]]
+  });
+  xlsxUpdates.push({ col: labIndex + 1, row: rowIndex + 1, value: score });
+  
+  if (feedback !== undefined && feedbackIndex !== -1) {
+      pendingUpdates.push({
+          range: `${tabName}!${getColumnLetter(feedbackIndex + 1)}${rowIndex + 1}`,
+          values: [[feedback]]
+      });
+      xlsxUpdates.push({ col: feedbackIndex + 1, row: rowIndex + 1, value: feedback });
+  }
+
+  // TRY SHEETS API FIRST
+  try {
+      if (pendingUpdates.length > 0) {
+          await sheets.spreadsheets.values.batchUpdate({
+              spreadsheetId,
+              requestBody: {
+                  valueInputOption: 'RAW',
+                  data: pendingUpdates
+              }
+          });
+      }
+      return; 
+
+  } catch (err: any) {
+       const isXlsxError = err.code === 400 || (err.message && err.message.includes('not supported'));
+       if (isXlsxError) {
+           console.log(`[updateSpecificTab] Detected XLSX Write Error. Switching to Drive API update.`);
+           return await updateXlsxData(spreadsheetId, tabName, xlsxUpdates);
+       }
+       throw err; 
+  }
 }
 
 export async function batchUpdateScores(updates: {username: string, labNumber: string, score: number, feedback?: string, sheetName?: string}[]) {
@@ -374,59 +583,83 @@ export async function batchUpdateScores(updates: {username: string, labNumber: s
 export async function fillMissingScores(subject: string, labNumber: string, value: string = '0') {
   const sheets = await getSheetsClient();
   const spreadsheetId = getSpreadsheetId(subject);
-  const sheetName = subject; // Assuming tab name is the subject code
 
-  // 1. Fetch all data to find the column and missing rows
-  const rows = await getSheetData(sheetName);
+  const isMultiSection = subject === 'ITCS123' || subject === 'ITCS223';
+  const tabs = isMultiSection 
+        ? (subject === 'ITCS123' ? ['Sec1', 'Sec2', 'Sec3'] : ['Section 1', 'Section 2', 'Section 3'])
+        : [subject]; 
   
-  if (rows.length === 0) return { success: false, message: "Sheet is empty" };
+  let totalFilled = 0;
+  const errors = [];
 
-  const headers = rows[0];
-  const labNum = labNumber.toString();
-  const labNumPad = labNum.length === 1 ? `0${labNum}` : labNum;
+  for (const tabName of tabs) {
+      try {
+          const rows = await getSheetData(subject, tabName).catch(() => []);
+          if (rows.length === 0) continue;
 
-  // Regex to find column Index (same as in updateStudentLabScore)
-  const labRegex = new RegExp(`^(Lab\\s*${labNum}|L${labNum}|L${labNumPad})(\\s*\\(.*\\))?$`, 'i');
-  let labIndex = headers.findIndex((h: string) => labRegex.test(h));
+          const headers = rows[0];
+          const labInt = parseInt(labNumber.toString()).toString();
+          const labNumPad = labInt.length === 1 ? `0${labInt}` : labInt;
+          const labRegex = new RegExp(`^(Lab\\s*${labInt}|L${labInt}|L${labNumPad})(\\s*\\(.*\\))?$`, 'i');
+          let labIndex = headers.findIndex((h: string) => labRegex.test(h));
 
-  if (labIndex === -1) {
-      return { success: false, message: `Column for Lab ${labNumber} not found. Please grade at least one student or create the column manually.` };
-  }
+          if (labIndex === -1) continue;
 
-  const updates = [];
+          const updates = [];
+          const xlsxUpdates: any[] = [];
 
-  // 2. Iterate rows to find empty cells in that column
-  // Start from index 1 (skip header)
-  for (let i = 1; i < rows.length; i++) {
-      const row = rows[i];
-      const cellValue = row[labIndex];
+          for (let i = 1; i < rows.length; i++) {
+              const row = rows[i];
+              const cellValue = row[labIndex];
 
-      // If cell is undefined, null, or empty string, it needs filling
-      if (cellValue === undefined || cellValue === null || cellValue === '') {
-          // Construct the Range (e.g. C2)
-          // Row is i + 1 (0-based array) + 1 (1-based sheet) = i + 1 ?? No.
-          // rows[0] is Row 1. rows[1] is Row 2.
-          // So row index i corresponds to Sheet Row i + 1.
-          
-          updates.push({
-              range: `${sheetName}!${getColumnLetter(labIndex + 1)}${i + 1}`,
-              values: [[value]]
-          });
+              if (cellValue === undefined || cellValue === null || cellValue === '') {
+                  updates.push({
+                      range: `${tabName}!${getColumnLetter(labIndex + 1)}${i + 1}`,
+                      values: [[value]]
+                  });
+                  xlsxUpdates.push({ col: labIndex + 1, row: i + 1, value: value });
+              }
+          }
+
+          if (updates.length > 0) {
+              try {
+                  await sheets.spreadsheets.values.batchUpdate({
+                      spreadsheetId,
+                      requestBody: {
+                          valueInputOption: 'RAW',
+                          data: updates
+                      }
+                  });
+              } catch (err: any) {
+                   const isXlsxError = err.code === 400 || (err.message && err.message.includes('not supported'));
+                   if (isXlsxError) {
+                       console.log(`[fillMissingScores] XLSX Write Fallback for ${tabName}`);
+                       await updateXlsxData(spreadsheetId, tabName, xlsxUpdates);
+                   } else {
+                       throw err;
+                   }
+              }
+              totalFilled += updates.length;
+          }
+      } catch (e: any) {
+          errors.push(`${tabName}: ${e.message}`);
       }
   }
 
-  if (updates.length === 0) {
-      return { success: true, message: "No missing scores found.", count: 0 };
+  if (errors.length > 0) {
+      return { success: false, message: `Completed with errors: ${errors.join(', ')}` };
   }
 
-  // 3. Batch Update
-  await sheets.spreadsheets.values.batchUpdate({
-      spreadsheetId,
-      requestBody: {
-          valueInputOption: 'RAW',
-          data: updates
-      }
-  });
+  return { success: true, message: `Filled ${totalFilled} missing scores with '${value}' across ${tabs.length} tabs.`, count: totalFilled };
+}
 
-  return { success: true, message: `Filled ${updates.length} missing scores with '${value}'.`, count: updates.length };
+// Helper to convert index to letter (0 -> A, 1 -> B, etc.)
+function getColumnLetter(colIndex: number) {
+  let temp, letter = '';
+  while (colIndex > 0) {
+    temp = (colIndex - 1) % 26;
+    letter = String.fromCharCode(temp + 65) + letter;
+    colIndex = (colIndex - temp - 1) / 26;
+  }
+  return letter;
 }
