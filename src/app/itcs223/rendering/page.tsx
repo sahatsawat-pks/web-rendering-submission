@@ -63,7 +63,7 @@ export default function Home() {
   useEffect(() => {
     async function loadLabs() {
       try {
-        const res = await fetch("/api/labs?activeOnly=true")
+        const res = await fetch("/api/labs?activeOnly=true&subject=ITCS223")
         if (res.ok) {
           const data = await res.json()
           if (data.success) {

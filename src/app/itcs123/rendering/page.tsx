@@ -69,12 +69,11 @@ public class Solution {
   useEffect(() => {
     async function loadLabs() {
       try {
-        const res = await fetch("/api/labs?activeOnly=true")
+        const res = await fetch("/api/labs?activeOnly=true&subject=ITCS123")
         if (res.ok) {
           const data = await res.json()
           if (data.success) {
             const sortedLabs = data.labs
-              .filter((lab: any) => lab.subject === "ITCS123")
               .sort((a: any, b: any) => a.labNumber.localeCompare(b.labNumber))
             setLabs(sortedLabs)
             if (sortedLabs.length > 0) {
