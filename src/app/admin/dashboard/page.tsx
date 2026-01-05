@@ -252,16 +252,18 @@ export default function AdminHub() {
             ))}
         </div>
 
-        <div className="mt-16 mb-8 text-center animate-slide-up" style={{ animationDelay: '0.2s' }}>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
-                Global Management
-            </h2>
-            <p className="text-slate-600 dark:text-slate-400">
-                System-wide settings and configurations.
-            </p>
-        </div>
+        {(role === 'Lecturer' || username === 'kanzaki_aito') && (
+          <>
+            <div className="mt-16 mb-8 text-center animate-slide-up" style={{ animationDelay: '0.2s' }}>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+                    Global Management
+                </h2>
+                <p className="text-slate-600 dark:text-slate-400">
+                    System-wide settings and configurations.
+                </p>
+            </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto animate-scale-in" style={{ animationDelay: '0.3s' }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto animate-scale-in" style={{ animationDelay: '0.3s' }}>
 
              {username === "kanzaki_aito" && (
              <Link 
@@ -312,7 +314,9 @@ export default function AdminHub() {
                 </div>
             </Link>
             )}
-        </div>
+            </div>
+          </>
+        )}
       </main>
     </div>
   )
