@@ -580,7 +580,7 @@ export async function batchUpdateScores(updates: {username: string, labNumber: s
     }
 }
 
-export async function fillMissingScores(subject: string, labNumber: string, value: string = '0') {
+export async function fillMissingScores(subject: string, labNumber: string, value: string = '0', section?: string) {
   const sheets = await getSheetsClient();
   const spreadsheetId = getSpreadsheetId(subject);
 
@@ -608,8 +608,20 @@ export async function fillMissingScores(subject: string, labNumber: string, valu
           const updates = [];
           const xlsxUpdates: any[] = [];
 
+          // For ITCS227, filter by section (column F = index 5)
+          const sectionIndex = subject === 'ITCS227' ? 5 : -1;
+
           for (let i = 1; i < rows.length; i++) {
               const row = rows[i];
+              
+              // If section filtering is enabled for ITCS227, check section match
+              if (subject === 'ITCS227' && section && sectionIndex !== -1) {
+                  const rowSection = String(row[sectionIndex] || '').trim();
+                  if (rowSection !== section) {
+                      continue; // Skip rows not in selected section
+                  }
+              }
+              
               const cellValue = row[labIndex];
 
               if (cellValue === undefined || cellValue === null || cellValue === '') {
@@ -650,7 +662,8 @@ export async function fillMissingScores(subject: string, labNumber: string, valu
       return { success: false, message: `Completed with errors: ${errors.join(', ')}` };
   }
 
-  return { success: true, message: `Filled ${totalFilled} missing scores with '${value}' across ${tabs.length} tabs.`, count: totalFilled };
+  const sectionMsg = (subject === 'ITCS227' && section) ? ` in Section ${section}` : '';
+  return { success: true, message: `Filled ${totalFilled} missing scores with '${value}'${sectionMsg} across ${tabs.length} tab(s).`, count: totalFilled };
 }
 
 // Helper to convert index to letter (0 -> A, 1 -> B, etc.)

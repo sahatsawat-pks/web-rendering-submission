@@ -70,6 +70,7 @@ export default function AdminDashboard() {
 
   const [studentId, setStudentId] = useState("")
   const [selectedLab, setSelectedLab] = useState("")
+  const [selectedSection, setSelectedSection] = useState("")
   const [score, setScore] = useState("0")
   const [gradingSuccess, setGradingSuccess] = useState(false)
   const [gradingError, setGradingError] = useState<string | null>(null)
@@ -146,7 +147,11 @@ export default function AdminDashboard() {
           alert("Please select a lab first.");
           return;
       }
-      if (!confirm(`Are you sure you want to fill ALL missing scores for Lab ${selectedLab} with 0?`)) {
+      if (!selectedSection) {
+          alert("Please select a section first.");
+          return;
+      }
+      if (!confirm(`Are you sure you want to fill ALL missing scores for Lab ${selectedLab} Section ${selectedSection} with 0?`)) {
           return;
       }
 
@@ -158,6 +163,7 @@ export default function AdminDashboard() {
               body: JSON.stringify({
                   action: 'fill_missing',
                   labNumber: selectedLab,
+                  section: selectedSection,
                   subject: 'ITCS227'
               })
           });
@@ -299,6 +305,21 @@ export default function AdminDashboard() {
                     <option value="2">2 - Complete</option>
                   </select>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Section (for Fill Missing)</label>
+                  <select
+                    value={selectedSection}
+                    onChange={(e) => setSelectedSection(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 shadow-sm hover:border-teal-300 dark:hover:border-teal-600 transition-all"
+                  >
+                    <option value="">Select Section</option>
+                    <option value="1">Section 1</option>
+                    <option value="2">Section 2</option>
+                    <option value="3">Section 3</option>
+                  </select>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Column F in spreadsheet</p>
+                </div>
               </div>
 
               <div className="flex flex-col md:flex-row gap-4">
@@ -311,9 +332,9 @@ export default function AdminDashboard() {
                   <button
                     type="button"
                     onClick={handleFillMissing}
-                    disabled={isFilling || !selectedLab}
+                    disabled={isFilling || !selectedLab || !selectedSection}
                     className="px-6 py-3 text-sm font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-xl border border-amber-200 dark:border-amber-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                    title="Fill all empty cells in this lab column with 0"
+                    title="Fill all empty cells in this lab column for selected section with 0"
                   >
                      {isFilling ? (
                          <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>

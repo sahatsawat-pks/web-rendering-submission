@@ -82,11 +82,13 @@ function StatusChecker() {
           else if (scores[normalizedKey] !== undefined) validKey = normalizedKey
 
           if (validKey) {
+              const labScoreValue = scores[validKey];
+              const challengeScoreValue = scores[challengeKey];
               labRows.push({
                   lab: lab.labNumber.padStart(2, '0'),
                   title: lab.title, 
-                  score: scores[validKey] || "-",
-                  challengeScore: scores[challengeKey] || "-"
+                  score: (labScoreValue === undefined || labScoreValue === null || labScoreValue === '') ? '0' : labScoreValue,
+                  challengeScore: (challengeScoreValue === undefined || challengeScoreValue === null || challengeScoreValue === '') ? '0' : challengeScoreValue
               })
           }
       })
@@ -180,18 +182,16 @@ function StatusChecker() {
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                                                 ${row.score === '2' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 
                                                   row.score === '1' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                                  row.score === '0' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                                                  'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-400'}`}>
-                                                {row.score === '-' ? '-' : row.score}
+                                                  'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                                {row.score}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                                                 ${row.challengeScore === '2' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 
                                                   row.challengeScore === '1' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                                  row.challengeScore === '0' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                                                  'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-400'}`}>
-                                                {row.challengeScore === '-' ? '-' : row.challengeScore}
+                                                  'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                                {row.challengeScore}
                                             </span>
                                         </td>
                                     </tr>

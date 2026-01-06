@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { action, username, labNumber, score, labScore, challengeScore, feedback, updates, subject } = body;
+    const { action, username, labNumber, score, labScore, challengeScore, feedback, updates, subject, section } = body;
 
     if (action === 'update') {
         // For ITCS123, handle both lab and challenge scores
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
     } else if (action === 'batch') {
         await batchUpdateScores(updates); // updates arr should contain subject if mixed, or we pass global subject
     } else if (action === 'fill_missing') {
-        const result = await fillMissingScores(subject, labNumber, '0');
+        const result = await fillMissingScores(subject, labNumber, '0', section);
         return NextResponse.json(result);
     } else {
         return NextResponse.json({ error: "Invalid action" }, { status: 400 });
