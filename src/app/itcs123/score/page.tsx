@@ -49,7 +49,8 @@ function StatusChecker() {
             setScores(scoreData.scores)
             
             if (labsData.labs) {
-                setActiveLabs(labsData.labs)
+                // Filter to only show Lab type (not Challenge) since Challenge scores are already in the table
+                setActiveLabs(labsData.labs.filter((lab: any) => (lab.labType || 'Lab') === 'Lab'))
             }
 
         } else {
@@ -207,30 +208,28 @@ function StatusChecker() {
                                     }, 0);
                                     
                                     const maxLabScore = 26; // Maximum possible lab score (13 labs × 2 points)
+                                    const maxChallengeScore = 26; // Maximum possible challenge score (13 challenges × 2 points)
                                     const percentage = (totalScore / maxLabScore) * 10; // Lab scores count for 10% only
                                     
                                     return (
                                         <>
-                                        <tr className="bg-slate-50 dark:bg-slate-800/50 font-semibold border-t border-slate-200 dark:border-slate-700">
-                                            <td colSpan={2} className="px-6 py-4 text-right text-slate-700 dark:text-slate-300">
-                                                Subtotals
-                                            </td>
-                                            <td className="px-6 py-4 text-right text-orange-600 dark:text-orange-400">
-                                                {totalScore}
-                                            </td>
-                                            <td className="px-6 py-4 text-right text-teal-600 dark:text-teal-400">
-                                                {totalChallenge}
-                                            </td>
-                                        </tr>
                                         <tr className="bg-orange-50 dark:bg-orange-900/20 font-bold border-t-2 border-orange-200 dark:border-orange-800">
                                             <td colSpan={2} className="px-6 py-4 text-right text-slate-900 dark:text-slate-100">
                                                 Total Lab Score (Max {maxLabScore})
                                             </td>
                                             <td colSpan={2} className="px-6 py-4 text-right text-orange-600 dark:text-orange-400 text-lg">
-                                                {totalScore}
-                                                <span className="text-xs text-slate-500 dark:text-slate-400 ml-2">
-                                                    ({percentage.toFixed(2)}% / 10%)
+                                                <span className="text-xs text-slate-500 dark:text-slate-400 mr-2">
+                                                    ({percentage.toFixed(2)}% / 10%)  
                                                 </span>
+                                                {totalScore}
+                                            </td>
+                                        </tr>
+                                        <tr className="bg-teal-50 dark:bg-teal-900/20 font-bold border-t-2 border-teal-200 dark:border-teal-800">
+                                            <td colSpan={2} className="px-6 py-4 text-right text-slate-900 dark:text-slate-100">
+                                                Total Challenge Score (Max {maxChallengeScore})
+                                            </td>
+                                            <td colSpan={2} className="px-6 py-4 text-right text-teal-600 dark:text-teal-400 text-lg">
+                                                {totalChallenge}
                                             </td>
                                         </tr>
                                         </>
@@ -343,7 +342,7 @@ export default function ITCS123ScorePage() {
         {/* Hero Section */}
         <div className="mx-auto max-w-3xl mb-16 text-center animate-slide-up">
           <h1 className="text-6xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 sm:text-7xl mb-6">
-            ITCS123 <span className="gradient-text text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-600">Score Check</span>
+            ITCS123 <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-amber-500">Score Check</span>
           </h1>
         </div>
 

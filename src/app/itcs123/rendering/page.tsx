@@ -214,8 +214,9 @@ public class Solution {
         </div>
       </nav>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        {/* Left Panel - Code Editor */}
+        <div className="flex-1 flex flex-col overflow-hidden">
             {/* Lab Selection */}
             <div className="bg-slate-900 px-4 py-3 border-b border-slate-800 space-y-2 md:space-y-3">
                 {/* Filter Tabs */}
@@ -234,7 +235,7 @@ public class Solution {
                         onClick={() => setLabTypeFilter('Challenge')}
                         className={`flex-1 px-3 py-1.5 rounded text-xs font-semibold transition-all ${
                             labTypeFilter === 'Challenge'
-                            ? 'bg-purple-600 text-white'
+                            ? 'bg-amber-600 text-white'
                             : 'bg-slate-800 text-slate-400 hover:text-white'
                         }`}
                     >

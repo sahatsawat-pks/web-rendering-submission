@@ -87,7 +87,7 @@ export default function Home() {
         {/* Hero Section */}
         <div className="mx-auto max-w-3xl mb-6 sm:mb-8 text-center animate-slide-up">
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 mb-4 sm:mb-6">
-            ITGE162 <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-500">Score Check</span>
+            ITGE162 <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-green-500">Score Check</span>
           </h1>
         </div>
 

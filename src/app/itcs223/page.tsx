@@ -66,7 +66,7 @@ export default function ITCS223LandingPage() {
                  <div className="w-20 h-20 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500">
                     <BookOpen className="w-10 h-10 text-blue-600 dark:text-blue-400" />
                  </div>
-                 <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3">Check <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">Lab Scores</span></h2>
+                 <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3">Check <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-500 to-cyan-500">Lab Scores</span></h2>
                  <p className="text-slate-500 dark:text-slate-400">
                     View your grade status, feedback, and lab completion progress.
                  </p>
