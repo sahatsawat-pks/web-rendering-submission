@@ -180,10 +180,11 @@ function StatusChecker() {
           if (scores[exactKey] !== undefined) validKey = exactKey
           else if (scores[normalizedKey] !== undefined) validKey = normalizedKey
 
+          const scoreValue = validKey ? scores[validKey] : undefined;
           labRows.push({
               lab: lab.labNumber.padStart(2, '0'),
               title: lab.title, 
-              score: validKey ? scores[validKey] : "-",
+              score: (scoreValue === undefined || scoreValue === null || scoreValue === '') ? '0' : scoreValue,
               feedback: scores[feedbackKey] || "-"
           })
       })

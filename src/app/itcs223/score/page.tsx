@@ -79,13 +79,12 @@ function StatusChecker() {
           if (scores[exactKey] !== undefined) validKey = exactKey
           else if (scores[normalizedKey] !== undefined) validKey = normalizedKey
 
-          if (validKey) {
-              labRows.push({
-                  lab: lab.labNumber.padStart(2, '0'),
-                  title: lab.title, 
-                  score: scores[validKey] || "-"
-              })
-          }
+          const scoreValue = validKey ? scores[validKey] : undefined;
+          labRows.push({
+              lab: lab.labNumber.padStart(2, '0'),
+              title: lab.title, 
+              score: (scoreValue === undefined || scoreValue === null || scoreValue === '') ? '0' : scoreValue
+          })
       })
       
       labRows.sort((a, b) => a.lab.localeCompare(b.lab))
@@ -183,20 +182,22 @@ function StatusChecker() {
                                         </td>
                                     </tr>
                                 ))}
-                                {/* Total Score Summary - Simple sum for now as ITCS223 max score is unknown */}
+                                {/* Total Score Summary */}
                                 {(() => {
                                     const totalScore = labRows.reduce((acc, row) => {
                                         const val = parseFloat(row.score);
                                         return acc + (isNaN(val) ? 0 : val);
                                     }, 0);
+                                    const maxScore = 22; // Fixed max score for ITCS223
+                                    const percentage = (totalScore / maxScore) * 15; // 15% of total grade
                                     
                                     return (
                                         <tr className="bg-slate-50 dark:bg-slate-900/50 font-bold border-t border-slate-200 dark:border-slate-700">
                                             <td colSpan={2} className="px-6 py-4 text-right text-slate-700 dark:text-slate-300">
-                                                Total Score (Max 22)
+                                                Total Lab Score (15% of grade)
                                             </td>
                                             <td className="px-6 py-4 text-right text-indigo-600 dark:text-indigo-400">
-                                                {totalScore} <span className="text-xs text-slate-500 font-normal">({((totalScore / 22) * 100).toFixed(0)}%)</span>
+                                                {totalScore}/{maxScore} <span className="text-xs text-slate-500 font-normal">({percentage.toFixed(2)}%)</span>
                                             </td>
                                         </tr>
                                     );

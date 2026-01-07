@@ -81,16 +81,14 @@ function StatusChecker() {
           if (scores[exactKey] !== undefined) validKey = exactKey
           else if (scores[normalizedKey] !== undefined) validKey = normalizedKey
 
-          if (validKey) {
-              const labScoreValue = scores[validKey];
-              const challengeScoreValue = scores[challengeKey];
-              labRows.push({
-                  lab: lab.labNumber.padStart(2, '0'),
-                  title: lab.title, 
-                  score: (labScoreValue === undefined || labScoreValue === null || labScoreValue === '') ? '0' : labScoreValue,
-                  challengeScore: (challengeScoreValue === undefined || challengeScoreValue === null || challengeScoreValue === '') ? '0' : challengeScoreValue
-              })
-          }
+          const labScoreValue = validKey ? scores[validKey] : undefined;
+          const challengeScoreValue = scores[challengeKey];
+          labRows.push({
+              lab: lab.labNumber.padStart(2, '0'),
+              title: lab.title, 
+              score: (labScoreValue === undefined || labScoreValue === null || labScoreValue === '') ? '0' : labScoreValue,
+              challengeScore: (challengeScoreValue === undefined || challengeScoreValue === null || challengeScoreValue === '') ? '0' : challengeScoreValue
+          })
       })
       
       labRows.sort((a, b) => a.lab.localeCompare(b.lab))
