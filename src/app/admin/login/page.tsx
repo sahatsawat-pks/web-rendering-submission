@@ -6,6 +6,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Lock, User, ArrowLeft } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
+import Footer from "@/components/Footer"
 
 export default function AdminLogin() {
   const [username, setUsername] = useState("")
@@ -181,6 +182,8 @@ export default function AdminLogin() {
           </a>
         </div>
       </div>
+
+      <Footer />
     </div>
   )
 }

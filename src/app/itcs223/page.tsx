@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { ArrowLeft, BookOpen, Presentation, Code } from "lucide-react"
 import Link from "next/link"
+import Footer from "@/components/Footer"
 
 export default function ITCS223LandingPage() {
   return (
@@ -73,6 +74,8 @@ export default function ITCS223LandingPage() {
            </Link>
         </div>
       </main>
+
+      <Footer />
     </div>
   )
 }

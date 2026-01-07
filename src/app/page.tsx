@@ -5,6 +5,7 @@ import { ModeToggle } from "@/components/mode-toggle"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import LogoutButton from "@/components/LogoutButton"
+import Footer from "@/components/Footer"
 
 export default function LandingPage() {
   const [isAdmin, setIsAdmin] = useState(false)
@@ -181,10 +182,7 @@ export default function LandingPage() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="w-full py-6 text-center text-slate-400 dark:text-slate-600 text-sm">
-        <p>&copy; {new Date().getFullYear()} MUICT Web Rendering Platform.</p>
-      </footer>
+      <Footer />
     </div>
   )
 }

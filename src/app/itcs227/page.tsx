@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Search, Loader2, ArrowLeft } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
+import Footer from "@/components/Footer"
 
 interface LabRow {
     lab: string;
@@ -326,6 +327,8 @@ export default function Home() {
              <StatusChecker />
         </div>
       </main>
+
+      <Footer />
     </div>
   )
 }

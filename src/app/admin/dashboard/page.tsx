@@ -5,6 +5,7 @@ import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
 import Link from "next/link"
 import { useState, useEffect } from "react"
+import Footer from "@/components/Footer"
 
 export default function AdminHub() {
   const modules = [
@@ -360,6 +361,8 @@ export default function AdminHub() {
           </>
         )}
       </main>
+
+      <Footer />
     </div>
   )
 }
