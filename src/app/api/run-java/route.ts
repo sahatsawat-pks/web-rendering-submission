@@ -1,17 +1,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir, rm } from 'fs/promises';
-import { join } from 'path';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import os from 'os';
-import { v4 as uuidv4 } from 'uuid';
 
-const execAsync = promisify(exec);
+const PISTON_API_URL = 'https://emkc.org/api/v2/piston/execute';
 
 export async function POST(req: NextRequest) {
-    let tempDir = '';
-    
     try {
         const { code, input } = await req.json();
 
@@ -19,64 +11,60 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'No code provided' }, { status: 400 });
         }
 
-        // Create a unique temporary directory
-        const uniqueId = uuidv4();
-        tempDir = join(os.tmpdir(), `java-run-${uniqueId}`);
-        await mkdir(tempDir, { recursive: true });
+        // Execute Java code using Piston API
+        const response = await fetch(PISTON_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                language: 'java',
+                version: '15.0.2',
+                files: [
+                    {
+                        content: code,
+                    },
+                ],
+                stdin: input || '',
+            }),
+        });
 
-        // Extract the public class name from the code
-        const classNameMatch = code.match(/public\s+class\s+(\w+)/);
-        const className = classNameMatch ? classNameMatch[1] : 'Solution';
-        
-        // Write the Java file with the extracted class name
-        const filePath = join(tempDir, `${className}.java`);
-        await writeFile(filePath, code);
+        if (!response.ok) {
+            return NextResponse.json(
+                { error: 'Execution service error', output: 'Failed to connect to execution service' },
+                { status: 500 }
+            );
+        }
 
-        // Compile
-        try {
-            await execAsync(`javac "${filePath}"`);
-        } catch (compileError: any) {
-             return NextResponse.json({ 
-                error: 'Compilation Error', 
-                output: compileError.stderr || compileError.message 
+        const result = await response.json();
+
+        // Check for compilation errors
+        if (result.compile && result.compile.code !== 0) {
+            return NextResponse.json({
+                error: 'Compilation Error',
+                output: result.compile.stderr || result.compile.output || 'Compilation failed',
             });
         }
 
-        // Write input to a file and redirect
-        const inputPath = join(tempDir, 'input.txt');
-        await writeFile(inputPath, input || '');
-        
-        try {
-            // Run with timeout of 5 seconds to prevent infinite loops
-            const { stdout, stderr } = await execAsync(`cd "${tempDir}" && java -cp . ${className} < input.txt`, { timeout: 5000 });
-            
-            return NextResponse.json({ 
-                output: stdout, 
-                error: stderr 
+        // Check for runtime errors
+        if (result.run && result.run.code !== 0) {
+            return NextResponse.json({
+                error: 'Runtime Error',
+                output: result.run.stderr || result.run.output || 'Runtime error occurred',
             });
-
-        } catch (runError: any) {
-             // If it timed out or crashed
-             if (runError.killed) {
-                 return NextResponse.json({ error: 'Runtime Error', output: 'Process timed out (Limit: 5s)' });
-             }
-             return NextResponse.json({ 
-                 error: 'Runtime Error', 
-                 output: runError.stderr || runError.message 
-             });
         }
+
+        // Success - return output
+        return NextResponse.json({
+            output: result.run.stdout || result.run.output || '',
+            error: result.run.stderr || '',
+        });
 
     } catch (error: any) {
         console.error('Java Execution Error:', error);
-        return NextResponse.json({ error: 'Server Error', output: error.message }, { status: 500 });
-    } finally {
-        // Cleanup
-        if (tempDir) {
-            try {
-               await rm(tempDir, { recursive: true, force: true });
-            } catch (e) {
-                console.error("Failed to cleanup temp dir:", e);
-            }
-        }
+        return NextResponse.json(
+            { error: 'Server Error', output: error.message },
+            { status: 500 }
+        );
     }
 }
