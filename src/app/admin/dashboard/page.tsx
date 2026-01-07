@@ -124,27 +124,36 @@ export default function AdminHub() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950 relative overflow-hidden animate-fade-in">
       {/* Navbar */}
       <nav className="sticky top-0 z-50 w-full glass border-b border-white/20 dark:border-slate-800 shadow-sm bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
-        <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-6">
-          <div className="flex items-center gap-4">
+        <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-4 md:px-6">
+          <div className="flex items-center gap-2 md:gap-4">
              <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-teal-500 hover:text-white dark:hover:bg-teal-500 dark:hover:text-white transition-all shadow-sm hover:shadow-lg" title="Back to Main Page">
                 <Home className="h-5 w-5" />
             </Link>
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white font-bold shadow-lg">
               <Shield className="h-5 w-5" />
             </div>
-            <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            <span className="text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 hidden sm:inline">
               Admin Portal
             </span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             <ModeToggle />
-            <div className="relative">
+            <div className="relative hidden md:block">
                 <button 
                     onClick={() => setShowPasswordModal(true)}
                     className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
                 >
                     <Key className="w-4 h-4" />
                     <span>Password</span>
+                </button>
+            </div>
+            <div className="relative md:hidden">
+                <button 
+                    onClick={() => setShowPasswordModal(true)}
+                    className="flex items-center justify-center w-10 h-10 text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                    title="Change Password"
+                >
+                    <Key className="w-5 h-5" />
                 </button>
             </div>
             <LogoutButton />

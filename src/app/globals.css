@@ -125,17 +125,20 @@
 
 /* Adding custom animations and enhanced UI utilities */
 @layer utilities {
-  /* Glass morphism effect */
+  /* Glass morphism effect - Enhanced for fixed navigation */
   .glass {
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.3);
+    position: sticky;
+    top: 0;
+    z-index: 50;
   }
 
   /* Adding dark mode support for glassmorphism */
   .dark .glass {
-    background: rgba(15, 23, 42, 0.85);
+    background: rgba(15, 23, 42, 0.95);
     border: 1px solid rgba(71, 85, 105, 0.3);
   }
 
@@ -298,5 +301,72 @@
   to {
     transform: translateX(0);
     opacity: 1;
+  }
+}
+
+/* Mobile-optimized navigation */
+@media (max-width: 768px) {
+  nav .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  /* Make text smaller on mobile if needed */
+  nav .text-lg {
+    font-size: 1rem;
+  }
+  
+  /* Adjust gap spacing for mobile */
+  nav .gap-4 {
+    gap: 0.5rem;
+  }
+  
+  nav .gap-3 {
+    gap: 0.5rem;
+  }
+  
+  /* Ensure buttons/links have adequate touch targets */
+  nav a,
+  nav button {
+    min-height: 44px;
+    min-width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  /* Hide non-critical text on smaller screens */
+  nav .hidden-mobile {
+    display: none;
+  }
+  
+  nav {
+    /* Ensure navbar stays fixed on mobile */
+    position: sticky;
+    top: 0;
+    z-index: 9999;
+    /* Prevent iOS Safari issues */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+  
+  /* Mobile safe area for notched devices */
+  @supports (padding: max(0px)) {
+    nav {
+      padding-top: max(env(safe-area-inset-top), 0px);
+    }
+  }
+}
+
+/* Ensure fixed navigation on all screen sizes */
+nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  /* Hardware acceleration for smooth scrolling */
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
   }
 }
