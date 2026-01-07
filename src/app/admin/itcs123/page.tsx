@@ -209,7 +209,7 @@ export default function AdminDashboard() {
             </div>
 
             <form onSubmit={handleGradeSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     Student ID
@@ -241,7 +241,7 @@ export default function AdminDashboard() {
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 shadow-sm hover:border-orange-300 dark:hover:border-orange-600 transition-all"
                   >
                     <option value="">Select Lab</option>
-                    {labs.map((lab) => (
+                    {labs.filter(lab => (lab.labType || 'Lab') === 'Lab').map((lab) => (
                       <option key={lab.id} value={lab.labNumber}>
                         Lab {lab.labNumber}: {lab.title}
                       </option>
@@ -371,7 +371,7 @@ export default function AdminDashboard() {
               </h3>
               <div className="flex gap-2">
                 <span className="px-3 py-1.5 bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 rounded-lg text-xs font-medium border border-orange-200 dark:border-orange-700 shadow-sm">
-                  {labs.length} Active
+                  {labs.filter(lab => (lab.labType || 'Lab') === 'Lab').length} Active
                 </span>
                 <a href="/admin/itcs123/tests" className="px-3 py-1.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-lg text-xs font-medium border border-orange-200 dark:border-orange-800 shadow-sm hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors">
                 Manage Test Cases
@@ -413,17 +413,17 @@ export default function AdminDashboard() {
               </div>
             ) : (
               <div className="grid gap-4">
-                {labs.map((lab) => (
+                {labs.filter(lab => (lab.labType || 'Lab') === 'Lab').map((lab) => (
                   <div
                     key={lab.id}
-                    className="flex items-center gap-5 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 hover:border-orange-300 dark:hover:border-orange-600 hover:shadow-lg hover:shadow-orange-500/5 transition-all smooth-transition group"
+                    className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5 p-4 sm:p-5 rounded-2xl border border-slate-100 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 hover:border-orange-300 dark:hover:border-orange-600 hover:shadow-lg hover:shadow-orange-500/5 transition-all smooth-transition group"
                   >
-                    <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-orange-500 to-amber-500 rounded-2xl flex items-center justify-center text-2xl font-bold text-white shadow-lg shadow-orange-500/20 group-hover:scale-105 transition-transform duration-300">
+                    <div className="flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-orange-500 to-amber-500 rounded-2xl flex items-center justify-center text-xl sm:text-2xl font-bold text-white shadow-lg shadow-orange-500/20 group-hover:scale-105 transition-transform duration-300">
                       {lab.labNumber}
                     </div>
-                    <div className="flex-grow">
-                      <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-1">{lab.title}</h4>
-                      <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                    <div className="flex-grow min-w-0">
+                      <h4 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-slate-100 mb-1 truncate">{lab.title}</h4>
+                      <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path
                             strokeLinecap="round"

@@ -19,6 +19,7 @@ export interface Lab {
   isActive: boolean;
   deadline?: string;
   testCases?: string; // JSON string
+  labType?: 'Lab' | 'Challenge'; // Type of lab
   createdAt: string;
 }
 
@@ -96,6 +97,16 @@ async function ensureTables() {
             BEGIN 
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'labs' AND column_name = 'test_cases') THEN 
                     ALTER TABLE labs ADD COLUMN test_cases TEXT; 
+                END IF; 
+            END $$;
+        `);
+        
+        // Add lab_type column if not exists
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'labs' AND column_name = 'lab_type') THEN 
+                    ALTER TABLE labs ADD COLUMN lab_type TEXT DEFAULT 'Lab'; 
                 END IF; 
             END $$;
         `);
@@ -272,6 +283,7 @@ export async function getAllLabs(activeOnly: boolean = false, subject?: string):
             isActive: r.is_active,
             deadline: r.deadline,
             testCases: r.test_cases,
+            labType: r.lab_type || 'Lab',
             createdAt: r.created_at.toString()
         }));
     } finally {
@@ -319,6 +331,7 @@ export async function getLabByNumber(labNumber: string): Promise<Lab | undefined
               isActive: r.is_active,
               deadline: r.deadline,
               testCases: r.test_cases,
+              labType: r.lab_type || 'Lab',
               createdAt: r.created_at.toString()
         };
     } finally {
@@ -333,16 +346,17 @@ export async function createLab(
   subject: string = "ITGE162",
   isActive: boolean = true,
   deadline?: string,
-  testCases?: string
+  testCases?: string,
+  labType: 'Lab' | 'Challenge' = 'Lab'
 ): Promise<Lab> {
     await init();
     const client = await getPool().connect();
     try {
         const res = await client.query(`
-            INSERT INTO labs (lab_number, title, file_name, subject, is_active, deadline, test_cases)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            INSERT INTO labs (lab_number, title, file_name, subject, is_active, deadline, test_cases, lab_type)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING *
-        `, [labNumber, title, fileName, subject, isActive, deadline || null, testCases || null]);
+        `, [labNumber, title, fileName, subject, isActive, deadline || null, testCases || null, labType]);
         
         const r = res.rows[0];
         return {
@@ -354,6 +368,7 @@ export async function createLab(
             isActive: r.is_active,
             deadline: r.deadline,
             testCases: r.test_cases,
+            labType: r.lab_type || 'Lab',
             createdAt: r.created_at.toString()
         };
     } finally {
@@ -380,6 +395,7 @@ export async function updateLab(
         if (updates.isActive !== undefined) { fields.push(`is_active = $${idx++}`); values.push(updates.isActive); }
         if (updates.deadline !== undefined) { fields.push(`deadline = $${idx++}`); values.push(updates.deadline); }
         if (updates.testCases !== undefined) { fields.push(`test_cases = $${idx++}`); values.push(updates.testCases); }
+        if (updates.labType !== undefined) { fields.push(`lab_type = $${idx++}`); values.push(updates.labType); }
 
         if (fields.length === 0) return getLabById(id).then(l => l || null); // No updates
 
@@ -401,6 +417,7 @@ export async function updateLab(
             isActive: r.is_active,
             deadline: r.deadline,
             testCases: r.test_cases,
+            labType: r.lab_type || 'Lab',
             createdAt: r.created_at.toString()
         };
     } finally {

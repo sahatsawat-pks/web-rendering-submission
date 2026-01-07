@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { labNumber, title, fileName, isActive, deadline, subject, testCases } = body;
+    const { labNumber, title, fileName, isActive, deadline, subject, testCases, labType } = body;
 
     if (!labNumber || !title) {
       return NextResponse.json(
@@ -59,8 +59,28 @@ export async function POST(request: NextRequest) {
       subject, // Defaults to ITGE162 in db.ts if undefined, or we can enforce it.
       isActive !== undefined ? isActive : true,
       deadline,
-      testCases
+      testCases,
+      labType || 'Lab'
     );
+
+    // For ITCS123, automatically create a Challenge with the same lab number
+    if (subject === 'ITCS123' && (!labType || labType === 'Lab')) {
+      try {
+        await createLab(
+          labNumber,
+          title,
+          fileName || "index.html",
+          subject,
+          isActive !== undefined ? isActive : true,
+          deadline,
+          undefined, // No test cases for challenge initially
+          'Challenge'
+        );
+      } catch (challengeError) {
+        console.error('Failed to create challenge:', challengeError);
+        // Don't fail the whole request if challenge creation fails
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -141,13 +161,40 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const success = await deleteLab(id);
-
-    if (!success) {
+    // Get the lab to check if it's ITCS123 and a Lab type
+    const lab = await getLabById(id);
+    
+    if (!lab) {
       return NextResponse.json(
         { error: "Lab not found" },
         { status: 404 }
       );
+    }
+
+    const success = await deleteLab(id);
+
+    if (!success) {
+      return NextResponse.json(
+        { error: "Failed to delete lab" },
+        { status: 404 }
+      );
+    }
+
+    // If it's ITCS123 and a Lab type, also delete the corresponding Challenge
+    if (lab.subject === 'ITCS123' && (!lab.labType || lab.labType === 'Lab')) {
+      try {
+        // Find and delete the corresponding Challenge
+        const allLabs = await getAllLabs(false, 'ITCS123');
+        const challenge = allLabs.find(
+          l => l.labNumber === lab.labNumber && l.labType === 'Challenge'
+        );
+        if (challenge) {
+          await deleteLab(challenge.id);
+        }
+      } catch (challengeError) {
+        console.error('Failed to delete corresponding challenge:', challengeError);
+        // Don't fail the whole request if challenge deletion fails
+      }
     }
 
     return NextResponse.json({

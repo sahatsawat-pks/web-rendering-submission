@@ -232,9 +232,9 @@ export default function AdminHub() {
         </div>
       )}
 
-      <main className="flex-1 container mx-auto max-w-7xl px-6 py-12">
-        <div className="mb-12 text-center animate-slide-up">
-            <h1 className="text-4xl font-extrabold text-slate-900 dark:text-slate-100 mb-4">
+      <main className="flex-1 container mx-auto max-w-7xl px-4 sm:px-6 py-8 sm:py-12">
+        <div className="mb-8 sm:mb-12 text-center animate-slide-up">
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-slate-100 mb-3 sm:mb-4">
                 Select Administration Module
             </h1>
             <p className="text-lg text-slate-600 dark:text-slate-400">
@@ -242,7 +242,7 @@ export default function AdminHub() {
             </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto animate-scale-in">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-5xl mx-auto animate-scale-in">
             {visibleModules.map((mod, idx) => (
                 <Link 
                     key={mod.code} 

@@ -35,6 +35,7 @@ public class Solution {
   const [labs, setLabs] = useState<any[]>([])
   const [isRunning, setIsRunning] = useState(false)
   const [testCases, setTestCases] = useState<TestCase[]>([])
+  const [labTypeFilter, setLabTypeFilter] = useState<'Lab' | 'Challenge'>('Lab')
 
   // Expanded results state
   const [expandedTestId, setExpandedTestId] = useState<string | null>(null)
@@ -213,24 +214,51 @@ public class Solution {
         </div>
       </nav>
 
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Left Panel - Lab & Editor */}
-        <div className="flex-1 flex flex-col border-r border-slate-800">
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
             {/* Lab Selection */}
-            <div className="bg-slate-900 px-4 py-3 border-b border-slate-800 flex items-center gap-4">
-                <label className="text-xs text-slate-400 font-bold">LAB:</label>
-                <select
-                    value={labNumber}
-                    onChange={e => setLabNumber(e.target.value)}
-                    className="bg-slate-800 text-slate-200 px-3 py-1.5 rounded text-xs border border-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                >
-                    <option value="">Select Lab</option>
-                    {labs.map(lab => (
-                        <option key={lab.id} value={lab.labNumber}>
-                            Lab {lab.labNumber}: {lab.title}
-                        </option>
-                    ))}
-                </select>
+            <div className="bg-slate-900 px-4 py-3 border-b border-slate-800 space-y-2 md:space-y-3">
+                {/* Filter Tabs */}
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => setLabTypeFilter('Lab')}
+                        className={`flex-1 px-3 py-1.5 rounded text-xs font-semibold transition-all ${
+                            labTypeFilter === 'Lab'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                    >
+                        Labs
+                    </button>
+                    <button
+                        onClick={() => setLabTypeFilter('Challenge')}
+                        className={`flex-1 px-3 py-1.5 rounded text-xs font-semibold transition-all ${
+                            labTypeFilter === 'Challenge'
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                    >
+                        Challenges
+                    </button>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                    <label className="text-xs text-slate-400 font-bold">SELECT:</label>
+                    <select
+                        value={labNumber}
+                        onChange={e => setLabNumber(e.target.value)}
+                        className="flex-1 bg-slate-800 text-slate-200 px-3 py-1.5 rounded text-xs border border-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    >
+                        <option value="">Choose {labTypeFilter === 'Lab' ? 'Lab' : 'Challenge'}</option>
+                        {labs
+                            .filter(lab => (lab.labType || 'Lab') === labTypeFilter)
+                            .map(lab => (
+                            <option key={lab.id} value={lab.labNumber}>
+                                {labTypeFilter === 'Lab' ? 'Lab' : 'Challenge'} {lab.labNumber}: {lab.title}
+                            </option>
+                        ))}
+                    </select>
+                </div>
             </div>
 
             {/* Editor Header */}
@@ -254,7 +282,7 @@ public class Solution {
         </div>
 
         {/* Right Panel - Custom Test Runner */}
-        <div className="w-full lg:w-96 flex flex-col bg-slate-900/50 border-l border-slate-800">
+        <div className="w-full lg:w-96 flex flex-col bg-slate-900/50 border-t lg:border-t-0 lg:border-l border-slate-800 max-h-[50vh] lg:max-h-none">
              <div className="bg-slate-900 px-4 py-4 border-b border-slate-800 flex justify-between items-center">
                 <div className="flex items-center gap-2">
                     <h2 className="text-sm font-bold text-slate-100">Input/Output Tests</h2>
@@ -263,7 +291,7 @@ public class Solution {
             </div>
 
             {/* Custom Test runner */}
-            <div className="p-4 border-b border-slate-800 bg-slate-900/30 space-y-3">
+            <div className="p-3 md:p-4 border-b border-slate-800 bg-slate-900/30 space-y-2 md:space-y-3">
                  <div className="flex gap-2">
                     <button 
                         onClick={runTests}
@@ -277,19 +305,21 @@ public class Solution {
                 
                 <div className="pt-2 border-t border-white/5">
                     <label className="text-[10px] uppercase font-bold text-slate-500 mb-1.5 block">Custom Input Test</label>
-                    <div className="flex gap-2">
-                         <input 
+                    <div className="space-y-2">
+                         <textarea 
                             value={customInput} 
                             onChange={(e) => setCustomInput(e.target.value)}
-                            className="flex-1 bg-slate-950 border border-slate-800 rounded px-2 py-1.5 text-xs font-mono text-slate-300 focus:outline-none focus:border-blue-500" 
-                            placeholder="Enter input here..."
+                            className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1.5 text-xs font-mono text-slate-300 focus:outline-none focus:border-blue-500 resize-none" 
+                            placeholder="Enter input (one value per line)&#10;Example:&#10;5&#10;10"
+                            rows={4}
                          />
                          <button
                             onClick={runCustomTest}
                             disabled={isRunning}
-                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-bold transition-colors disabled:opacity-50"
+                            className="w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                          >
-                            Run
+                            {isRunning ? <div className="animate-spin w-3 h-3 border-2 border-white/30 border-t-white rounded-full"></div> : <Play className="w-3 h-3" />}
+                            Run Custom Input
                          </button>
                     </div>
                     {customOutput && (

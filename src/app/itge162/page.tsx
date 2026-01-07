@@ -83,17 +83,17 @@ export default function Home() {
         </div>
       </nav>
 
-      <main className="container mx-auto max-w-7xl px-6 py-16 relative z-10">
+      <main className="container mx-auto max-w-7xl px-4 sm:px-6 py-12 sm:py-16 relative z-10">
         {/* Hero Section */}
-        <div className="mx-auto max-w-3xl mb-8 text-center animate-slide-up">
-          <h1 className="text-6xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 sm:text-7xl mb-6">
-            ITGE162 <span className="gradient-text">Physical Science</span>
+        <div className="mx-auto max-w-3xl mb-6 sm:mb-8 text-center animate-slide-up">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 mb-4 sm:mb-6">
+            ITGE162 <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-500">Score Check</span>
           </h1>
         </div>
 
         {/* --- STUDENT STATUS CHECKER --- */}
-        <div className="mx-auto max-w-3xl mb-16 animate-slide-up">
-             <div className="border-t border-b border-slate-200 dark:border-slate-800 py-8 text-center mb-8">
+        <div className="mx-auto max-w-3xl mb-12 sm:mb-16 animate-slide-up">
+             <div className="border-t border-b border-slate-200 dark:border-slate-800 py-6 sm:py-8 text-center mb-6 sm:mb-8">
                  <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Check Your Lab Scores</h2>
                  <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Enter your Student ID to view your progress</p>
              </div>

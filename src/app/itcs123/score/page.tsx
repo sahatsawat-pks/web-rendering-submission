@@ -255,11 +255,11 @@ function StatusChecker() {
                         </div>
                          <div className="flex items-center gap-1.5">
                            <span className="w-2.5 h-2.5 rounded-full bg-yellow-100 border border-yellow-200 block"></span>
-                           <span>1 = Incomplete</span>
+                           <span>1 = Submitted but can't explain the code</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                            <span className="w-2.5 h-2.5 rounded-full bg-green-100 border border-green-200 block"></span>
-                           <span>2 = Complete</span>
+                           <span>2 = Submitted and truly understands the code</span>
                         </div>
                     </div>
                 </div>

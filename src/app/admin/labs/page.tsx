@@ -15,6 +15,7 @@ interface Lab {
   deadline?: string
   createdAt: string
   subject: string
+  labType?: 'Lab' | 'Challenge'
 }
 
 export default function LabManagement() {
@@ -235,10 +236,10 @@ export default function LabManagement() {
           </div>
         )}
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid lg:grid-cols-3 gap-6 md:gap-8">
           {/* Form */}
           <div className="lg:col-span-1 animate-scale-in">
-            <div className="glass-card p-8 sticky top-24 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 border-white/40 dark:border-slate-700/50">
+            <div className="glass-card p-6 md:p-8 lg:sticky lg:top-24 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 border-white/40 dark:border-slate-700/50">
               <div className="flex items-center gap-3 mb-8">
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -371,22 +372,24 @@ export default function LabManagement() {
                   </span>
                 </h3>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
+              <div className="overflow-x-auto -mx-4 md:mx-0">
+                <div className="inline-block min-w-full align-middle">
+                  <div className="overflow-hidden">
+                <table className="w-full text-sm text-left min-w-[800px]">
                   <thead className="bg-gradient-to-r from-blue-500 to-cyan-500 dark:from-blue-600 dark:to-cyan-600 text-white">
                     <tr>
-                      <th className="px-8 py-5 font-semibold tracking-wide">Subject</th>
-                      <th className="px-8 py-5 font-semibold tracking-wide">Lab #</th>
-                      <th className="px-8 py-5 font-semibold tracking-wide">Title</th>
-                      <th className="px-8 py-5 font-semibold tracking-wide">Deadline</th>
-                      <th className="px-8 py-5 font-semibold tracking-wide">Status</th>
-                      <th className="px-8 py-5 text-right font-semibold tracking-wide">Actions</th>
+                      <th className="px-4 md:px-8 py-4 md:py-5 font-semibold tracking-wide text-xs md:text-sm">Subject</th>
+                      <th className="px-4 md:px-8 py-4 md:py-5 font-semibold tracking-wide text-xs md:text-sm">Lab #</th>
+                      <th className="px-4 md:px-8 py-4 md:py-5 font-semibold tracking-wide text-xs md:text-sm">Title</th>
+                      <th className="px-4 md:px-8 py-4 md:py-5 font-semibold tracking-wide text-xs md:text-sm">Deadline</th>
+                      <th className="px-4 md:px-8 py-4 md:py-5 font-semibold tracking-wide text-xs md:text-sm">Status</th>
+                      <th className="px-4 md:px-8 py-4 md:py-5 text-right font-semibold tracking-wide text-xs md:text-sm">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                     {labs.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-6 py-12 text-center">
+                        <td colSpan={6} className="px-6 py-12 text-center">
                           <div className="flex flex-col items-center text-slate-400 dark:text-slate-500">
                             <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
                               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -409,22 +412,35 @@ export default function LabManagement() {
                           key={lab.id}
                           className="hover:bg-blue-50/40 dark:hover:bg-slate-700/40 transition-colors group"
                         >
-                          <td className="px-8 py-5 text-slate-700 dark:text-slate-300 font-bold">{lab.subject || "-"}</td>
-                          <td className="px-8 py-5 font-semibold text-slate-900 dark:text-slate-100">
+                          <td className="px-4 md:px-8 py-4 md:py-5 text-slate-700 dark:text-slate-300 font-bold text-xs md:text-sm">{lab.subject || "-"}</td>
+                          <td className="px-4 md:px-8 py-4 md:py-5 font-semibold text-slate-900 dark:text-slate-100">
                             <div className="flex items-center gap-2">
-                              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 text-white flex items-center justify-center text-sm font-bold shadow-md shadow-blue-500/20">
+                              <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 text-white flex items-center justify-center text-xs md:text-sm font-bold shadow-md shadow-blue-500/20">
                                 {lab.labNumber}
                               </div>
                             </div>
                           </td>
-                          <td className="px-8 py-5 text-slate-700 dark:text-slate-300 font-medium">{lab.title}</td>
-                          <td className="px-8 py-5 text-slate-500 dark:text-slate-400">
+                          <td className="px-4 md:px-8 py-4 md:py-5 text-slate-700 dark:text-slate-300 font-medium text-xs md:text-sm">
+                            <div className="flex flex-col gap-1.5">
+                              <span>{lab.title}</span>
+                              {lab.subject === 'ITCS123' && (
+                                <span className={`px-2 py-0.5 rounded text-xs font-bold w-fit ${
+                                  (lab.labType || 'Lab') === 'Challenge'
+                                    ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
+                                    : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                                }`}>
+                                  {lab.labType || 'Lab'}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 md:px-8 py-4 md:py-5 text-slate-500 dark:text-slate-400 text-xs md:text-sm">
                             {lab.deadline || <span className="text-slate-300 dark:text-slate-600 italic">None</span>}
                           </td>
-                          <td className="px-8 py-5">
+                          <td className="px-4 md:px-8 py-4 md:py-5">
                             <button
                               onClick={() => handleToggleActive(lab)}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                              className={`px-2 md:px-3 py-1 md:py-1.5 rounded-lg text-[10px] md:text-xs font-semibold border transition-all ${
                                 lab.isActive
                                   ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/30"
                                   : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700"
@@ -433,17 +449,27 @@ export default function LabManagement() {
                               {lab.isActive ? "Active" : "Inactive"}
                             </button>
                           </td>
-                          <td className="px-8 py-5 text-right space-x-2">
+                          <td className="px-4 md:px-8 py-4 md:py-5 text-right space-x-1 md:space-x-2">
                             <button
                               onClick={() => handleEdit(lab)}
-                              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-bold transition-colors px-3 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 text-xs uppercase tracking-wide"
+                              disabled={(lab.labType || 'Lab') === 'Challenge'}
+                              className={`font-bold transition-colors px-2 md:px-3 py-1 md:py-1.5 rounded-lg text-[10px] md:text-xs uppercase tracking-wide ${
+                                (lab.labType || 'Lab') === 'Challenge'
+                                  ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
+                                  : 'text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                              }`}
                             >
                               Edit
                             </button>
                             <span className="text-slate-200 dark:text-slate-700">|</span>
                             <button
                               onClick={() => handleDelete(lab.id)}
-                              className="text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 font-bold transition-colors px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-xs uppercase tracking-wide"
+                              disabled={(lab.labType || 'Lab') === 'Challenge'}
+                              className={`font-bold transition-colors px-3 py-1.5 rounded-lg text-xs uppercase tracking-wide ${
+                                (lab.labType || 'Lab') === 'Challenge'
+                                  ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
+                                  : 'text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20'
+                              }`}
                             >
                               Delete
                             </button>
@@ -453,6 +479,8 @@ export default function LabManagement() {
                     )}
                   </tbody>
                 </table>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
