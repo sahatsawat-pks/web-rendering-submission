@@ -45,7 +45,7 @@ export default function AdminLogin() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 flex items-center justify-center p-4 relative overflow-hidden animate-fade-in">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 flex flex-col relative overflow-hidden animate-fade-in">
       <div className="absolute top-4 right-4 z-50">
         <ModeToggle />
       </div>
@@ -63,20 +63,21 @@ export default function AdminLogin() {
         ></div>
       </div>
 
-      <div className="max-w-md w-full relative z-10 animate-scale-in">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+        <div className="max-w-md w-full relative z-10 animate-scale-in">
         {/* Header */}
-        <div className="text-center mb-10">
-          <div className="inline-flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-500 text-white mb-6 animate-float shadow-2xl shadow-teal-500/50">
-            <Lock className="w-10 h-10" />
+        <div className="text-center mb-8 sm:mb-10">
+          <div className="inline-flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-500 text-white mb-4 sm:mb-6 animate-float shadow-2xl shadow-teal-500/50">
+            <Lock className="w-8 h-8 sm:w-10 sm:h-10" />
           </div>
-          <h1 className="text-5xl font-extrabold mb-3">
+          <h1 className="text-4xl sm:text-5xl font-extrabold mb-2 sm:mb-3">
             <span className="gradient-text">Admin Portal</span>
           </h1>
-          <p className="text-lg text-slate-600 dark:text-slate-400">Secure access to the management dashboard</p>
+          <p className="text-base sm:text-lg text-slate-600 dark:text-slate-400">Secure access to the management dashboard</p>
         </div>
 
         {/* Login Form */}
-        <div className="glass-card p-10 hover:shadow-2xl hover:shadow-teal-500/20 transition-all duration-500 border-2 border-white/60 dark:border-slate-700/60">
+        <div className="glass-card p-6 sm:p-8 md:p-10 hover:shadow-2xl hover:shadow-teal-500/20 transition-all duration-500 border-2 border-white/60 dark:border-slate-700/60">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-3">
               <label
@@ -172,7 +173,7 @@ export default function AdminLogin() {
         </div>
 
         {/* Back Link */}
-        <div className="text-center mt-8">
+        <div className="text-center mt-6 sm:mt-8">
           <a
             href="/"
             className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors font-semibold"
@@ -180,6 +181,7 @@ export default function AdminLogin() {
             <ArrowLeft className="w-4 h-4" />
             Back to Submission Viewer
           </a>
+        </div>
         </div>
       </div>
 

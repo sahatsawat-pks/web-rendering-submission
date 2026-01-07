@@ -53,7 +53,7 @@ export default function AdminDashboard() {
       .catch(err => console.error("Failed to fetch user role", err))
   }, [])
 
-  async function handleGradeSubmit(e: React.FormEvent) {
+  async function handleGradeSubmit(e: React.FormEvent, scoreType: 'lab' | 'challenge' | 'both') {
     e.preventDefault()
     setGradingError(null)
     setGradingSuccess(false)
@@ -64,19 +64,27 @@ export default function AdminDashboard() {
       return
     }
 
-    // Submit both lab and challenge scores
+    // Submit based on score type
     try {
+        const payload: any = {
+            action: 'update',
+            username: studentId,
+            labNumber: selectedLab,
+            subject: 'ITCS123'
+        };
+
+        // Add appropriate scores based on type
+        if (scoreType === 'lab' || scoreType === 'both') {
+            payload.labScore = parseInt(labScore);
+        }
+        if (scoreType === 'challenge' || scoreType === 'both') {
+            payload.challengeScore = parseInt(challengeScore);
+        }
+
         const res = await fetch('/api/scores', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'update',
-                username: studentId,
-                labNumber: selectedLab,
-                labScore: parseInt(labScore),
-                challengeScore: parseInt(challengeScore),
-                subject: 'ITCS123'
-            })
+            body: JSON.stringify(payload)
         });
 
         if (res.ok) {
@@ -208,7 +216,7 @@ export default function AdminDashboard() {
               </h3>
             </div>
 
-            <form onSubmit={handleGradeSubmit} className="space-y-4">
+            <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
@@ -258,15 +266,6 @@ export default function AdminDashboard() {
                         </svg>
                         Score Entry for Lab {selectedLab}
                       </h4>
-                      <button
-                        type="button"
-                        onClick={() => setShowScoreDialog(false)}
-                        className="text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-200"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -308,16 +307,39 @@ export default function AdminDashboard() {
                 )}
               </div>
 
-              <div className="flex flex-col md:flex-row gap-4">
-                  <button
-                    type="submit"
-                    className="flex-1 px-6 py-3 text-sm font-medium text-white bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 rounded-xl shadow-md shadow-orange-500/30 transition-all btn-hover-lift flex items-center justify-center gap-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                    Write to Spreadsheet
-                  </button>
+              <div className="flex flex-col gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <button
+                      type="button"
+                      onClick={(e) => handleGradeSubmit(e, 'lab')}
+                      className="px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 rounded-xl shadow-md shadow-blue-500/30 transition-all btn-hover-lift flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Add Lab Only
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => handleGradeSubmit(e, 'challenge')}
+                      className="px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 rounded-xl shadow-md shadow-amber-500/30 transition-all btn-hover-lift flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      Add Challenge Only
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => handleGradeSubmit(e, 'both')}
+                      className="px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 rounded-xl shadow-md shadow-orange-500/30 transition-all btn-hover-lift flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      Add Both Scores
+                    </button>
+                  </div>
                   <button
                     type="button"
                     onClick={handleFillMissing}

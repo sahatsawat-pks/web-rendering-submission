@@ -101,13 +101,16 @@ export async function POST(request: NextRequest) {
     const { action, username, labNumber, score, labScore, challengeScore, feedback, updates, subject, section } = body;
 
     if (action === 'update') {
-        // For ITCS123, handle both lab and challenge scores
-        if (subject === 'ITCS123' && labScore !== undefined && challengeScore !== undefined) {
-            // Update both Lab and Challenge columns
-            // Pass just the lab number, not the full column name
-            // updateStudentLabScore will handle the formatting
-            await updateStudentLabScore(username, labNumber, labScore, undefined, subject, 'lab');
-            await updateStudentLabScore(username, labNumber, challengeScore, undefined, subject, 'challenge');
+        // For ITCS123, handle lab and/or challenge scores independently
+        if (subject === 'ITCS123') {
+            // Update lab score if provided
+            if (labScore !== undefined) {
+                await updateStudentLabScore(username, labNumber, labScore, undefined, subject, 'lab');
+            }
+            // Update challenge score if provided
+            if (challengeScore !== undefined) {
+                await updateStudentLabScore(username, labNumber, challengeScore, undefined, subject, 'challenge');
+            }
         } else {
             // Standard single score update for other subjects
             await updateStudentLabScore(username, labNumber, score, feedback, subject);
