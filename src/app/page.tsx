@@ -1,5 +1,6 @@
 "use client"
 
+import React, { JSX } from "react"
 import { Zap, Code2, Layers, BarChart3, Terminal, BookOpen, Database, Smartphone } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import Link from "next/link"
