@@ -270,7 +270,7 @@ export default function AdminHub() {
             ))}
         </div>
 
-        {(role === 'Lecturer' || username === 'kanzaki_aito') && (
+        {!loading && (role === 'Lecturer' || username === 'kanzaki_aito') && (
           <>
             <div className="mt-16 mb-8 text-center animate-slide-up" style={{ animationDelay: '0.2s' }}>
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
