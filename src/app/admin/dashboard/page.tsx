@@ -1,6 +1,6 @@
 "use client"
 
-import { Code2, BarChart3, Layers, Terminal, ArrowRight, Shield, Key, Home } from "lucide-react"
+import { Code2, BarChart3, Layers, Terminal, ArrowRight, Shield, Key, Home, BookOpen, Database, Smartphone } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
 import Link from "next/link"
@@ -39,6 +39,14 @@ export default function AdminHub() {
       icon: <Terminal className="w-8 h-8" />,
       color: "from-orange-500 to-amber-500",
       href: "/admin/itcs123"
+    },
+    {
+      code: "ITDS283",
+      title: "Mobile Development",
+      desc: "Mobile dev labs gradebook and score tracking.",
+      icon: <Smartphone className="w-8 h-8" />,
+      color: "from-rose-500 to-red-500",
+      href: "/admin/itds283"
     }
   ]
 
@@ -302,14 +310,39 @@ export default function AdminHub() {
                     </div>
                     <div className="flex-1">
                         <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Lab Management</h3>
-                         <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Assignments</h4>
+                        <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Global Config</h4>
                         <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                            Create and configure lab assignments.
+                            Configure labs, deadlines, and sections.
                         </p>
                     </div>
                 </div>
-                 <div className="bg-slate-50 dark:bg-slate-800/50 px-8 py-4 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
+                <div className="bg-slate-50 dark:bg-slate-800/50 px-8 py-4 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
                     <span className="text-sm font-bold text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200 transition-colors">Manage Labs</span>
+                    <ArrowRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1 transition-transform group-hover:text-slate-900 dark:group-hover:text-slate-200" />
+                </div>
+            </Link>
+            )}
+
+            {(role === 'Lecturer' || username === 'kanzaki_aito') && (
+            <Link 
+                href="/admin/subjects"
+                className="group relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+            >
+                <div className="h-2 animate-pulse bg-gradient-to-r from-amber-500 to-orange-500"></div>
+                <div className="p-8 flex items-start gap-6">
+                    <div className="flex-shrink-0 h-16 w-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-lg">
+                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                    </div>
+                    <div className="flex-1">
+                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Subject Management</h3>
+                        <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Module Visibility</h4>
+                        <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                            Control subject display and ordering on main page.
+                        </p>
+                    </div>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-800/50 px-8 py-4 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
+                    <span className="text-sm font-bold text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200 transition-colors">Manage Subjects</span>
                     <ArrowRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1 transition-transform group-hover:text-slate-900 dark:group-hover:text-slate-200" />
                 </div>
             </Link>

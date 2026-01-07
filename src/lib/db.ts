@@ -498,3 +498,74 @@ export async function upsertPermission(userId: string, subjectCode: string, canE
 export async function getDb() {
     throw new Error("getDb() is deprecated. Please use specific DB functions from named imports.");
 }
+
+// Subject Management Functions
+export interface Subject {
+  id: number;
+  code: string;
+  title: string;
+  description: string;
+  icon: string;
+  color: string;
+  isVisible: boolean;
+  displayOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getSubjects(visibleOnly: boolean = false): Promise<Subject[]> {
+  const pool = getPool();
+  const client = await pool.connect();
+  
+  try {
+    const query = visibleOnly 
+      ? 'SELECT * FROM subjects WHERE is_visible = true ORDER BY display_order, code'
+      : 'SELECT * FROM subjects ORDER BY display_order, code';
+    
+    const result = await client.query(query);
+    return result.rows.map(row => ({
+      id: row.id,
+      code: row.code,
+      title: row.title,
+      description: row.description,
+      icon: row.icon,
+      color: row.color,
+      isVisible: row.is_visible,
+      displayOrder: row.display_order,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }));
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateSubjectVisibility(code: string, isVisible: boolean): Promise<void> {
+  const pool = getPool();
+  const client = await pool.connect();
+  
+  try {
+    await client.query(`
+      UPDATE subjects 
+      SET is_visible = $1, updated_at = CURRENT_TIMESTAMP 
+      WHERE code = $2
+    `, [isVisible, code]);
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateSubjectOrder(code: string, displayOrder: number): Promise<void> {
+  const pool = getPool();
+  const client = await pool.connect();
+  
+  try {
+    await client.query(`
+      UPDATE subjects 
+      SET display_order = $1, updated_at = CURRENT_TIMESTAMP 
+      WHERE code = $2
+    `, [displayOrder, code]);
+  } finally {
+    client.release();
+  }
+}
