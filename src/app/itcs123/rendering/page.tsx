@@ -315,7 +315,6 @@ public class Solution {
              <div className="bg-slate-900 px-4 py-4 border-b border-slate-800 flex justify-between items-center">
                 <div className="flex items-center gap-2">
                     <h2 className="text-sm font-bold text-slate-100">Input/Output Tests</h2>
-                    <span className="bg-orange-500/20 text-orange-400 text-[10px] font-bold px-1.5 py-0.5 rounded">BETA</span>
                 </div>
             </div>
 
