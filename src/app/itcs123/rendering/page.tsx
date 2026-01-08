@@ -369,7 +369,35 @@ public class Solution {
                 )}
                 
                 {testCases.map((test) => (
-                    <div key={test.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-swhitespace-pre-wrap">{test.input || <span className="text-slate-600 italic">None</span>}</div>
+                    <div key={test.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm hover:border-slate-700 transition-colors">
+                        <div className="p-3 flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                                <h3 className="text-sm font-semibold text-slate-200 truncate pr-2">{test.name}</h3>
+                                <div className="flex items-center gap-2 mt-2">
+                                    {test.status === 'pending' && <span className="text-xs text-slate-500 flex items-center gap-1">Not run</span>}
+                                    {test.status === 'running' && <span className="text-xs text-blue-400 flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div> Running...</span>}
+                                    {test.status === 'pass' && <span className="text-xs text-green-400 flex items-center gap-1 font-bold"><CheckCircle2 className="w-3 h-3" /> Passed</span>}
+                                    {test.status === 'fail' && <span className="text-xs text-red-400 flex items-center gap-1 font-bold"><XCircle className="w-3 h-3" /> Failed</span>}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="px-3 pb-3 flex justify-end">
+                            <button 
+                                onClick={() => setExpandedTestId(expandedTestId === test.id ? null : test.id)}
+                                className="text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-300 bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded flex items-center gap-1 transition-colors"
+                            >
+                                {expandedTestId === test.id ? 'Hide Results' : 'Results'}
+                                {expandedTestId === test.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                            </button>
+                        </div>
+
+                        {/* Expanded Details */}
+                        {expandedTestId === test.id && (
+                            <div className="bg-slate-950/50 border-t border-slate-800 p-3 text-xs font-mono space-y-2 animate-slide-up">
+                                <div>
+                                    <span className="text-slate-500 block mb-0.5">Input:</span>
+                                    <div className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-300 whitespace-pre-wrap">{test.input || <span className="text-slate-600 italic">None</span>}</div>
                                 </div>
                                 <div>
                                     <span className="text-slate-500 block mb-0.5">Expected Output:</span>
@@ -427,16 +455,11 @@ public class Solution {
                                                 </div>
                                             </div>
                                         )}
-                                    </
-                        <div className="px-3 pb-3 flex justify-end">
-                            <button 
-                                onClick={() => setExpandedTestId(expandedTestId === test.id ? null : test.id)}
-                                className="text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-300 bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded flex items-center gap-1 transition-colors"
-                            >
-                                {expandedTestId === test.id ? 'Hide Results' : 'Results'}
-                                {expandedTestId === test.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                            </button>
-                        </div>
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    </div>
 
                         {/* Expanded Details */}
                         {expandedTestId === test.id && (
