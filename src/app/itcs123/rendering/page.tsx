@@ -360,7 +360,7 @@ public class Solution {
                 </div>
 
                 {/* Test Results Summary */}
-                {testCases.length > 0 && testCases.some(t => t.status !== 'pending') && (
+                {testCases.length > 0 && !isRunning && testCases.some(t => t.status === 'pass' || t.status === 'fail') && (
                     <div className="pt-2 border-t border-white/5">
                         {(() => {
                             const totalTests = testCases.length;
