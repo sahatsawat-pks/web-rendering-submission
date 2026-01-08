@@ -358,6 +358,59 @@ public class Solution {
                         </div>
                     )}
                 </div>
+
+                {/* Test Results Summary */}
+                {testCases.length > 0 && testCases.some(t => t.status !== 'pending') && (
+                    <div className="pt-2 border-t border-white/5">
+                        {(() => {
+                            const totalTests = testCases.length;
+                            const passedTests = testCases.filter(t => t.status === 'pass').length;
+                            const failedTests = testCases.filter(t => t.status === 'fail').length;
+                            const percentage = totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0;
+                            
+                            let bgColor, borderColor, textColor, icon, message;
+                            
+                            if (passedTests === totalTests) {
+                                // All passed - Green
+                                bgColor = 'bg-green-950/30';
+                                borderColor = 'border-green-500/50';
+                                textColor = 'text-green-400';
+                                icon = <CheckCircle2 className="w-5 h-5" />;
+                                message = '🎉 Congratulations! All tests passed!';
+                            } else if (passedTests === 0) {
+                                // None passed - Red
+                                bgColor = 'bg-red-950/30';
+                                borderColor = 'border-red-500/50';
+                                textColor = 'text-red-400';
+                                icon = <XCircle className="w-5 h-5" />;
+                                message = 'Keep trying! Review the test results below.';
+                            } else {
+                                // Partial - Yellow
+                                bgColor = 'bg-amber-950/30';
+                                borderColor = 'border-amber-500/50';
+                                textColor = 'text-amber-400';
+                                icon = <AlertCircle className="w-5 h-5" />;
+                                message = 'Almost there! Try again to pass all tests.';
+                            }
+                            
+                            return (
+                                <div className={`${bgColor} border ${borderColor} rounded-lg p-3 space-y-2 animate-fade-in`}>
+                                    <div className="flex items-start gap-2">
+                                        <div className={textColor}>{icon}</div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className={`font-bold text-sm ${textColor}`}>{message}</div>
+                                            <div className="text-slate-400 text-xs mt-1">
+                                                Passed: <span className={`font-bold ${textColor}`}>{passedTests}/{totalTests}</span> 
+                                                <span className="text-slate-600 mx-1">•</span> 
+                                                {percentage}%
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </div>
+                )}
             </div>
             
             <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-950/50">
