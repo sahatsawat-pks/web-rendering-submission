@@ -44,6 +44,34 @@ public class Solution {
   const [customInput, setCustomInput] = useState("");
   const [customOutput, setCustomOutput] = useState<string | null>(null);
 
+  // Helper function to show character differences
+  const showDifferences = (expected: string, actual: string) => {
+    if (expected === actual) return null;
+    
+    const diffs: { char: string; type: 'same' | 'expected' | 'actual'; index: number }[] = [];
+    const maxLen = Math.max(expected.length, actual.length);
+    
+    for (let i = 0; i < maxLen; i++) {
+      const expChar = expected[i];
+      const actChar = actual[i];
+      
+      if (expChar === actChar) {
+        if (expChar !== undefined) {
+          diffs.push({ char: expChar, type: 'same', index: i });
+        }
+      } else {
+        if (expChar !== undefined) {
+          diffs.push({ char: expChar === '\n' ? '\\n' : expChar === ' ' ? '␣' : expChar, type: 'expected', index: i });
+        }
+        if (actChar !== undefined) {
+          diffs.push({ char: actChar === '\n' ? '\\n' : actChar === ' ' ? '␣' : actChar, type: 'actual', index: i });
+        }
+      }
+    }
+    
+    return diffs;
+  };
+
   const runCustomTest = async () => {
       setIsRunning(true);
       setCustomOutput(null);
@@ -341,19 +369,65 @@ public class Solution {
                 )}
                 
                 {testCases.map((test) => (
-                    <div key={test.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm hover:border-slate-700 transition-colors">
-                        <div className="p-3 flex items-start justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                                <h3 className="text-sm font-semibold text-slate-200 truncate pr-2">{test.name}</h3>
-                                <div className="flex items-center gap-2 mt-2">
-                                    {test.status === 'pending' && <span className="text-xs text-slate-500 flex items-center gap-1">Not run</span>}
-                                    {test.status === 'running' && <span className="text-xs text-blue-400 flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div> Running...</span>}
-                                    {test.status === 'pass' && <span className="text-xs text-green-400 flex items-center gap-1 font-bold"><CheckCircle2 className="w-3 h-3" /> Passed</span>}
-                                    {test.status === 'fail' && <span className="text-xs text-red-400 flex items-center gap-1 font-bold"><XCircle className="w-3 h-3" /> Failed</span>}
+                    <div key={test.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-swhitespace-pre-wrap">{test.input || <span className="text-slate-600 italic">None</span>}</div>
                                 </div>
-                            </div>
-                        </div>
-                        
+                                <div>
+                                    <span className="text-slate-500 block mb-0.5">Expected Output:</span>
+                                    <div className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-300 whitespace-pre-wrap">{test.expectedOutput}</div>
+                                </div>
+                                {test.actualOutput && (
+                                    <>
+                                        <div>
+                                            <span className="text-slate-500 block mb-0.5">Actual Output:</span>
+                                            <div className={`bg-slate-900 border border-slate-800 rounded px-2 py-1 whitespace-pre-wrap ${test.status === 'pass' ? 'text-green-400' : 'text-red-400'}`}>
+                                                {test.actualOutput}
+                                            </div>
+                                        </div>
+                                        {test.status === 'fail' && test.actualOutput !== test.expectedOutput && (
+                                            <div className="bg-amber-950/30 border border-amber-900/50 rounded p-2 space-y-1">
+                                                <span className="text-amber-400 font-bold text-[10px] uppercase tracking-wider block">Differences Found:</span>
+                                                <div className="text-[10px] space-y-0.5">
+                                                    {(() => {
+                                                        const expectedLines = test.expectedOutput.split('\n');
+                                                        const actualLines = test.actualOutput.split('\n');
+                                                        const maxLines = Math.max(expectedLines.length, actualLines.length);
+                                                        const differences = [];
+                                                        
+                                                        if (expectedLines.length !== actualLines.length) {
+                                                            differences.push(
+                                                                <div key="line-count" className="text-red-300">
+                                                                    • Line count: Expected {expectedLines.length} lines, got {actualLines.length} lines
+                                                                </div>
+                                                            );
+                                                        }
+                                                        
+                                                        for (let i = 0; i < maxLines; i++) {
+                                                            const expLine = expectedLines[i];
+                                                            const actLine = actualLines[i];
+                                                            
+                                                            if (expLine !== actLine) {
+                                                                differences.push(
+                                                                    <div key={i} className="text-slate-300 bg-slate-900/50 p-1.5 rounded">
+                                                                        <div className="text-amber-400 mb-0.5">Line {i + 1}:</div>
+                                                                        <div className="pl-2 space-y-0.5">
+                                                                            <div className="text-green-400">
+                                                                                <span className="text-slate-500">Expected:</span> {expLine === undefined ? '(missing)' : expLine === '' ? '(empty line)' : expLine}
+                                                                            </div>
+                                                                            <div className="text-red-400">
+                                                                                <span className="text-slate-500">Actual:</span> {actLine === undefined ? '(missing)' : actLine === '' ? '(empty line)' : actLine}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            }
+                                                        }
+                                                        
+                                                        return differences.length > 0 ? differences : <div className="text-slate-400 italic">Unable to detect differences</div>;
+                                                    })()}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </
                         <div className="px-3 pb-3 flex justify-end">
                             <button 
                                 onClick={() => setExpandedTestId(expandedTestId === test.id ? null : test.id)}
