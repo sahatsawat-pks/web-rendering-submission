@@ -460,29 +460,6 @@ public class Solution {
                             </div>
                         )}
                     </div>
-
-                        {/* Expanded Details */}
-                        {expandedTestId === test.id && (
-                            <div className="bg-slate-950/50 border-t border-slate-800 p-3 text-xs font-mono space-y-2 animate-slide-up">
-                                <div>
-                                    <span className="text-slate-500 block mb-0.5">Input:</span>
-                                    <div className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-300 break-all">{test.input || <span className="text-slate-600 italic">None</span>}</div>
-                                </div>
-                                <div>
-                                    <span className="text-slate-500 block mb-0.5">Expected Output:</span>
-                                    <div className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-300 break-all">{test.expectedOutput}</div>
-                                </div>
-                                {test.actualOutput && (
-                                    <div>
-                                        <span className="text-slate-500 block mb-0.5">Actual Output:</span>
-                                        <div className={`bg-slate-900 border border-slate-800 rounded px-2 py-1 break-all ${test.status === 'pass' ? 'text-green-400' : 'text-red-400'}`}>
-                                            {test.actualOutput}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
                 ))}
 
                 {testCases.length === 0 && (
