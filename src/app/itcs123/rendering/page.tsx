@@ -92,7 +92,7 @@ public class Solution {
   // Update test cases when lab changes
   useEffect(() => {
     if (labNumber && labs.length > 0) {
-      const currentLab = labs.find(l => l.labNumber === labNumber)
+      const currentLab = labs.find(l => l.labNumber === labNumber && (l.labType || 'Lab') === labTypeFilter)
       if (currentLab && currentLab.testCases) {
         try {
             const parsed = JSON.parse(currentLab.testCases)
@@ -106,7 +106,7 @@ public class Solution {
         setTestCases([])
       }
     }
-  }, [labNumber, labs])
+  }, [labNumber, labs, labTypeFilter])
 
 
 
