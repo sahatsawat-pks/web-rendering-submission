@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { ModeToggle } from "@/components/mode-toggle"
-import { ArrowLeft, BookOpen, Terminal, Code } from "lucide-react"
+import { ArrowLeft, BookOpen, Terminal } from "lucide-react"
 import Link from "next/link"
 import Footer from "@/components/Footer"
 
@@ -44,7 +44,7 @@ export default function ITCS251LandingPage() {
            </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl animate-scale-in">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl animate-scale-in">
            {/* Card 1: Test Runner */}
            <Link href="/itcs251/rendering" className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 shadow-2xl hover:shadow-blue-500/20 transition-all duration-500 hover:-translate-y-2">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-sky-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -72,20 +72,6 @@ export default function ITCS251LandingPage() {
                  </p>
               </div>
            </Link>
-
-           {/* Card 3: Notion Summary */}
-           <a href="https://kanzaki-aito.notion.site/ICT-1st-Year-2nd-2025-499db3618b5049a4aa2abb96188ee4ca" target="_blank" rel="noopener noreferrer" className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 shadow-2xl hover:shadow-blue-500/20 transition-all duration-500 hover:-translate-y-2">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative z-10 flex flex-col items-center text-center">
-                 <div className="w-20 h-20 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500">
-                    <Code className="w-10 h-10 text-blue-600 dark:text-blue-400" />
-                 </div>
-                 <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3">Course Summary</h2>
-                 <p className="text-slate-500 dark:text-slate-400">
-                    Access course materials, notes, and summaries on Notion.
-                 </p>
-              </div>
-           </a>
         </div>
       </main>
 

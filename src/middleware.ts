@@ -4,8 +4,46 @@ import { verifyToken } from './lib/auth'
 // Note: verifyToken logic might need adjustment for Edge Runtime if it uses Node-specific crypto, 
 // but 'jose' (which is used in lib/auth via previous checks) is Edge compatible.
 
+// Subject paths that need visibility check
+const subjectPaths = ['itcs223', 'itcs227', 'itge162', 'itcs123', 'itcs251', 'itcs255', 'itds283']
+
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
+
+  // Check subject visibility for non-admin users
+  const subjectMatch = subjectPaths.find(s => path.startsWith(`/${s}`))
+  if (subjectMatch) {
+    const token = request.cookies.get('auth-token')?.value
+    
+    // If user has token, they might be admin - let them through
+    // If no token, check if subject is visible
+    if (!token) {
+      try {
+        // Fetch subject visibility
+        const baseUrl = request.nextUrl.origin
+        const response = await fetch(`${baseUrl}/api/subjects`, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          const subject = data.subjects?.find((s: any) => 
+            s.code.toLowerCase() === subjectMatch.toLowerCase()
+          )
+          
+          // If subject exists and is not visible, redirect to home
+          if (subject && !subject.is_visible) {
+            return NextResponse.redirect(new URL('/', request.url))
+          }
+        }
+      } catch (error) {
+        console.error('Error checking subject visibility:', error)
+        // On error, allow access to avoid breaking the site
+      }
+    }
+  }
 
   // Only run on /admin routes
   if (path.startsWith('/admin')) {
@@ -38,5 +76,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: '/admin/:path*',
+  matcher: ['/admin/:path*', '/itcs223/:path*', '/itcs227/:path*', '/itge162/:path*', '/itcs123/:path*', '/itcs251/:path*', '/itcs255/:path*', '/itds283/:path*'],
 }
