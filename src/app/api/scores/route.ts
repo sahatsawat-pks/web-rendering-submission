@@ -142,6 +142,17 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action, username, labNumber, score, labScore, challengeScore, feedback, updates, subject, section } = body;
 
+    // Check if user has permission to update scores for this subject (or is main admin)
+    if (subject && user.username !== 'kanzaki_aito') {
+      const { getUserPermissions } = await import("@/lib/db");
+      const userPerms = await getUserPermissions(user.userId);
+      const hasPermission = userPerms.some(p => p.subjectCode === subject.toLowerCase() && p.canEdit);
+      
+      if (!hasPermission) {
+        return NextResponse.json({ error: "Forbidden: You don't have permission to update scores for this subject" }, { status: 403 });
+      }
+    }
+
     if (action === 'update') {
         // For ITCS123, handle lab and/or challenge scores independently
         if (subject === 'ITCS123') {
