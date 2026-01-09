@@ -1,6 +1,6 @@
 "use client"
 
-import { Zap, Code2, Layers, BarChart3, Terminal, Smartphone } from "lucide-react"
+import { Zap, Code2, Layers, BarChart3, Terminal, Smartphone, Code, Database } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import Link from "next/link"
 import { useEffect, useState } from "react"
@@ -62,16 +62,36 @@ export default function LandingPage() {
       shadow: "shadow-orange-500/30",
       link: "/itcs123"
     },
-    // {
-    //   id: "itds283",
-    //   code: "ITDS283",
-    //   title: "Mobile Application Development",
-    //   description: "Mobile dev labs gradebook and score tracking.",
-    //   icon: <Smartphone className="w-6 h-6" />,
-    //   color: "from-rose-500 to-red-500",
-    //   shadow: "shadow-rose-500/30",
-    //   link: "/itds283"
-    // }
+    {
+      id: "itcs251",
+      code: "ITCS251",
+      title: "Python Programming",
+      description: "Python code execution and test validation.",
+      icon: <Code className="w-6 h-6" />,
+      color: "from-blue-500 to-sky-500",
+      shadow: "shadow-blue-500/30",
+      link: "/itcs251"
+    },
+    {
+      id: "itcs255",
+      code: "ITCS255",
+      title: "Database Systems",
+      description: "SQL query execution and validation.",
+      icon: <Database className="w-6 h-6" />,
+      color: "from-purple-500 to-pink-500",
+      shadow: "shadow-purple-500/30",
+      link: "/itcs255"
+    },
+    {
+      id: "itds283",
+      code: "ITDS283",
+      title: "Mobile Application Development",
+      description: "Mobile dev labs gradebook and score tracking.",
+      icon: <Smartphone className="w-6 h-6" />,
+      color: "from-rose-500 to-red-500",
+      shadow: "shadow-rose-500/30",
+      link: "/itds283"
+    }
   ]
 
   return (

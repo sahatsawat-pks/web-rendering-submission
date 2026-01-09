@@ -1,13 +1,12 @@
 "use client"
 
 import type React from "react"
-import { Smartphone } from "lucide-react"
-import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
-import Link from "next/link"
 import { useState, useEffect } from "react"
+import { ModeToggle } from "@/components/mode-toggle"
+import { Code } from "lucide-react"
 
-export default function ITDS283AdminPage() {
+export default function ITCS255AdminPage() {
   const [labs, setLabs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [studentId, setStudentId] = useState("")
@@ -19,7 +18,7 @@ export default function ITDS283AdminPage() {
   useEffect(() => {
     async function fetchLabs() {
       try {
-        const res = await fetch("/api/labs?activeOnly=true&subject=ITDS283")
+        const res = await fetch("/api/labs?activeOnly=true&subject=ITCS255")
         if (res.ok) {
           const data = await res.json()
           if (data.success) {
@@ -53,7 +52,7 @@ export default function ITDS283AdminPage() {
                 action: 'update',
                 username: studentId,
                 labNumber: selectedLab,
-                subject: 'ITDS283',
+                subject: 'ITCS255',
                 labScore: parseInt(score)
             })
         })
@@ -72,29 +71,25 @@ export default function ITDS283AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-red-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950">
-      <nav className="sticky top-0 z-50 w-full glass border-b border-white/30 dark:border-slate-700/50 shadow-lg">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950">
+      <nav className="sticky top-0 z-50 w-full glass border-b border-white/20 shadow-sm">
         <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-rose-600 to-red-600 text-white font-bold shadow-lg">
-                <Smartphone className="h-5 w-5" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 text-white font-bold shadow-lg">
+                <Code className="h-5 w-5" />
               </div>
               <span className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-                ITDS283 Admin
+                ITCS255 Admin
               </span>
             </div>
-
-            <div className="flex items-center gap-4 md:gap-6">
-              <Link
-                href="/admin/dashboard"
-                className="text-sm font-medium text-slate-500 hover:text-rose-700 dark:hover:text-rose-300 transition-colors whitespace-nowrap"
-              >
-                &larr; <span className="hidden sm:inline">Back to Dashboard</span>
-              </Link>
-            </div>
+            <a
+               href="/admin/dashboard"
+               className="text-sm font-medium text-slate-500 hover:text-purple-600 transition-colors"
+            >
+              &larr; Hub
+            </a>
           </div>
-
           <div className="flex items-center gap-4">
             <ModeToggle />
             <LogoutButton />
@@ -102,27 +97,20 @@ export default function ITDS283AdminPage() {
         </div>
       </nav>
 
-      <main className="container mx-auto max-w-6xl px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-2">
-            ITDS283 - Mobile Development
-          </h1>
-          <p className="text-lg text-slate-600 dark:text-slate-400">
-            Mobile dev labs score management and grading system
-          </p>
-        </div>
+      <main className="container mx-auto max-w-4xl px-4 py-8">
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-8">ITCS255 - Database Systems</h1>
 
-        <div className="glass-card p-8 rounded-2xl">
+        <div className="glass-card p-8">
           <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-6">Grade Lab Submission</h2>
           
           {gradingSuccess && (
-            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 p-4 rounded-xl mb-6 animate-fade-in">
-              ✓ Score updated successfully!
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 p-4 rounded-xl mb-6">
+              Score updated successfully!
             </div>
           )}
 
           {gradingError && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 p-4 rounded-xl mb-6 animate-fade-in">
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 p-4 rounded-xl mb-6">
               {gradingError}
             </div>
           )}
@@ -134,7 +122,7 @@ export default function ITDS283AdminPage() {
                 type="text"
                 value={studentId}
                 onChange={(e) => setStudentId(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white/90 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500/50"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white/90 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                 placeholder="Enter student ID"
                 required
               />
@@ -145,7 +133,7 @@ export default function ITDS283AdminPage() {
               <select
                 value={selectedLab}
                 onChange={(e) => setSelectedLab(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white/90 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500/50"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white/90 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                 required
               >
                 <option value="">Select Lab</option>
@@ -160,7 +148,7 @@ export default function ITDS283AdminPage() {
               <select
                 value={score}
                 onChange={(e) => setScore(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white/90 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500/50"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white/90 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
               >
                 <option value="0">0 - No Submission</option>
                 <option value="1">1 - Incomplete</option>
@@ -170,7 +158,7 @@ export default function ITDS283AdminPage() {
 
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-bold py-4 px-6 rounded-xl shadow-xl shadow-rose-500/20 transition-all"
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-4 px-6 rounded-xl shadow-xl transition-all"
             >
               Submit Grade
             </button>

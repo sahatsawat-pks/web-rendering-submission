@@ -47,7 +47,7 @@ export default function LabManagement() {
   useEffect(() => {
     const isMainAdmin = currentUser === "kanzaki_aito"
     const allowedSubjects = isMainAdmin 
-      ? ["ITGE162", "ITCS227", "ITCS223", "ITCS123"] 
+      ? ["ITGE162", "ITCS227", "ITCS223", "ITCS123", "ITDS283", "ITCS251", "ITCS255"] 
       : Object.keys(userPermissions)
           .filter(subject => userPermissions[subject])
           .map(subject => subject.toUpperCase())
@@ -221,7 +221,7 @@ export default function LabManagement() {
 
   // Get allowed subjects based on permissions (normalize to uppercase)
   const allowedSubjects = isMainAdmin 
-    ? ["ITGE162", "ITCS227", "ITCS223", "ITCS123", "ITDS283"] 
+    ? ["ITGE162", "ITCS227", "ITCS223", "ITCS123", "ITDS283", "ITCS251", "ITCS255"] 
     : Object.keys(userPermissions)
         .filter(subject => userPermissions[subject])
         .map(subject => subject.toUpperCase())

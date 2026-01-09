@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
         if (targetUsername) {
              const student = allScores.find(s => 
                 s.username === targetUsername || 
-                s.username === targetUsername.replace(/^u/, '')
+                (targetUsername && s.username === targetUsername.replace(/^u/, ''))
              );
              
              if (!student) {
