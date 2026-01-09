@@ -18,6 +18,9 @@ interface User {
     itcs227: boolean
     itge162: boolean
     itcs123: boolean
+    itcs251: boolean
+    itcs255: boolean
+    itds283: boolean
   }
 }
 
@@ -26,6 +29,9 @@ const SUBJECTS = [
   { code: "itcs227", name: "ITCS227 - Data Science", color: "from-indigo-500 to-violet-500" },
   { code: "itge162", name: "ITGE162 - Physical Science", color: "from-emerald-500 to-green-500" },
   { code: "itcs123", name: "ITCS123 - OOP", color: "from-orange-500 to-amber-500" },
+  { code: "itcs251", name: "ITCS251 - Python", color: "from-blue-500 to-sky-500" },
+  { code: "itcs255", name: "ITCS255 - Database", color: "from-purple-500 to-pink-500" },
+  { code: "itds283", name: "ITDS283 - Mobile Dev", color: "from-rose-500 to-red-500" },
 ]
 
 export default function UserManagement() {
@@ -432,7 +438,7 @@ export default function UserManagement() {
                     ))}
                     {users.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center">
+                        <td colSpan={10} className="px-6 py-12 text-center">
                           <div className="flex flex-col items-center text-slate-400 dark:text-slate-600">
                             <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
                               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">

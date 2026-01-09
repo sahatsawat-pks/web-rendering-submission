@@ -543,6 +543,21 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
   });
   xlsxUpdates.push({ col: labIndex + 1, row: rowIndex + 1, value: score });
   
+  // Special handling for ITCS251 and ITCS255: Update In-Class column to TRUE
+  if (subject === 'ITCS251' || subject === 'ITCS255') {
+    const inClassIndex = headers.findIndex((h: string) => 
+      String(h).toLowerCase().trim() === 'in-class'
+    );
+    
+    if (inClassIndex !== -1) {
+      pendingUpdates.push({
+        range: `${tabName}!${getColumnLetter(inClassIndex + 1)}${rowIndex + 1}`,
+        values: [[true]]
+      });
+      xlsxUpdates.push({ col: inClassIndex + 1, row: rowIndex + 1, value: true });
+    }
+  }
+  
   if (feedback !== undefined && feedbackIndex !== -1) {
       pendingUpdates.push({
           range: `${tabName}!${getColumnLetter(feedbackIndex + 1)}${rowIndex + 1}`,

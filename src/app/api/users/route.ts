@@ -21,6 +21,9 @@ export async function GET() {
       itcs227: userPerms.some(p => p.subjectCode === "itcs227" && p.canEdit),
       itge162: userPerms.some(p => p.subjectCode === "itge162" && p.canEdit),
       itcs123: userPerms.some(p => p.subjectCode === "itcs123" && p.canEdit),
+      itcs251: userPerms.some(p => p.subjectCode === "itcs251" && p.canEdit),
+      itcs255: userPerms.some(p => p.subjectCode === "itcs255" && p.canEdit),
+      itds283: userPerms.some(p => p.subjectCode === "itds283" && p.canEdit),
     };
 
     return { ...u, permissions };

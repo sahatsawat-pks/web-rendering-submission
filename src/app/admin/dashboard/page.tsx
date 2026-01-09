@@ -42,6 +42,22 @@ export default function AdminHub() {
       href: "/admin/itcs123"
     },
     {
+      code: "ITCS251",
+      title: "Python Programming",
+      desc: "Python test runner and gradebook management.",
+      icon: <Code2 className="w-8 h-8" />,
+      color: "from-blue-500 to-sky-500",
+      href: "/admin/itcs251"
+    },
+    {
+      code: "ITCS255",
+      title: "Database Systems",
+      desc: "SQL query management and score tracking.",
+      icon: <Database className="w-8 h-8" />,
+      color: "from-purple-500 to-pink-500",
+      href: "/admin/itcs255"
+    },
+    {
       code: "ITDS283",
       title: "Mobile Development",
       desc: "Mobile dev labs gradebook and score tracking.",
