@@ -100,7 +100,7 @@ function StatusChecker() {
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input 
                         type="text" 
-                        placeholder="Enter your 6-letter credential code" 
+                        placeholder="Enter your credential code here" 
                         value={studentId}
                         onChange={(e) => setStudentId(e.target.value)}
                         className="w-full pl-12 pr-4 py-4 rounded-xl bg-slate-50 dark:bg-slate-800 border-none focus:ring-2 focus:ring-purple-500/50 outline-none transition-all placeholder:text-slate-400 text-lg font-medium"
@@ -139,7 +139,6 @@ function StatusChecker() {
                                     `Student ${searchedId}`}
                             </h2>
                             <p className="text-xs text-indigo-400">
-                                {scores.name || scores.surname ? `ID: ${searchedId}` : "Lab Performance Report"}
                                 {scores.Section && (
                                     <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-500 font-bold border border-indigo-500/20">
                                         Section: {scores.Section}
