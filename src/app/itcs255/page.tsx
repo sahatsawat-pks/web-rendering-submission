@@ -25,7 +25,7 @@ export default function ITCS255LandingPage() {
               <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
                 ITCS255
               </span>
-              <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">Database Systems</p>
+              <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">Structured Query Language Essentials</p>
             </div>
           </div>
           <div className="flex items-center gap-4">

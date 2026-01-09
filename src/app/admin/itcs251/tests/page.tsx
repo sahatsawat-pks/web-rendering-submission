@@ -276,7 +276,7 @@ export default function ManageTestCasesPage() {
                <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
                  Manage Test Cases
                </h1>
-               <p className="text-slate-400 mt-1">ITCS251 - Python Programming</p>
+               <p className="text-slate-400 mt-1">ITCS251 - Programming in Python</p>
              </div>
           </div>
         </div>

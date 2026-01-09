@@ -194,7 +194,7 @@ export default function ITCS251AdminDashboard() {
           {/* Welcome Section */}
           <div className="animate-slide-up">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-2">ITCS251 Dashboard</h1>
-            <p className="text-lg text-slate-600 dark:text-slate-400">Python Programming - Grade management and test runner.</p>
+            <p className="text-lg text-slate-600 dark:text-slate-400">Programming in Python - Grade management and test runner.</p>
           </div>
 
           {/* Grading Interface Section */}

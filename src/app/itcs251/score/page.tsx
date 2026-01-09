@@ -260,7 +260,7 @@ export default function ITCS251ScorePage() {
               <span className="text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
                 ITCS251
               </span>
-              <p className="text-xs text-blue-600 dark:text-blue-400 font-medium hidden sm:block">Python Programming</p>
+              <p className="text-xs text-blue-600 dark:text-blue-400 font-medium hidden sm:block">Programming in Python</p>
             </div>
           </div>
           <div className="flex items-center gap-2 md:gap-4">

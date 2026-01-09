@@ -194,7 +194,7 @@ export default function ITCS255AdminDashboard() {
           {/* Welcome Section */}
           <div className="animate-slide-up">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-2">ITCS255 Dashboard</h1>
-            <p className="text-lg text-slate-600 dark:text-slate-400">Database Systems - Grade management and SQL query runner.</p>
+            <p className="text-lg text-slate-600 dark:text-slate-400">Structured Query Language Essentials - Grade management and SQL query runner.</p>
           </div>
 
           {/* Grading Interface Section */}

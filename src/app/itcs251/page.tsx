@@ -25,7 +25,7 @@ export default function ITCS251LandingPage() {
               <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
                 ITCS251
               </span>
-              <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Python Programming</p>
+              <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Programming in Python</p>
             </div>
           </div>
           <div className="flex items-center gap-4">

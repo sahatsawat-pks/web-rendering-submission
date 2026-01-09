@@ -204,7 +204,7 @@ print(a + b)`)
               <span className="text-xs">PY</span>
             </div>
             <span className="font-bold text-slate-100">
-              ITCS251 Python Programming
+              ITCS251 Programming in Python
             </span>
           </div>
           <div className="flex items-center gap-4">

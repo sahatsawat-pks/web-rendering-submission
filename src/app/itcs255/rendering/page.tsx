@@ -215,7 +215,7 @@ SELECT * FROM students;`)
              <div className="flex h-8 w-8 items-center justify-center rounded bg-purple-600 text-white font-bold">
               <span className="text-xs">SQL</span>
             </div>
-            <span className="font-bold text-slate-100">ITCS255 Database Systems</span>
+            <span className="font-bold text-slate-100">ITCS255 Structured Query Language Essentials</span>
           </div>
           <ModeToggle />
         </div>
