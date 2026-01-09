@@ -19,6 +19,7 @@ export default function ITCS251AdminDashboard() {
   const [score, setScore] = useState("0")
   const [gradingSuccess, setGradingSuccess] = useState(false)
   const [gradingError, setGradingError] = useState<string | null>(null)
+  const [lastSubmittedStudentId, setLastSubmittedStudentId] = useState("")
   const [isFilling, setIsFilling] = useState(false)
 
   useEffect(() => {
@@ -94,6 +95,7 @@ export default function ITCS251AdminDashboard() {
         });
 
         if (res.ok) {
+             setLastSubmittedStudentId(studentId);
              setGradingSuccess(true);
              setStudentId("");
              setTimeout(() => setGradingSuccess(false), 5000);
@@ -291,7 +293,7 @@ export default function ITCS251AdminDashboard() {
 
               {gradingSuccess && (
                 <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 px-4 py-3 rounded-xl text-sm">
-                   Score updated for Student {studentId} in ITCS251 Sheet.
+                   Score updated for Student {lastSubmittedStudentId} in ITCS251 Sheet.
                 </div>
               )}
 

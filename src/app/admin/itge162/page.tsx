@@ -20,6 +20,7 @@ export default function AdminDashboard() {
   const [score, setScore] = useState("0")
   const [gradingSuccess, setGradingSuccess] = useState(false)
   const [gradingError, setGradingError] = useState<string | null>(null)
+  const [lastSubmittedStudentId, setLastSubmittedStudentId] = useState("")
   const [isFilling, setIsFilling] = useState(false)
 
   useEffect(() => {
@@ -85,6 +86,7 @@ export default function AdminDashboard() {
         });
 
         if (res.ok) {
+             setLastSubmittedStudentId(studentId);
              setGradingSuccess(true);
              setStudentId("");
              setScore("0");
@@ -305,7 +307,7 @@ export default function AdminDashboard() {
                   <div>
                     <span className="font-semibold">Success!</span>
                     <p className="text-xs opacity-90 mt-0.5">
-                       Score updated for Student {studentId} in ITGE162 Sheet.
+                       Score updated for Student {lastSubmittedStudentId} in ITGE162 Sheet.
                     </p>
                   </div>
                 </div>

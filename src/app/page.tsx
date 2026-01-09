@@ -77,8 +77,8 @@ export default function LandingPage() {
             'ITCS227': 'Lab score tracking and grading system.',
             'ITGE162': 'Physical Science and Computation.',
             'ITCS123': 'Java JUnit test runner and code validator.',
-            'ITCS251': 'Python code execution and test validation.',
-            'ITCS255': 'SQL query execution and validation.',
+            'ITCS251': 'Programming in Python',
+            'ITCS255': 'Structured Query Language Essentials',
             'ITDS283': 'Mobile dev labs gradebook and score tracking.'
           }
 
