@@ -10,11 +10,42 @@ interface LabRow {
     lab: string
     title: string
     score: string
+    totalScore?: number
 }
 
 interface ActiveLab {
     labNumber: string
     title: string
+    totalScore?: number
+}
+
+// Helper function to calculate gradient color based on score percentage
+function getScoreColor(score: number, maxScore: number | undefined): string {
+  if (!maxScore || maxScore === 0) {
+    // Default behavior when no totalScore is set
+    if (score === 2) return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+    if (score === 1) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+    if (score === 0) return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
+    return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-400';
+  }
+
+  const percentage = score / maxScore;
+  
+  if (percentage <= 0) {
+    return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
+  } else if (percentage < 0.5) {
+    // Red to Yellow gradient (0-50%)
+    return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400';
+  } else if (percentage < 0.75) {
+    // Yellow range (50-75%)
+    return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+  } else if (percentage < 1) {
+    // Yellow to Green gradient (75-99%)
+    return 'bg-lime-100 text-lime-800 dark:bg-lime-900/30 dark:text-lime-400';
+  } else {
+    // Full score (100%)
+    return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+  }
 }
 
 function StatusChecker() {
@@ -78,7 +109,8 @@ function StatusChecker() {
           labRows.push({
               lab: lab.labNumber.padStart(2, '0'),
               title: lab.title, 
-              score: (scoreValue === undefined || scoreValue === null || scoreValue === '') ? '0' : scoreValue
+              score: (scoreValue === undefined || scoreValue === null || scoreValue === '') ? '0' : scoreValue,
+              totalScore: lab.totalScore
           })
       })
       
@@ -102,7 +134,7 @@ function StatusChecker() {
                 <button 
                     type="submit" 
                     disabled={loading || !studentId.trim()}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 justify-center shrink-0 shadow-lg shadow-blue-500/30"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-8 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 justify-center shrink-0 shadow-lg shadow-indigo-500/30"
                 >
                     {loading ? <Loader2 className="animate-spin w-5 h-5" /> : "Check Status"}
                 </button>
@@ -262,7 +294,7 @@ export default function ITCS251ScorePage() {
       <main className="container mx-auto max-w-7xl px-6 py-16 relative z-10">
         <div className="mx-auto max-w-3xl mb-16 text-center animate-slide-up">
           <h1 className="text-6xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 sm:text-7xl mb-6">
-            ITCS251 <span className="gradient-text">Score Check</span>
+            ITCS251 <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-sky-500">Score Check</span>
           </h1>
         </div>
 

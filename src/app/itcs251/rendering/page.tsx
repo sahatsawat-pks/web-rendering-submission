@@ -86,7 +86,26 @@ print(a + b)`)
       if (currentLab && currentLab.testCases) {
         try {
             const parsed = JSON.parse(currentLab.testCases)
-            setTestCases(parsed.map((t: any) => ({ ...t, status: 'pending', actualOutput: undefined })))
+            // Parse sub-questions if available
+            let subQuestionsData: any[] = []
+            if (currentLab.subQuestions) {
+              try {
+                subQuestionsData = JSON.parse(currentLab.subQuestions)
+              } catch (e) {
+                console.error("Error parsing sub-questions", e)
+              }
+            }
+            // Map test cases with sub-question info
+            const mappedTests = parsed.map((t: any) => {
+              const subQ = subQuestionsData.find(sq => sq.id === t.subQuestionId)
+              return {
+                ...t,
+                status: 'pending',
+                actualOutput: undefined,
+                subQuestionName: subQ?.name || null
+              }
+            })
+            setTestCases(mappedTests)
         } catch (e) {
             console.error("Error parsing test cases", e)
             setTestCases([])
@@ -339,7 +358,24 @@ print(a + b)`)
                     </div>
                 )}
                 
-                {testCases.map((test) => (
+                {(() => {
+                  // Group tests by sub-question
+                  const grouped: { [key: string]: typeof testCases } = {}
+                  testCases.forEach(test => {
+                    const key = (test as any).subQuestionName || '__no_sub__'
+                    if (!grouped[key]) grouped[key] = []
+                    grouped[key].push(test)
+                  })
+                  
+                  return Object.entries(grouped).map(([subQName, tests]) => (
+                    <div key={subQName}>
+                      {subQName !== '__no_sub__' && (
+                        <div className="mb-2 px-2">
+                          <div className="text-xs font-bold text-blue-400 uppercase tracking-wide">{subQName}</div>
+                          <div className="h-px bg-blue-500/30 mt-1"></div>
+                        </div>
+                      )}
+                      {tests.map((test) => (
                     <div key={test.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm hover:border-slate-700 transition-colors">
                         <div className="p-3 flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
@@ -388,6 +424,9 @@ print(a + b)`)
                         )}
                     </div>
                 ))}
+                    </div>
+                  ))
+                })()}
 
                 {testCases.length === 0 && (
                    <div className="text-center py-10 px-4">

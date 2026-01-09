@@ -77,8 +77,8 @@ export default function LandingPage() {
             'ITCS227': 'Lab score tracking and grading system.',
             'ITGE162': 'Physical Science and Computation.',
             'ITCS123': 'Java JUnit test runner and code validator.',
-            'ITCS251': 'Programming in Python',
-            'ITCS255': 'Structured Query Language Essentials',
+            'ITCS251': 'Python code execution and test validation.',
+            'ITCS255': 'SQL query execution and validation.',
             'ITDS283': 'Mobile dev labs gradebook and score tracking.'
           }
 
@@ -107,6 +107,79 @@ export default function LandingPage() {
         setSubjects([])
       })
   }, [])
+
+  const staticSubjects = [
+    {
+      id: "itcs223",
+      code: "ITCS223",
+      title: "Introduction to Web Development",
+      description: "Full-stack web submission rendering & testing.",
+      icon: <Code2 className="w-6 h-6" />,
+      color: "from-teal-500 to-cyan-500",
+      shadow: "shadow-teal-500/30",
+      link: "/itcs223"
+    },
+    {
+      id: "itcs227",
+      code: "ITCS227",
+      title: "Introduction to Data Science",
+      description: "Lab score tracking and grading system.",
+      icon: <BarChart3 className="w-6 h-6" />,
+      color: "from-indigo-500 to-violet-500",
+      shadow: "shadow-indigo-500/30",
+      link: "/itcs227"
+    },
+    {
+      id: "itge162",
+      code: "ITGE162",
+      title: "Physical Science and Computation",
+      description: "Lab score tracking and grading system.",
+      icon: <Layers className="w-6 h-6" />,
+      color: "from-emerald-500 to-green-500",
+      shadow: "shadow-emerald-500/30",
+      link: "/itge162"
+    },
+    {
+      id: "itcs123",
+      code: "ITCS123",
+      title: "Object Oriented Programming",
+      description: "Java JUnit test runner and code validator.",
+      icon: <Terminal className="w-6 h-6" />,
+      color: "from-orange-500 to-amber-500",
+      shadow: "shadow-orange-500/30",
+      link: "/itcs123"
+    },
+    {
+      id: "itcs251",
+      code: "ITCS251",
+      title: "Python Programming",
+      description: "Python code execution and test validation.",
+      icon: <Code className="w-6 h-6" />,
+      color: "from-blue-500 to-sky-500",
+      shadow: "shadow-blue-500/30",
+      link: "/itcs251"
+    },
+    {
+      id: "itcs255",
+      code: "ITCS255",
+      title: "Database Systems",
+      description: "SQL query execution and validation.",
+      icon: <Database className="w-6 h-6" />,
+      color: "from-purple-500 to-pink-500",
+      shadow: "shadow-purple-500/30",
+      link: "/itcs255"
+    },
+    {
+      id: "itds283",
+      code: "ITDS283",
+      title: "Mobile Application Development",
+      description: "Mobile dev labs gradebook and score tracking.",
+      icon: <Smartphone className="w-6 h-6" />,
+      color: "from-rose-500 to-red-500",
+      shadow: "shadow-rose-500/30",
+      link: "/itds283"
+    }
+  ]
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950 relative overflow-hidden animate-fade-in flex flex-col font-sans">

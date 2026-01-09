@@ -13,6 +13,12 @@ interface TestCase {
   status: 'pending' | 'running' | 'pass' | 'fail'
   errorMessage?: string
   matchMode?: 'trim' | 'exact'
+  // SQL-specific fields
+  setupSql?: string
+  verificationSql?: string
+  testType?: 'query_result' | 'structure_check' | 'data_check'
+  shouldFail?: boolean
+  cleanupSql?: string
 }
 
 export default function SQLTestRunner() {
@@ -77,7 +83,32 @@ SELECT * FROM students;`)
       if (currentLab && currentLab.testCases) {
         try {
             const parsed = JSON.parse(currentLab.testCases)
-            setTestCases(parsed.map((t: any) => ({ ...t, status: 'pending', actualOutput: undefined })))
+            // Parse sub-questions if available
+            let subQuestionsData: any[] = []
+            if (currentLab.subQuestions) {
+              try {
+                subQuestionsData = JSON.parse(currentLab.subQuestions)
+              } catch (e) {
+                console.error("Error parsing sub-questions", e)
+              }
+            }
+            // Map test cases with sub-question info and SQL fields
+            const mappedTests = parsed.map((t: any) => {
+              const subQ = subQuestionsData.find(sq => sq.id === t.subQuestionId)
+              return {
+                ...t,
+                status: 'pending',
+                actualOutput: undefined,
+                subQuestionName: subQ?.name || null,
+                // Preserve SQL-specific fields
+                setupSql: t.setupSql,
+                verificationSql: t.verificationSql,
+                testType: t.testType || 'query_result',
+                shouldFail: t.shouldFail || false,
+                cleanupSql: t.cleanupSql
+              }
+            })
+            setTestCases(mappedTests)
         } catch (e) {
             setTestCases([])
         }
@@ -92,6 +123,8 @@ SELECT * FROM students;`)
     setTestCases(prev => prev.map(t => ({ ...t, status: 'running', actualOutput: undefined, errorMessage: undefined })))
 
     const newCases = [...testCases]
+    const currentLab = labs.find(l => l.labNumber === labNumber)
+    const databaseStarter = currentLab?.databaseStarter
     
     for (let i = 0; i < newCases.length; i++) {
         const test = newCases[i]
@@ -102,7 +135,14 @@ SELECT * FROM students;`)
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     query,
-                    input: test.input
+                    input: test.input,
+                    setupSql: test.setupSql,
+                    verificationSql: test.verificationSql,
+                    cleanupSql: test.cleanupSql,
+                    databaseStarter: databaseStarter,
+                    testType: test.testType || 'query_result',
+                    expectedOutput: test.expectedOutput,
+                    matchMode: test.matchMode || 'trim'
                 })
             })
             
@@ -112,24 +152,40 @@ SELECT * FROM students;`)
                 const current = [...prev]
                 const activeTest = current[i]
                 
-                if (result.error && !result.output) {
-                     activeTest.status = 'fail'
-                     activeTest.actualOutput = result.output || ''
-                     activeTest.errorMessage = result.error
+                // For shouldFail tests, check if error occurred as expected
+                if (test.shouldFail) {
+                    if (result.error) {
+                        activeTest.status = 'pass'
+                        activeTest.actualOutput = `Expected error occurred: ${result.error}`
+                    } else {
+                        activeTest.status = 'fail'
+                        activeTest.actualOutput = `Expected error but query succeeded: ${result.output || ''}`
+                    }
+                } else if (result.error && !result.output) {
+                    activeTest.status = 'fail'
+                    activeTest.actualOutput = result.output || ''
+                    activeTest.errorMessage = result.error
                 } else {
-                    const rawActual = result.output || ''
-                    const rawExpected = activeTest.expectedOutput
-                    
-                    const actualNorm = rawActual.replace(/\r\n/g, '\n')
-                    const expectedNorm = rawExpected.replace(/\r\n/g, '\n')
-                    
-                    const mode = activeTest.matchMode || 'trim'
-                    const passed = mode === 'trim' 
-                        ? actualNorm.trim() === expectedNorm.trim()
-                        : actualNorm === expectedNorm
-                    
-                    activeTest.status = passed ? 'pass' : 'fail'
-                    activeTest.actualOutput = (result.output || '') + (result.error ? `\n\nError:\n${result.error}` : '')
+                    // Use the passed flag from the API if available
+                    if (result.passed !== undefined) {
+                        activeTest.status = result.passed ? 'pass' : 'fail'
+                        activeTest.actualOutput = (result.output || '') + (result.error ? `\n\nError:\n${result.error}` : '')
+                    } else {
+                        // Fallback to manual comparison
+                        const rawActual = result.output || ''
+                        const rawExpected = activeTest.expectedOutput
+                        
+                        const actualNorm = rawActual.replace(/\r\n/g, '\n')
+                        const expectedNorm = rawExpected.replace(/\r\n/g, '\n')
+                        
+                        const mode = activeTest.matchMode || 'trim'
+                        const passed = mode === 'trim' 
+                            ? actualNorm.trim() === expectedNorm.trim()
+                            : actualNorm === expectedNorm
+                        
+                        activeTest.status = passed ? 'pass' : 'fail'
+                        activeTest.actualOutput = (result.output || '') + (result.error ? `\n\nError:\n${result.error}` : '')
+                    }
                 }
                 
                 return current
@@ -277,7 +333,24 @@ SELECT * FROM students;`)
                     </div>
                 )}
                 
-                {testCases.map((test) => (
+                {(() => {
+                  // Group tests by sub-question
+                  const grouped: { [key: string]: typeof testCases } = {}
+                  testCases.forEach(test => {
+                    const key = (test as any).subQuestionName || '__no_sub__'
+                    if (!grouped[key]) grouped[key] = []
+                    grouped[key].push(test)
+                  })
+                  
+                  return Object.entries(grouped).map(([subQName, tests]) => (
+                    <div key={subQName}>
+                      {subQName !== '__no_sub__' && (
+                        <div className="mb-2 px-2">
+                          <div className="text-xs font-bold text-purple-400 uppercase tracking-wide">{subQName}</div>
+                          <div className="h-px bg-purple-500/30 mt-1"></div>
+                        </div>
+                      )}
+                      {tests.map((test) => (
                     <div key={test.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
                         <div className="p-3">
                             <h3 className="text-sm font-semibold text-slate-200">{test.name}</h3>
@@ -301,6 +374,31 @@ SELECT * FROM students;`)
 
                         {expandedTestId === test.id && (
                             <div className="bg-slate-950/50 border-t border-slate-800 p-3 text-xs font-mono space-y-2">
+                                {test.testType && (
+                                    <div>
+                                        <span className="text-slate-500 block mb-0.5">Test Type:</span>
+                                        <div className="inline-block bg-purple-600/20 border border-purple-500/30 rounded px-2 py-0.5 text-purple-300 text-[10px] font-bold uppercase">
+                                            {test.testType.replace('_', ' ')}
+                                        </div>
+                                        {test.shouldFail && (
+                                            <span className="ml-2 inline-block bg-orange-600/20 border border-orange-500/30 rounded px-2 py-0.5 text-orange-300 text-[10px] font-bold uppercase">
+                                                Should Fail
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+                                {test.setupSql && (
+                                    <div>
+                                        <span className="text-slate-500 block mb-0.5">Setup SQL:</span>
+                                        <div className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-400 whitespace-pre-wrap">{test.setupSql}</div>
+                                    </div>
+                                )}
+                                {test.verificationSql && (
+                                    <div>
+                                        <span className="text-slate-500 block mb-0.5">Verification SQL:</span>
+                                        <div className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-400 whitespace-pre-wrap">{test.verificationSql}</div>
+                                    </div>
+                                )}
                                 <div>
                                     <span className="text-slate-500 block mb-0.5">Expected:</span>
                                     <div className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-300 whitespace-pre-wrap">{test.expectedOutput}</div>
@@ -313,10 +411,19 @@ SELECT * FROM students;`)
                                         </div>
                                     </div>
                                 )}
+                                {test.cleanupSql && (
+                                    <div>
+                                        <span className="text-slate-500 block mb-0.5">Cleanup SQL:</span>
+                                        <div className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-400 whitespace-pre-wrap">{test.cleanupSql}</div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
                 ))}
+                    </div>
+                  ))
+                })()}
 
                 {testCases.length === 0 && (
                    <div className="text-center py-10">

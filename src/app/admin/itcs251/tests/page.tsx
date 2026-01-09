@@ -15,6 +15,7 @@ interface Lab {
   testCases?: string; // JSON string
   labType?: 'Lab' | 'Challenge';
   subQuestions?: string; // JSON string
+  totalScore?: number; // Total possible score for gradient display
 }
 
 interface SubQuestion {
@@ -38,6 +39,7 @@ export default function ManageTestCasesPage() {
   const [selectedLab, setSelectedLab] = useState<Lab | null>(null);
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [subQuestions, setSubQuestions] = useState<SubQuestion[]>([]);
+  const [totalScore, setTotalScore] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,6 +101,7 @@ export default function ManageTestCasesPage() {
   const handleSelectLab = (lab: Lab) => {
     setSelectedLab(lab);
     setSuccess(null);
+    setTotalScore(lab.totalScore);
     if (lab.testCases) {
       try {
         setTestCases(JSON.parse(lab.testCases));
@@ -227,7 +230,8 @@ export default function ManageTestCasesPage() {
         body: JSON.stringify({
           id: selectedLab.id,
           testCases: JSON.stringify(testCases),
-          subQuestions: JSON.stringify(subQuestions)
+          subQuestions: JSON.stringify(subQuestions),
+          totalScore: totalScore
         })
       });
       
@@ -235,7 +239,7 @@ export default function ManageTestCasesPage() {
       if (data.success) {
         setSuccess("Test cases saved successfully!");
         // Update local labs state
-        setLabs(prev => prev.map(l => l.id === selectedLab.id ? { ...l, testCases: JSON.stringify(testCases), subQuestions: JSON.stringify(subQuestions) } : l));
+        setLabs(prev => prev.map(l => l.id === selectedLab.id ? { ...l, testCases: JSON.stringify(testCases), subQuestions: JSON.stringify(subQuestions), totalScore: totalScore } : l));
       } else {
         setError(data.error || "Failed to save changes");
       }
@@ -350,6 +354,28 @@ export default function ManageTestCasesPage() {
                                     )}
                                     Save Changes
                                 </button>
+                            </div>
+                        </div>
+
+                        {/* Total Score Input */}
+                        <div className="bg-[#161b22] p-6 rounded-2xl border border-white/5">
+                            <div className="flex items-center gap-4">
+                                <div className="flex-1">
+                                    <label className="text-sm font-medium text-slate-300 block mb-2">
+                                        Total Score (Max Points)
+                                    </label>
+                                    <input 
+                                        type="number" 
+                                        value={totalScore ?? ''}
+                                        onChange={(e) => setTotalScore(e.target.value ? parseInt(e.target.value) : undefined)}
+                                        placeholder="e.g. 100"
+                                        className="w-full max-w-xs bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                                        min="0"
+                                    />
+                                    <p className="text-xs text-slate-500 mt-2">
+                                        Used for gradient color display (red → yellow → green)
+                                    </p>
+                                </div>
                             </div>
                         </div>
 

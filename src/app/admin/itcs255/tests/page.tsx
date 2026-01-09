@@ -15,6 +15,8 @@ interface Lab {
   testCases?: string; // JSON string
   labType?: 'Lab' | 'Challenge';
   subQuestions?: string; // JSON string
+  totalScore?: number; // Total possible score for gradient display
+  databaseStarter?: string; // SQL to initialize database for this lab
 }
 
 interface SubQuestion {
@@ -26,10 +28,16 @@ interface SubQuestion {
 interface TestCase {
   id: string;
   name: string;
-  input: string;
+  input: string; // Main SQL query to test
   expectedOutput: string;
   matchMode?: 'trim' | 'exact';
   subQuestionId?: string; // Optional: which sub-question this test belongs to
+  // SQL-specific fields
+  setupSql?: string; // SQL to run before test (e.g., CREATE TABLE, INSERT data)
+  verificationSql?: string; // SQL to verify the result (e.g., SELECT to check data)
+  testType?: 'query_result' | 'structure_check' | 'data_check'; // Type of test
+  shouldFail?: boolean; // Test should produce an error
+  cleanupSql?: string; // SQL to run after test
 }
 
 export default function ManageTestCasesPage() {
@@ -38,6 +46,7 @@ export default function ManageTestCasesPage() {
   const [selectedLab, setSelectedLab] = useState<Lab | null>(null);
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [subQuestions, setSubQuestions] = useState<SubQuestion[]>([]);
+  const [totalScore, setTotalScore] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +62,13 @@ export default function ManageTestCasesPage() {
   const [testOutput, setTestOutput] = useState("");
   const [testMatchMode, setTestMatchMode] = useState<'trim' | 'exact'>('trim');
   const [selectedSubQuestionId, setSelectedSubQuestionId] = useState<string | undefined>(undefined);
+  // SQL-specific state
+  const [setupSql, setSetupSql] = useState("");
+  const [verificationSql, setVerificationSql] = useState("");
+  const [testType, setTestType] = useState<'query_result' | 'structure_check' | 'data_check'>('query_result');
+  const [shouldFail, setShouldFail] = useState(false);
+  const [cleanupSql, setCleanupSql] = useState("");
+  const [databaseStarter, setDatabaseStarter] = useState("");
 
   // Sub-question Modal State
   const [isSubQuestionModalOpen, setIsSubQuestionModalOpen] = useState(false);
@@ -99,6 +115,8 @@ export default function ManageTestCasesPage() {
   const handleSelectLab = (lab: Lab) => {
     setSelectedLab(lab);
     setSuccess(null);
+    setTotalScore(lab.totalScore);
+    setDatabaseStarter(lab.databaseStarter || "");
     if (lab.testCases) {
       try {
         setTestCases(JSON.parse(lab.testCases));
@@ -129,6 +147,11 @@ export default function ManageTestCasesPage() {
       setTestOutput(test.expectedOutput);
       setTestMatchMode(test.matchMode || 'trim');
       setSelectedSubQuestionId(test.subQuestionId);
+      setSetupSql(test.setupSql || "");
+      setVerificationSql(test.verificationSql || "");
+      setTestType(test.testType || 'query_result');
+      setShouldFail(test.shouldFail || false);
+      setCleanupSql(test.cleanupSql || "");
     } else {
       setCurrentTest(null);
       setTestName("");
@@ -136,6 +159,11 @@ export default function ManageTestCasesPage() {
       setTestOutput("");
       setTestMatchMode('trim');
       setSelectedSubQuestionId(subQuestionId);
+      setSetupSql("");
+      setVerificationSql("");
+      setTestType('query_result');
+      setShouldFail(false);
+      setCleanupSql("");
     }
     setIsModalOpen(true);
   };
@@ -147,7 +175,19 @@ export default function ManageTestCasesPage() {
       // Edit
       setTestCases(prev => prev.map(t => 
         t.id === currentTest.id 
-          ? { ...t, name: testName, input: testInput, expectedOutput: testOutput, matchMode: testMatchMode, subQuestionId: selectedSubQuestionId }
+          ? { 
+              ...t, 
+              name: testName, 
+              input: testInput, 
+              expectedOutput: testOutput, 
+              matchMode: testMatchMode, 
+              subQuestionId: selectedSubQuestionId,
+              setupSql,
+              verificationSql,
+              testType,
+              shouldFail,
+              cleanupSql
+            }
           : t
       ));
     } else {
@@ -158,7 +198,12 @@ export default function ManageTestCasesPage() {
         input: testInput,
         expectedOutput: testOutput,
         matchMode: testMatchMode,
-        subQuestionId: selectedSubQuestionId
+        subQuestionId: selectedSubQuestionId,
+        setupSql,
+        verificationSql,
+        testType,
+        shouldFail,
+        cleanupSql
       };
       setTestCases(prev => [...prev, newTest]);
     }
@@ -227,7 +272,9 @@ export default function ManageTestCasesPage() {
         body: JSON.stringify({
           id: selectedLab.id,
           testCases: JSON.stringify(testCases),
-          subQuestions: JSON.stringify(subQuestions)
+          subQuestions: JSON.stringify(subQuestions),
+          totalScore: totalScore,
+          databaseStarter: databaseStarter
         })
       });
       
@@ -235,7 +282,7 @@ export default function ManageTestCasesPage() {
       if (data.success) {
         setSuccess("Test cases saved successfully!");
         // Update local labs state
-        setLabs(prev => prev.map(l => l.id === selectedLab.id ? { ...l, testCases: JSON.stringify(testCases), subQuestions: JSON.stringify(subQuestions) } : l));
+        setLabs(prev => prev.map(l => l.id === selectedLab.id ? { ...l, testCases: JSON.stringify(testCases), subQuestions: JSON.stringify(subQuestions), totalScore: totalScore } : l));
       } else {
         setError(data.error || "Failed to save changes");
       }
@@ -350,6 +397,41 @@ export default function ManageTestCasesPage() {
                                     )}
                                     Save Changes
                                 </button>
+                            </div>
+                        </div>
+
+                        {/* Configuration Section */}
+                        <div className="bg-[#161b22] p-6 rounded-2xl border border-white/5 space-y-6">
+                            <div>
+                                <label className="text-sm font-medium text-slate-300 block mb-2">
+                                    Total Score (Max Points)
+                                </label>
+                                <input 
+                                    type="number" 
+                                    value={totalScore ?? ''}
+                                    onChange={(e) => setTotalScore(e.target.value ? parseInt(e.target.value) : undefined)}
+                                    placeholder="e.g. 100"
+                                    className="w-full max-w-xs bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors"
+                                    min="0"
+                                />
+                                <p className="text-xs text-slate-500 mt-2">
+                                    Used for gradient color display (red → yellow → green)
+                                </p>
+                            </div>
+                            
+                            <div>
+                                <label className="text-sm font-medium text-slate-300 block mb-2">
+                                    Database Starter SQL (Optional)
+                                </label>
+                                <textarea 
+                                    value={databaseStarter}
+                                    onChange={(e) => setDatabaseStarter(e.target.value)}
+                                    placeholder="CREATE DATABASE lab01_pokemon_db;&#10;USE lab01_pokemon_db;&#10;CREATE TABLE Trainer (...);"
+                                    className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors font-mono text-sm min-h-[120px]"
+                                />
+                                <p className="text-xs text-slate-500 mt-2">
+                                    SQL to initialize the database environment for this lab (runs before all tests)
+                                </p>
                             </div>
                         </div>
 
@@ -549,26 +631,41 @@ export default function ManageTestCasesPage() {
 
         {/* Modal */}
         {isModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                <div className="bg-[#161b22] w-full max-w-lg rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+                <div className="bg-[#161b22] w-full max-w-4xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden my-8">
                     <div className="p-6 border-b border-white/5 flex items-center justify-between">
                         <h3 className="text-xl font-bold text-white">
-                            {currentTest ? "Edit Test Case" : "New Test Case"}
+                            {currentTest ? "Edit SQL Test Case" : "New SQL Test Case"}
                         </h3>
                         <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white">
                             <XCircle size={24} />
                         </button>
                     </div>
-                    <div className="p-6 space-y-4">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-300">Test Name</label>
-                            <input 
-                                type="text" 
-                                value={testName}
-                                onChange={(e) => setTestName(e.target.value)}
-                                placeholder="e.g. Basic Addition"
-                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors"
-                            />
+                    <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">Test Name *</label>
+                                <input 
+                                    type="text" 
+                                    value={testName}
+                                    onChange={(e) => setTestName(e.target.value)}
+                                    placeholder="e.g. Create Database Test"
+                                    className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors"
+                                />
+                            </div>
+                            
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">Test Type</label>
+                                <select
+                                    value={testType}
+                                    onChange={(e) => setTestType(e.target.value as any)}
+                                    className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors"
+                                >
+                                    <option value="query_result">Query Result</option>
+                                    <option value="structure_check">Structure Check</option>
+                                    <option value="data_check">Data Check</option>
+                                </select>
+                            </div>
                         </div>
                         
                         {subQuestions.length > 0 && (
@@ -588,34 +685,84 @@ export default function ManageTestCasesPage() {
                         )}
                         
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-300">Input (standard in)</label>
+                            <label className="text-sm font-medium text-slate-300">Setup SQL (Optional)</label>
+                            <p className="text-xs text-slate-500">SQL to run before the test (e.g., CREATE TABLE, INSERT data)</p>
+                            <textarea 
+                                value={setupSql}
+                                onChange={(e) => setSetupSql(e.target.value)}
+                                placeholder="INSERT INTO Trainer VALUES (1, 'Ash', 'Pallet Town');"
+                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors font-mono text-sm min-h-[100px]"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-300">Test SQL Query *</label>
+                            <p className="text-xs text-slate-500">The SQL query to test (student's code)</p>
                             <textarea 
                                 value={testInput}
                                 onChange={(e) => setTestInput(e.target.value)}
-                                placeholder="The input for the test"
-                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors font-mono min-h-[120px]"
+                                placeholder="SELECT * FROM Trainer WHERE trainerID = 1;"
+                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors font-mono text-sm min-h-[120px]"
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-300">Expected output</label>
+                            <label className="text-sm font-medium text-slate-300">Verification SQL (Optional)</label>
+                            <p className="text-xs text-slate-500">SQL to verify the result (if different from test query)</p>
+                            <textarea 
+                                value={verificationSql}
+                                onChange={(e) => setVerificationSql(e.target.value)}
+                                placeholder="SELECT COUNT(*) FROM Trainer;"
+                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors font-mono text-sm min-h-[100px]"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-300">Expected Output *</label>
+                            <p className="text-xs text-slate-500">Expected result (table data, count, error message, etc.)</p>
                             <textarea 
                                 value={testOutput}
                                 onChange={(e) => setTestOutput(e.target.value)}
-                                placeholder="The expected output for the test"
-                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors font-mono min-h-[120px]"
+                                placeholder="1|Ash|Pallet Town"
+                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors font-mono text-sm min-h-[120px]"
                             />
                         </div>
 
                         <div className="space-y-2">
-                             <select
-                                value={testMatchMode}
-                                onChange={(e) => setTestMatchMode(e.target.value as 'trim' | 'exact')}
-                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-slate-300 focus:outline-none focus:border-purple-500 transition-colors"
-                             >
-                                <option value="trim">Match (Trim Whitespace)</option>
-                                <option value="exact">Match (Exact)</option>
-                             </select>
+                            <label className="text-sm font-medium text-slate-300">Cleanup SQL (Optional)</label>
+                            <p className="text-xs text-slate-500">SQL to run after the test (cleanup)</p>
+                            <textarea 
+                                value={cleanupSql}
+                                onChange={(e) => setCleanupSql(e.target.value)}
+                                placeholder="DROP TABLE IF EXISTS Trainer;"
+                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors font-mono text-sm min-h-[100px]"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">Match Mode</label>
+                                <select
+                                    value={testMatchMode}
+                                    onChange={(e) => setTestMatchMode(e.target.value as 'trim' | 'exact')}
+                                    className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-slate-300 focus:outline-none focus:border-purple-500 transition-colors"
+                                >
+                                    <option value="trim">Trim Whitespace</option>
+                                    <option value="exact">Exact Match</option>
+                                </select>
+                            </div>
+                            
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">Should Fail?</label>
+                                <select
+                                    value={shouldFail ? 'true' : 'false'}
+                                    onChange={(e) => setShouldFail(e.target.value === 'true')}
+                                    className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-slate-300 focus:outline-none focus:border-purple-500 transition-colors"
+                                >
+                                    <option value="false">No (Success Expected)</option>
+                                    <option value="true">Yes (Error Expected)</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                     <div className="p-6 border-t border-white/5 flex justify-end gap-3 bg-[#0d1117]/50">

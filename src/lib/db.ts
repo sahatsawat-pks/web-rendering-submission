@@ -21,6 +21,8 @@ export interface Lab {
   testCases?: string; // JSON string
   subQuestions?: string; // JSON string
   labType?: 'Lab' | 'Challenge'; // Type of lab
+  totalScore?: number; // Total possible score for gradient display
+  databaseStarter?: string; // SQL to initialize database for this lab (ITCS255)
   createdAt: string;
 }
 
@@ -153,8 +155,8 @@ async function ensureTables() {
                 ('ITGE162', 'Physical Science and Computation', 'Lab score tracking and grading system.', 'Layers', 'from-emerald-500 to-green-500', true, 3),
                 ('ITCS123', 'Object Oriented Programming', 'Java JUnit test runner and code validator.', 'Terminal', 'from-orange-500 to-amber-500', true, 4),
                 ('ITDS283', 'Mobile Application Development', 'Mobile app project submissions and testing.', 'Smartphone', 'from-rose-500 to-red-500', true, 5),
-                ('ITCS251', 'Python Programming', 'Python code execution and test validation.', 'Code', 'from-blue-500 to-sky-500', true, 6),
-                ('ITCS255', 'Database Systems', 'SQL query execution and validation.', 'Database', 'from-purple-500 to-pink-500', true, 7);
+                ('ITCS251', 'Programming in Python', 'Python code execution and test validation.', 'Code', 'from-blue-500 to-sky-500', true, 6),
+                ('ITCS255', 'Structured Query Language Essentials', 'SQL query execution and validation.', 'Database', 'from-purple-500 to-pink-500', true, 7);
             `);
             console.log('✅ Seeded subjects table');
         }
@@ -316,7 +318,11 @@ export async function getAllLabs(activeOnly: boolean = false, subject?: string):
             subject: r.subject,
             isActive: r.is_active,
             deadline: r.deadline,
-            testCases: r.test_cases,            subQuestions: r.sub_questions,            labType: r.lab_type || 'Lab',
+            testCases: r.test_cases,
+            subQuestions: r.sub_questions,
+            labType: r.lab_type || 'Lab',
+            totalScore: r.total_score,
+            databaseStarter: r.database_starter,
             createdAt: r.created_at.toString()
         }));
     } finally {
@@ -365,6 +371,8 @@ export async function getLabByNumber(labNumber: string): Promise<Lab | undefined
               deadline: r.deadline,
               testCases: r.test_cases,
               labType: r.lab_type || 'Lab',
+              totalScore: r.total_score,
+              databaseStarter: r.database_starter,
               createdAt: r.created_at.toString()
         };
     } finally {
@@ -400,7 +408,11 @@ export async function createLab(
             subject: r.subject,
             isActive: r.is_active,
             deadline: r.deadline,
-            testCases: r.test_cases,            subQuestions: r.sub_questions,            labType: r.lab_type || 'Lab',
+            testCases: r.test_cases,
+            subQuestions: r.sub_questions,
+            labType: r.lab_type || 'Lab',
+            totalScore: r.total_score,
+            databaseStarter: r.database_starter,
             createdAt: r.created_at.toString()
         };
     } finally {
@@ -426,8 +438,11 @@ export async function updateLab(
         if (updates.subject !== undefined) { fields.push(`subject = $${idx++}`); values.push(updates.subject); }
         if (updates.isActive !== undefined) { fields.push(`is_active = $${idx++}`); values.push(updates.isActive); }
         if (updates.deadline !== undefined) { fields.push(`deadline = $${idx++}`); values.push(updates.deadline); }
-        if (updates.testCases !== undefined) { fields.push(`test_cases = $${idx++}`); values.push(updates.testCases); }        if (updates.subQuestions !== undefined) { fields.push(`sub_questions = $${idx++}`); values.push(updates.subQuestions); }        if (updates.subQuestions !== undefined) { fields.push(`sub_questions = $${idx++}`); values.push(updates.subQuestions); }
+        if (updates.testCases !== undefined) { fields.push(`test_cases = $${idx++}`); values.push(updates.testCases); }
+        if (updates.subQuestions !== undefined) { fields.push(`sub_questions = $${idx++}`); values.push(updates.subQuestions); }
         if (updates.labType !== undefined) { fields.push(`lab_type = $${idx++}`); values.push(updates.labType); }
+        if (updates.totalScore !== undefined) { fields.push(`total_score = $${idx++}`); values.push(updates.totalScore); }
+        if (updates.databaseStarter !== undefined) { fields.push(`database_starter = $${idx++}`); values.push(updates.databaseStarter); }
 
         if (fields.length === 0) return getLabById(id).then(l => l || null); // No updates
 
@@ -451,6 +466,8 @@ export async function updateLab(
             testCases: r.test_cases,
             subQuestions: r.sub_questions,
             labType: r.lab_type || 'Lab',
+            totalScore: r.total_score,
+            databaseStarter: r.database_starter,
             createdAt: r.created_at.toString()
         };
     } finally {
