@@ -104,10 +104,14 @@ export async function getSheetData(subject: string = 'Sheet1', tabName?: string)
   const spreadsheetId = getSpreadsheetId(subject);
   const targetTab = tabName || subject;
 
+  // For ITCS251 and ITCS255, header starts at row 5
+  const startRow = (subject === 'ITCS251' || subject === 'ITCS255') ? 5 : 1;
+  const range = `${targetTab}!A${startRow}:Z1000`;
+
   try {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `${targetTab}!A1:Z1000`, 
+        range,
       });
       return response.data.values || [];
   } catch (err: any) {
@@ -142,8 +146,8 @@ function mapRowsToStudents(rows: any[][], subject: string): any[] {
 
   const headers = rows[0];
   const data = rows.slice(1);
-  // ITCS123 and ITCS223 use index 1 (Column B) for ID
-  const idIndex = (subject === 'ITCS123' || subject === 'ITCS223') ? 1 : 0;
+  // ITCS123, ITCS223, ITCS251, and ITCS255 use index 1 (Column B) for ID
+  const idIndex = (subject === 'ITCS123' || subject === 'ITCS223' || subject === 'ITCS251' || subject === 'ITCS255') ? 1 : 0;
 
   return data.map((row) => {
     const rawUsername = row[idIndex];
@@ -163,6 +167,9 @@ function mapRowsToStudents(rows: any[][], subject: string): any[] {
     } else if (subject === 'ITCS227') {
         // ITCS227 Layout: A=ID(0), B-E=Other columns, F=Section(5)
         student['Section'] = row[5]; // Column F
+    } else if (subject === 'ITCS251' || subject === 'ITCS255') {
+        // ITCS251/ITCS255 Layout: B=ID(1), header at row 5
+        // No additional fields needed for now
     }
     
     headers.slice(1).forEach((header: string, index: number) => {
@@ -347,7 +354,7 @@ export async function updateStudentLabScore(
                return [];
            });
            // Map to find user
-           const idIndex = (sheetName === 'ITCS123' || sheetName === 'ITCS223') ? 1 : 0;
+           const idIndex = (sheetName === 'ITCS123' || sheetName === 'ITCS223' || sheetName === 'ITCS251' || sheetName === 'ITCS255') ? 1 : 0;
            
            // Robust matching: Try exact, or try stripping first char if 'u'/'U'
            const exists = data.some(row => {
@@ -513,7 +520,7 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
   }
 
   // 2. Find row
-  const idIndex = (subject === 'ITCS123' || subject === 'ITCS223') ? 1 : 0;
+  const idIndex = (subject === 'ITCS123' || subject === 'ITCS223' || subject === 'ITCS251' || subject === 'ITCS255') ? 1 : 0;
   let rowIndex = rows.findIndex((row) => {
       const val = row[idIndex];
       return String(val).trim() === String(username).trim();
@@ -600,9 +607,10 @@ export async function fillMissingScores(subject: string, labNumber: string, valu
   const spreadsheetId = getSpreadsheetId(subject);
 
   const isMultiSection = subject === 'ITCS123' || subject === 'ITCS223';
+  const isSingleSubjectTab = subject === 'ITCS251' || subject === 'ITCS255' || subject === 'ITCS227';
   const tabs = isMultiSection 
         ? (subject === 'ITCS123' ? ['Sec1', 'Sec2', 'Sec3'] : ['Section 1', 'Section 2', 'Section 3'])
-        : [subject]; 
+        : (isSingleSubjectTab ? [subject] : [subject]); 
   
   let totalFilled = 0;
   const errors = [];
@@ -625,6 +633,8 @@ export async function fillMissingScores(subject: string, labNumber: string, valu
 
           // For ITCS227, filter by section (column F = index 5)
           const sectionIndex = subject === 'ITCS227' ? 5 : -1;
+          // For ITCS251/ITCS255, header starts at row 5 (already handled by getSheetData)
+          const headerRowOffset = (subject === 'ITCS251' || subject === 'ITCS255') ? 4 : 0;
 
           for (let i = 1; i < rows.length; i++) {
               const row = rows[i];
@@ -640,11 +650,13 @@ export async function fillMissingScores(subject: string, labNumber: string, valu
               const cellValue = row[labIndex];
 
               if (cellValue === undefined || cellValue === null || cellValue === '') {
+                  // Adjust row number for subjects with header offset
+                  const actualRow = i + 1 + headerRowOffset;
                   updates.push({
-                      range: `${tabName}!${getColumnLetter(labIndex + 1)}${i + 1}`,
+                      range: `${tabName}!${getColumnLetter(labIndex + 1)}${actualRow}`,
                       values: [[value]]
                   });
-                  xlsxUpdates.push({ col: labIndex + 1, row: i + 1, value: value });
+                  xlsxUpdates.push({ col: labIndex + 1, row: actualRow, value: value });
               }
           }
 

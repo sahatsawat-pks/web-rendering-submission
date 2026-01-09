@@ -157,7 +157,7 @@ export default function ManageTestCasesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f1115] text-slate-200 p-8 font-['Inter'] animate-fade-in">
+    <div className="min-h-screen bg-white dark:bg-[#161b22] text-slate-200 p-8 font-['Inter'] animate-fade-in">
       <div className="max-w-6xl mx-auto space-y-8">
         
         {/* Header */}

@@ -351,6 +351,9 @@ export default function ITCS255AdminDashboard() {
                 <span className="px-3 py-1.5 bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-400 rounded-lg text-xs font-medium border border-purple-200 dark:border-purple-700 shadow-sm">
                   {labs.length} Active
                 </span>
+                <a href="/admin/itcs255/tests" className="px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-medium border border-purple-200 dark:border-purple-800 shadow-sm hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors">
+                  Manage Test Cases
+                </a>
                 {(role === 'Lecturer' || username === 'kanzaki_aito') && (
                   <a href="/admin/labs" className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1">
                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>

@@ -13,7 +13,6 @@ interface Lab {
   isActive: boolean;
   fileName?: string;
   testCases?: string; // JSON string
-  labType?: 'Lab' | 'Challenge';
 }
 
 interface TestCase {
@@ -33,7 +32,6 @@ export default function ManageTestCasesPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [labTypeFilter, setLabTypeFilter] = useState<'Lab' | 'Challenge'>('Lab');
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -179,42 +177,17 @@ export default function ManageTestCasesPage() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
             
             {/* Lab List Sidebar */}
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Select Lab</h2>
-                </div>
-                
-                {/* Filter Tabs */}
-                <div className="flex gap-2 p-1 bg-white dark:bg-[#0d1117] rounded-lg border border-slate-200 dark:border-white/5">
-                    <button
-                        onClick={() => setLabTypeFilter('Lab')}
-                        className={`flex-1 px-3 py-1.5 rounded text-xs font-semibold transition-all ${
-                            labTypeFilter === 'Lab'
-                            ? 'bg-blue-600 text-white'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                        }`}
-                    >
-                        Labs
-                    </button>
-                    <button
-                        onClick={() => setLabTypeFilter('Challenge')}
-                        className={`flex-1 px-3 py-1.5 rounded text-xs font-semibold transition-all ${
-                            labTypeFilter === 'Challenge'
-                            ? 'bg-sky-600 text-white'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                        }`}
-                    >
-                        Challenges
-                    </button>
-                </div>
-                
-                <div className="space-y-2">
+            <div className="bg-white dark:bg-[#161b22] p-6 rounded-2xl border border-slate-200 dark:border-white/5 shadow-sm">
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Select Lab</h2>
+                    </div>
+                    
+                    <div className="space-y-2">
                     {loading ? (
                         <div className="text-slate-500 animate-pulse">Loading labs...</div>
                     ) : (
-                        labs
-                            .filter(lab => (lab.labType || 'Lab') === labTypeFilter)
-                            .map(lab => (
+                        labs.map(lab => (
                             <button
                                 key={lab.id}
                                 onClick={() => handleSelectLab(lab)}
@@ -226,11 +199,12 @@ export default function ManageTestCasesPage() {
                             >
                                 <div className="font-medium">{lab.title}</div>
                                 <div className="text-xs opacity-70 mt-1">
-                                    {labTypeFilter === 'Lab' ? 'Lab' : 'Challenge'} {lab.labNumber}
+                                    Lab {lab.labNumber}
                                 </div>
                             </button>
                         ))
                     )}
+                    </div>
                 </div>
             </div>
 
