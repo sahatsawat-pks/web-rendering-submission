@@ -35,7 +35,8 @@ export default function LabManagement() {
     fileName: "index.html",
     isActive: true,
     deadline: "",
-    subject: "" // Will be set from fetched subjects
+    subject: "", // Will be set from fetched subjects
+    totalScore: "" // Add total score field
   })
 
 
@@ -141,7 +142,14 @@ export default function LabManagement() {
     try {
       const url = "/api/labs"
       const method = editingLab ? "PUT" : "POST"
-      const body = editingLab ? { id: editingLab.id, ...formData } : formData
+      
+      // Prepare body with totalScore as number if provided
+      const bodyData: any = {
+        ...formData,
+        totalScore: formData.totalScore ? parseInt(formData.totalScore) : undefined
+      }
+      
+      const body = editingLab ? { id: editingLab.id, ...bodyData } : bodyData
 
       const response = await fetch(url, {
         method,
@@ -162,7 +170,7 @@ export default function LabManagement() {
 
 
       // Reset form and refresh
-      setFormData({ labNumber: "", title: "", fileName: "index.html", isActive: true, deadline: "", subject: subjects[0]?.code || "" })
+      setFormData({ labNumber: "", title: "", fileName: "index.html", isActive: true, deadline: "", subject: subjects[0]?.code || "", totalScore: "" })
 
       setEditingLab(null)
       fetchLabs()
@@ -205,12 +213,13 @@ export default function LabManagement() {
       isActive: lab.isActive,
       deadline: lab.deadline || "",
       subject: lab.subject || subjects[0]?.code || "",
+      totalScore: (lab as any).totalScore?.toString() || "",
     })
   }
 
   function handleCancelEdit() {
     setEditingLab(null)
-    setFormData({ labNumber: "", title: "", fileName: "index.html", isActive: true, deadline: "", subject: subjects[0]?.code || "" })
+    setFormData({ labNumber: "", title: "", fileName: "index.html", isActive: true, deadline: "", subject: subjects[0]?.code || "", totalScore: "" })
   }
 
   async function handleToggleActive(lab: Lab) {
@@ -422,6 +431,27 @@ export default function LabManagement() {
                     className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-all font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   />
                 </div>
+
+                {/* Total Score Field - Only for ITCS251 and ITCS255 */}
+                {(formData.subject === 'ITCS251' || formData.subject === 'ITCS255') && (
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      Total Score (for gradient display)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.totalScore}
+                      onChange={(e) => setFormData({ ...formData, totalScore: e.target.value })}
+                      placeholder="e.g., 100"
+                      min="0"
+                      step="1"
+                      className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-all font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    />
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      Set max score for color gradient: 0 (red) → {formData.totalScore || 'max'} (green)
+                    </p>
+                  </div>
+                )}
 
 
 

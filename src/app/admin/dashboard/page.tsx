@@ -43,7 +43,7 @@ export default function AdminHub() {
     },
     {
       code: "ITCS251",
-      title: "Python Programming",
+      title: "Programming in Python",
       desc: "Python test runner and gradebook management.",
       icon: <Code2 className="w-8 h-8" />,
       color: "from-blue-500 to-sky-500",
@@ -51,7 +51,7 @@ export default function AdminHub() {
     },
     {
       code: "ITCS255",
-      title: "Database Systems",
+      title: "Structured Query Language Essentials",
       desc: "SQL query management and score tracking.",
       icon: <Database className="w-8 h-8" />,
       color: "from-purple-500 to-pink-500",
