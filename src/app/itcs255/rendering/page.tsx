@@ -126,8 +126,12 @@ SELECT * FROM students;`)
     const currentLab = labs.find(l => l.labNumber === labNumber)
     const databaseStarter = currentLab?.databaseStarter
     
+    // Generate session ID for database persistence
+    const sessionId = `student_${Date.now()}_${labNumber}`
+    
     for (let i = 0; i < newCases.length; i++) {
         const test = newCases[i]
+        const isLastTest = i === newCases.length - 1
         
         try {
             const response = await fetch('/api/run-sql', {
@@ -139,10 +143,12 @@ SELECT * FROM students;`)
                     setupSql: test.setupSql,
                     verificationSql: test.verificationSql,
                     cleanupSql: test.cleanupSql,
-                    databaseStarter: databaseStarter,
+                    databaseStarter: i === 0 ? databaseStarter : undefined, // Only pass database starter on first test
                     testType: test.testType || 'query_result',
                     expectedOutput: test.expectedOutput,
-                    matchMode: test.matchMode || 'trim'
+                    matchMode: test.matchMode || 'trim',
+                    sessionId: sessionId, // Track session across tests
+                    isLastTest: isLastTest // Flag to cleanup database on last test
                 })
             })
             
