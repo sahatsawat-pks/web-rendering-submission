@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
-import { getSubjects, updateSubjectVisibility, updateSubjectOrder } from "@/lib/db";
+import { getSubjects, updateSubjectVisibility, updateSubjectOrder, createSubject } from "@/lib/db";
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,6 +14,51 @@ export async function GET(request: NextRequest) {
     }));
     return NextResponse.json({ success: true, subjects: mappedSubjects });
   } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const user = await getAuthUser();
+    
+    // Only main admin can create subjects
+    if (!user || user.username !== 'kanzaki_aito') {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const { code, title, description, icon, color, isVisible, displayOrder } = body;
+
+    if (!code || !title) {
+      return NextResponse.json({ error: "Code and title are required" }, { status: 400 });
+    }
+
+    // Validate code format
+    if (!/^[A-Z0-9]+$/.test(code)) {
+      return NextResponse.json({ error: "Subject code must contain only uppercase letters and numbers" }, { status: 400 });
+    }
+
+    const subject = await createSubject(
+      code,
+      title,
+      description || '',
+      icon || 'Code',
+      color || 'from-blue-500 to-indigo-500',
+      isVisible !== undefined ? isVisible : true,
+      displayOrder || 0
+    );
+
+    return NextResponse.json({ 
+      success: true, 
+      message: "Subject created successfully",
+      subject 
+    });
+  } catch (error: any) {
+    // Check for unique constraint violation
+    if (error.message?.includes('duplicate key') || error.code === '23505') {
+      return NextResponse.json({ error: "Subject code already exists" }, { status: 409 });
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

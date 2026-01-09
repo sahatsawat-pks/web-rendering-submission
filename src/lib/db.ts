@@ -639,3 +639,120 @@ export async function updateSubjectOrder(code: string, displayOrder: number): Pr
     client.release();
   }
 }
+
+export async function createSubject(
+  code: string,
+  title: string,
+  description: string,
+  icon: string = 'Code',
+  color: string = 'from-blue-500 to-indigo-500',
+  isVisible: boolean = true,
+  displayOrder: number = 0
+): Promise<Subject> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+  
+  try {
+    const result = await client.query(`
+      INSERT INTO subjects (code, title, description, icon, color, is_visible, display_order)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING *
+    `, [code, title, description, icon, color, isVisible, displayOrder]);
+    
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      code: row.code,
+      title: row.title,
+      description: row.description,
+      icon: row.icon,
+      color: row.color,
+      isVisible: row.is_visible,
+      displayOrder: row.display_order,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateSubject(
+  code: string,
+  updates: Partial<Omit<Subject, 'id' | 'code' | 'createdAt' | 'updatedAt'>>
+): Promise<Subject | null> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+  
+  try {
+    const fields: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+
+    if (updates.title !== undefined) { fields.push(`title = $${idx++}`); values.push(updates.title); }
+    if (updates.description !== undefined) { fields.push(`description = $${idx++}`); values.push(updates.description); }
+    if (updates.icon !== undefined) { fields.push(`icon = $${idx++}`); values.push(updates.icon); }
+    if (updates.color !== undefined) { fields.push(`color = $${idx++}`); values.push(updates.color); }
+    if (updates.isVisible !== undefined) { fields.push(`is_visible = $${idx++}`); values.push(updates.isVisible); }
+    if (updates.displayOrder !== undefined) { fields.push(`display_order = $${idx++}`); values.push(updates.displayOrder); }
+
+    if (fields.length === 0) {
+      const existing = await client.query('SELECT * FROM subjects WHERE code = $1', [code]);
+      if (existing.rowCount === 0) return null;
+      const row = existing.rows[0];
+      return {
+        id: row.id,
+        code: row.code,
+        title: row.title,
+        description: row.description,
+        icon: row.icon,
+        color: row.color,
+        isVisible: row.is_visible,
+        displayOrder: row.display_order,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      };
+    }
+
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(code);
+    
+    const result = await client.query(`
+      UPDATE subjects SET ${fields.join(', ')}
+      WHERE code = $${idx}
+      RETURNING *
+    `, values);
+
+    if (result.rowCount === 0) return null;
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      code: row.code,
+      title: row.title,
+      description: row.description,
+      icon: row.icon,
+      color: row.color,
+      isVisible: row.is_visible,
+      displayOrder: row.display_order,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  } finally {
+    client.release();
+  }
+}
+
+export async function deleteSubject(code: string): Promise<boolean> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+  
+  try {
+    const result = await client.query('DELETE FROM subjects WHERE code = $1', [code]);
+    return (result.rowCount || 0) > 0;
+  } finally {
+    client.release();
+  }
+}

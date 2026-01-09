@@ -20,6 +20,7 @@ interface Lab {
 
 export default function LabManagement() {
   const [labs, setLabs] = useState<Lab[]>([])
+  const [subjects, setSubjects] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editingLab, setEditingLab] = useState<Lab | null>(null)
@@ -34,20 +35,39 @@ export default function LabManagement() {
     fileName: "index.html",
     isActive: true,
     deadline: "",
-    subject: "ITGE162" // Default
+    subject: "" // Will be set from fetched subjects
   })
 
 
   useEffect(() => {
+    fetchSubjects()
     fetchCurrentUser()
     fetchLabs()
   }, [])
+
+  async function fetchSubjects() {
+    try {
+      const response = await fetch("/api/subjects")
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setSubjects(data.subjects)
+          // Set default subject if not set
+          if (data.subjects.length > 0 && !formData.subject) {
+            setFormData(prev => ({ ...prev, subject: data.subjects[0].code }))
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch subjects", err)
+    }
+  }
 
   // Update default subject when permissions change
   useEffect(() => {
     const isMainAdmin = currentUser === "kanzaki_aito"
     const allowedSubjects = isMainAdmin 
-      ? ["ITGE162", "ITCS227", "ITCS223", "ITCS123", "ITDS283", "ITCS251", "ITCS255"] 
+      ? subjects.map(s => s.code)
       : Object.keys(userPermissions)
           .filter(subject => userPermissions[subject])
           .map(subject => subject.toUpperCase())
@@ -55,7 +75,7 @@ export default function LabManagement() {
     if (allowedSubjects.length > 0 && !allowedSubjects.includes(formData.subject)) {
       setFormData(prev => ({ ...prev, subject: allowedSubjects[0] }))
     }
-  }, [userPermissions, currentUser])
+  }, [userPermissions, currentUser, subjects])
 
   async function fetchCurrentUser() {
     try {
@@ -142,7 +162,7 @@ export default function LabManagement() {
 
 
       // Reset form and refresh
-      setFormData({ labNumber: "", title: "", fileName: "index.html", isActive: true, deadline: "", subject: "ITGE162" })
+      setFormData({ labNumber: "", title: "", fileName: "index.html", isActive: true, deadline: "", subject: subjects[0]?.code || "" })
 
       setEditingLab(null)
       fetchLabs()
@@ -184,13 +204,13 @@ export default function LabManagement() {
       fileName: lab.fileName,
       isActive: lab.isActive,
       deadline: lab.deadline || "",
-      subject: lab.subject || "ITGE162",
+      subject: lab.subject || subjects[0]?.code || "",
     })
   }
 
   function handleCancelEdit() {
     setEditingLab(null)
-    setFormData({ labNumber: "", title: "", fileName: "index.html", isActive: true, deadline: "", subject: "ITGE162" })
+    setFormData({ labNumber: "", title: "", fileName: "index.html", isActive: true, deadline: "", subject: subjects[0]?.code || "" })
   }
 
   async function handleToggleActive(lab: Lab) {
@@ -221,7 +241,7 @@ export default function LabManagement() {
 
   // Get allowed subjects based on permissions (normalize to uppercase)
   const allowedSubjects = isMainAdmin 
-    ? ["ITGE162", "ITCS227", "ITCS223", "ITCS123", "ITDS283", "ITCS251", "ITCS255"] 
+    ? subjects.map(s => s.code)
     : Object.keys(userPermissions)
         .filter(subject => userPermissions[subject])
         .map(subject => subject.toUpperCase())

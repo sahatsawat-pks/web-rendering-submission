@@ -14,28 +14,19 @@ interface User {
   createdAt: string
   role: 'LA' | 'Lecturer'
   permissions?: {
-    itcs223: boolean
-    itcs227: boolean
-    itge162: boolean
-    itcs123: boolean
-    itcs251: boolean
-    itcs255: boolean
-    itds283: boolean
+    [key: string]: boolean
   }
 }
 
-const SUBJECTS = [
-  { code: "itcs223", name: "ITCS223 - Web Development", color: "from-teal-500 to-cyan-500" },
-  { code: "itcs227", name: "ITCS227 - Data Science", color: "from-indigo-500 to-violet-500" },
-  { code: "itge162", name: "ITGE162 - Physical Science", color: "from-emerald-500 to-green-500" },
-  { code: "itcs123", name: "ITCS123 - OOP", color: "from-orange-500 to-amber-500" },
-  { code: "itcs251", name: "ITCS251 - Python", color: "from-blue-500 to-sky-500" },
-  { code: "itcs255", name: "ITCS255 - Database", color: "from-purple-500 to-pink-500" },
-  { code: "itds283", name: "ITDS283 - Mobile Dev", color: "from-rose-500 to-red-500" },
-]
+interface Subject {
+  code: string
+  name: string
+  color: string
+}
 
 export default function UserManagement() {
   const [users, setUsers] = useState<User[]>([])
+  const [subjects, setSubjects] = useState<Subject[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentUser, setCurrentUser] = useState<string>("")
@@ -61,7 +52,27 @@ export default function UserManagement() {
   useEffect(() => {
     fetchUsers()
     fetchCurrentUser()
+    fetchSubjects()
   }, [])
+
+  async function fetchSubjects() {
+    try {
+      const response = await fetch("/api/subjects")
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          const mapped = data.subjects.map((s: any) => ({
+            code: s.code.toLowerCase(),
+            name: `${s.code} - ${s.title}`,
+            color: s.color
+          }))
+          setSubjects(mapped)
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch subjects", err)
+    }
+  }
 
   async function fetchCurrentUser() {
     try {
@@ -358,7 +369,7 @@ export default function UserManagement() {
                     <tr>
                       <th className="px-8 py-5 text-left text-sm font-semibold tracking-wide">User</th>
                       <th className="px-4 py-5 text-center text-sm font-semibold tracking-wide">Role</th>
-                      {SUBJECTS.map(subject => (
+                      {subjects.map(subject => (
                         <th key={subject.code} className="px-4 py-5 text-center text-sm font-semibold tracking-wide">
                           {subject.code.toUpperCase()}
                         </th>
@@ -395,8 +406,8 @@ export default function UserManagement() {
                             <option value="Lecturer">Lecturer</option>
                           </select>
                         </td>
-                        {SUBJECTS.map(subject => {
-                          const hasPermission = user.permissions?.[subject.code as keyof typeof user.permissions] || user.username === "kanzaki_aito"
+                        {subjects.map(subject => {
+                          const hasPermission = user.permissions?.[subject.code] || user.username === "kanzaki_aito"
                           return (
                             <td key={subject.code} className="px-4 py-5 text-center">
                               <button
