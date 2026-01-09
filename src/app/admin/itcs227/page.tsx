@@ -129,7 +129,6 @@ export default function AdminDashboard() {
         if (res.ok) {
              setGradingSuccess(true);
              setStudentId("");
-             setScore("0");
              setTimeout(() => setGradingSuccess(false), 5000);
         } else {
             const data = await res.json();
