@@ -241,11 +241,12 @@ export async function updateUserRole(id: string, role: 'LA' | 'Lecturer'): Promi
     }
 }
 
-export async function updateUserPassword(id: string, passwordHash: string): Promise<boolean> {
+export async function updateUserPassword(id: string, password: string): Promise<boolean> {
     await init();
     const client = await getPool().connect();
     try {
-        const res = await client.query('UPDATE users SET password = $1 WHERE id = $2', [passwordHash, id]);
+        const hashedPassword = await hashPassword(password);
+        const res = await client.query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, id]);
         return (res.rowCount || 0) > 0;
     } finally {
         client.release();

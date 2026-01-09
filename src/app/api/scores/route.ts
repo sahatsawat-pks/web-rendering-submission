@@ -20,11 +20,53 @@ export async function GET(request: NextRequest) {
     // In this architecture, all authenticated users are admins
     
     const searchParams = request.nextUrl.searchParams;
-    const targetUsername = searchParams.get('username');
+    let targetUsername = searchParams.get('username');
     const subject = searchParams.get('subject') || undefined;
+    const action = searchParams.get('action');
+
+    // Special action: list_all - returns all students for credential generation
+    if (action === 'list_all' && subject === 'ITCS223') {
+        if (!user) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+        
+        try {
+            const allScores = await getAllScores(subject);
+            // Transform to student list format
+            const students = allScores.map((student: any) => ({
+                id: student.username || student.ID || '',
+                studentId: student.username || student.ID || '',
+                name: student.name || student.Name || '',
+                surname: student.surname || student.Surname || '',
+                section: student.Section || student.section || ''
+            }));
+            
+            return NextResponse.json({ success: true, students });
+        } catch (error: any) {
+            console.error('Error fetching student list:', error);
+            return NextResponse.json({ error: error.message }, { status: 500 });
+        }
+    }
 
     // Special Handling for ITCS223 (Now on Sheets)
     if (subject === 'ITCS223') {
+        // Check if targetUsername is a credential code (6 letters)
+        if (targetUsername && /^[A-Z0-9]{6}$/.test(targetUsername)) {
+            // Look up credential to get actual student ID
+            const credResponse = await fetch(`${request.url.split('/api')[0]}/api/credentials?credential=${targetUsername}&subject=ITCS223`);
+            
+            if (credResponse.ok) {
+                const credData = await credResponse.json();
+                if (credData.success && credData.studentId) {
+                    // Use the actual student ID for lookup
+                    targetUsername = credData.studentId;
+                } else {
+                    // Credential not found
+                    return NextResponse.json({ success: true, scores: null });
+                }
+            }
+        }
+        
         // Use Google Sheets Logic (now updated to handle Sections)
         // If targetUsername is provided, return that student's object
         // NOTE: targetUsername might be "u64..." or "64...". Sheets usually stored as "64..." in ID column.

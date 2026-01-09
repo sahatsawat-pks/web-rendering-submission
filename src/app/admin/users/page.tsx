@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
-import { Shield, CheckCircle2, XCircle } from "lucide-react"
+import { Shield, CheckCircle2, XCircle, Key } from "lucide-react"
 
 interface User {
   id: string
@@ -41,6 +41,16 @@ export default function UserManagement() {
     password: "",
     role: "LA" as 'LA' | 'Lecturer',
   })
+
+  // Password change state
+  const [selectedUserForPasswordChange, setSelectedUserForPasswordChange] = useState<{id: string, username: string} | null>(null)
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [passwordChangeLoading, setPasswordChangeLoading] = useState(false)
+  const [passwordChangeMessage, setPasswordChangeMessage] = useState<{type: 'success' | 'error', text: string} | null>(null)
+  
+  // Add user dialog state
+  const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false)
 
   useEffect(() => {
     fetchUsers()
@@ -93,6 +103,7 @@ export default function UserManagement() {
       }
 
       setFormData({ username: "", password: "", role: "LA" })
+      setIsAddUserDialogOpen(false)
       fetchUsers()
     } catch (err: any) {
       setError(err.message)
@@ -170,6 +181,59 @@ export default function UserManagement() {
     }
   }
 
+  async function handlePasswordChange(e: React.FormEvent) {
+    e.preventDefault()
+    setPasswordChangeMessage(null)
+    
+    if (!selectedUserForPasswordChange) {
+      setPasswordChangeMessage({ type: 'error', text: 'No user selected' })
+      return
+    }
+    
+    if (newPassword !== confirmPassword) {
+      setPasswordChangeMessage({ type: 'error', text: 'Passwords do not match' })
+      return
+    }
+    
+    if (newPassword.length < 6) {
+      setPasswordChangeMessage({ type: 'error', text: 'Password must be at least 6 characters' })
+      return
+    }
+    
+    setPasswordChangeLoading(true)
+    
+    try {
+      const response = await fetch("/api/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedUserForPasswordChange.id,
+          password: newPassword,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to change password")
+      }
+
+      setPasswordChangeMessage({ type: 'success', text: `Password changed successfully for ${selectedUserForPasswordChange.username}!` })
+      setNewPassword("")
+      setConfirmPassword("")
+      
+      // Close modal after 2 seconds
+      setTimeout(() => {
+        setSelectedUserForPasswordChange(null)
+        setPasswordChangeMessage(null)
+      }, 2000)
+    } catch (err: any) {
+      setPasswordChangeMessage({ type: 'error', text: err.message })
+    } finally {
+      setPasswordChangeLoading(false)
+    }
+  }
+
   const isMainAdmin = currentUser === "kanzaki_aito"
 
   if (loading) {
@@ -222,10 +286,23 @@ export default function UserManagement() {
       <div className="container mx-auto px-4 py-8 max-w-7xl relative z-10">
         {/* Header */}
         <div className="mb-8 animate-slide-up">
-          <h1 className="text-4xl font-bold mb-2">
-            <span className="gradient-text">Account & Permission Management</span>
-          </h1>
-          <p className="text-lg text-slate-600 dark:text-slate-400">Manage administrators and subject-specific access rights</p>
+          <div className="flex items-start justify-between gap-4 mb-2">
+            <div>
+              <h1 className="text-4xl font-bold mb-2">
+                <span className="gradient-text">Account & Permission Management</span>
+              </h1>
+              <p className="text-lg text-slate-600 dark:text-slate-400">Manage administrators and subject-specific access rights</p>
+            </div>
+            <button
+              onClick={() => setIsAddUserDialogOpen(true)}
+              className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold rounded-xl shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all duration-300 hover:scale-105"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Account
+            </button>
+          </div>
           {!isMainAdmin && (
             <div className="mt-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 px-4 py-3 rounded-xl text-sm">
               <strong>Note:</strong> Only the main admin (kanzaki_aito) can modify user permissions.
@@ -250,95 +327,8 @@ export default function UserManagement() {
           </div>
         )}
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Add User Form */}
-          <div className="lg:col-span-1 animate-scale-in">
-            <div className="glass-card p-8 sticky top-24 hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 border-white/40 dark:border-slate-700/40">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white shadow-lg shadow-purple-500/20">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                </div>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Add New Admin</h2>
-              </div>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                      />
-                    </svg>
-                    Username
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.username}
-                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                    required
-                    placeholder="Enter username"
-                    className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 outline-none shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all font-medium"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-                      />
-                    </svg>
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    required
-                    placeholder="Enter password"
-                    className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 outline-none shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all font-medium"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"
-                      />
-                    </svg>
-                    Role
-                  </label>
-                  <select
-                    value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value as 'LA' | 'Lecturer' })}
-                    required
-                    className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 outline-none shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all font-medium"
-                  >
-                    <option value="LA">LA (Learning Assistant)</option>
-                    <option value="Lecturer">Lecturer</option>
-                  </select>
-                </div>
-                <button
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold tracking-wide py-4 px-6 rounded-2xl transition-all shadow-xl shadow-purple-500/20 hover:shadow-purple-500/40 btn-hover-lift mt-2"
-                >
-                  Create Admin
-                </button>
-              </form>
-            </div>
-          </div>
-
-          {/* Users List with Permissions */}
-          <div className="lg:col-span-2 animate-fade-in">
+        {/* Users List with Permissions */}
+        <div className="animate-fade-in">
             <div className="glass-card overflow-hidden hover:shadow-2xl hover:shadow-purple-500/5 transition-all duration-300 border-white/40 dark:border-slate-700/40">
               <div className="px-8 py-6 border-b border-white/20 dark:border-slate-700/50 bg-gradient-to-r from-purple-50/50 to-pink-50/50 dark:from-purple-950/20 dark:to-pink-950/20">
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
@@ -418,15 +408,25 @@ export default function UserManagement() {
                           )
                         })}
                         <td className="px-6 py-4 text-right">
-                          <button
-                            onClick={() => handleDelete(user.id)}
-                            disabled={user.username === "kanzaki_aito"}
-                            className={`text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium text-sm px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all ${
-                              user.username === "kanzaki_aito" ? 'opacity-30 cursor-not-allowed' : ''
-                            }`}
-                          >
-                            Delete
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            {isMainAdmin && (
+                              <button
+                                onClick={() => setSelectedUserForPasswordChange({id: user.id, username: user.username})}
+                                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm px-3 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
+                              >
+                                <Key className="w-4 h-4" />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDelete(user.id)}
+                              disabled={user.username === "kanzaki_aito"}
+                              className={`text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium text-sm px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all ${
+                                user.username === "kanzaki_aito" ? 'opacity-30 cursor-not-allowed' : ''
+                              }`}
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -455,8 +455,209 @@ export default function UserManagement() {
               </div>
             </div>
           </div>
-        </div>
       </div>
+
+      {/* Password Change Modal */}
+      {selectedUserForPasswordChange && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="glass-card p-8 max-w-md w-full animate-scale-in">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                Change Password for {selectedUserForPasswordChange?.username}
+              </h3>
+              <button
+                onClick={() => {
+                  setSelectedUserForPasswordChange(null)
+                  setNewPassword("")
+                  setConfirmPassword("")
+                  setPasswordChangeMessage(null)
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {passwordChangeMessage && (
+              <div className={`mb-4 px-4 py-3 rounded-xl text-sm ${
+                passwordChangeMessage?.type === 'success' 
+                  ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-300' 
+                  : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
+              }`}>
+                {passwordChangeMessage?.text}
+              </div>
+            )}
+
+            <form onSubmit={handlePasswordChange} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  placeholder="Enter new password"
+                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-all font-medium"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Confirm Password
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  placeholder="Confirm new password"
+                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-all font-medium"
+                />
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedUserForPasswordChange(null)
+                    setNewPassword("")
+                    setConfirmPassword("")
+                    setPasswordChangeMessage(null)
+                  }}
+                  className="flex-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-100 font-bold py-3 px-6 rounded-2xl transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={passwordChangeLoading}
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 disabled:from-slate-400 disabled:to-slate-500 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-xl shadow-blue-500/20 hover:shadow-blue-500/40 disabled:cursor-not-allowed"
+                >
+                  {passwordChangeLoading ? 'Changing...' : 'Change Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add User Dialog */}
+      {isAddUserDialogOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="glass-card p-8 max-w-md w-full animate-scale-in">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white shadow-lg shadow-purple-500/20">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Add New Admin</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setIsAddUserDialogOpen(false)
+                  setFormData({ username: "", password: "", role: "LA" })
+                  setError(null)
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                    />
+                  </svg>
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  required
+                  placeholder="Enter username"
+                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 outline-none shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all font-medium"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+                    />
+                  </svg>
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  required
+                  placeholder="Enter password"
+                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 outline-none shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all font-medium"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"
+                    />
+                  </svg>
+                  Role
+                </label>
+                <select
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value as 'LA' | 'Lecturer' })}
+                  required
+                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 outline-none shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all font-medium"
+                >
+                  <option value="LA">LA (Learning Assistant)</option>
+                  <option value="Lecturer">Lecturer</option>
+                </select>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddUserDialogOpen(false)
+                    setFormData({ username: "", password: "", role: "LA" })
+                    setError(null)
+                  }}
+                  className="flex-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-100 font-bold py-3 px-6 rounded-2xl transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-xl shadow-purple-500/20 hover:shadow-purple-500/40"
+                >
+                  Create Admin
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

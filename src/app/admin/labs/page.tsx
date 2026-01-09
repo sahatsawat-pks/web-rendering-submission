@@ -23,6 +23,8 @@ export default function LabManagement() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editingLab, setEditingLab] = useState<Lab | null>(null)
+  const [currentUser, setCurrentUser] = useState<string>("")
+  const [userPermissions, setUserPermissions] = useState<{[key: string]: boolean}>({})
   const router = useRouter()
 
   // Form state
@@ -37,8 +39,64 @@ export default function LabManagement() {
 
 
   useEffect(() => {
+    fetchCurrentUser()
     fetchLabs()
   }, [])
+
+  // Update default subject when permissions change
+  useEffect(() => {
+    const isMainAdmin = currentUser === "kanzaki_aito"
+    const allowedSubjects = isMainAdmin 
+      ? ["ITGE162", "ITCS227", "ITCS223", "ITCS123"] 
+      : Object.keys(userPermissions)
+          .filter(subject => userPermissions[subject])
+          .map(subject => subject.toUpperCase())
+    
+    if (allowedSubjects.length > 0 && !allowedSubjects.includes(formData.subject)) {
+      setFormData(prev => ({ ...prev, subject: allowedSubjects[0] }))
+    }
+  }, [userPermissions, currentUser])
+
+  async function fetchCurrentUser() {
+    try {
+      const response = await fetch("/api/auth/me")
+      if (response.ok) {
+        const data = await response.json()
+        setCurrentUser(data.username || "")
+        // Fetch permissions for this user
+        if (data.userId) {
+          await fetchUserPermissions(data.userId)
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch current user", err)
+    }
+  }
+
+  async function fetchUserPermissions(userId: string) {
+    try {
+      const response = await fetch(`/api/admin/permissions?userId=${userId}`)
+      if (response.ok) {
+        const data = await response.json()
+        console.log("Permissions data:", data)
+        // Convert array format to object format if needed
+        if (Array.isArray(data.permissions)) {
+          const permissionsObj: {[key: string]: boolean} = {}
+          data.permissions.forEach((perm: any) => {
+            if (perm.subjectCode && perm.canEdit) {
+              permissionsObj[perm.subjectCode.toLowerCase()] = true
+            }
+          })
+          console.log("Converted permissions:", permissionsObj)
+          setUserPermissions(permissionsObj)
+        } else {
+          setUserPermissions(data.permissions || {})
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch permissions", err)
+    }
+  }
 
   async function fetchLabs() {
     try {
@@ -158,6 +216,26 @@ export default function LabManagement() {
     }
   }
 
+  // Check if user is main admin
+  const isMainAdmin = currentUser === "kanzaki_aito"
+
+  // Get allowed subjects based on permissions (normalize to uppercase)
+  const allowedSubjects = isMainAdmin 
+    ? ["ITGE162", "ITCS227", "ITCS223", "ITCS123", "ITDS283"] 
+    : Object.keys(userPermissions)
+        .filter(subject => userPermissions[subject])
+        .map(subject => subject.toUpperCase())
+
+  console.log("Current user:", currentUser)
+  console.log("Is main admin:", isMainAdmin)
+  console.log("User permissions:", userPermissions)
+  console.log("Allowed subjects:", allowedSubjects)
+
+  // Filter labs based on user permissions
+  const filteredLabs = isMainAdmin 
+    ? labs 
+    : labs.filter(lab => userPermissions[lab.subject.toLowerCase()])
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 via-white to-cyan-50">
@@ -236,6 +314,19 @@ export default function LabManagement() {
           </div>
         )}
 
+        {/* No Permission Warning */}
+        {!isMainAdmin && allowedSubjects.length === 0 && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 px-6 py-4 rounded-xl mb-6 flex items-start gap-3 animate-slide-up">
+            <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <div>
+              <p className="font-semibold">No Subject Access</p>
+              <p className="text-sm">You don't have permission to manage labs for any subject. Please contact the main admin (kanzaki_aito) to grant you access.</p>
+            </div>
+          </div>
+        )}
+
         <div className="grid lg:grid-cols-3 gap-6 md:gap-8">
           {/* Form */}
           <div className="lg:col-span-1 animate-scale-in">
@@ -267,10 +358,13 @@ export default function LabManagement() {
                     onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white/90 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-all mb-4"
                   >
-                        <option value="ITGE162">ITGE162</option>
-                        <option value="ITCS227">ITCS227</option>
-                        <option value="ITCS223">ITCS223</option>
-                        <option value="ITCS123">ITCS123</option>
+                    {allowedSubjects.length > 0 ? (
+                      allowedSubjects.map(subject => (
+                        <option key={subject} value={subject}>{subject}</option>
+                      ))
+                    ) : (
+                      <option value="" disabled>No subjects available</option>
+                    )}
                   </select>
 
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
@@ -368,7 +462,7 @@ export default function LabManagement() {
                   </svg>
                   Existing Labs
                   <span className="ml-auto px-3 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-bold ring-1 ring-blue-200 dark:ring-blue-800">
-                    {labs.length}
+                    {filteredLabs.length}
                   </span>
                 </h3>
               </div>
@@ -387,7 +481,7 @@ export default function LabManagement() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                    {labs.length === 0 ? (
+                    {filteredLabs.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="px-6 py-12 text-center">
                           <div className="flex flex-col items-center text-slate-400 dark:text-slate-500">
@@ -407,7 +501,7 @@ export default function LabManagement() {
                         </td>
                       </tr>
                     ) : (
-                      labs.map((lab) => (
+                      filteredLabs.map((lab) => (
                         <tr
                           key={lab.id}
                           className="hover:bg-blue-50/40 dark:hover:bg-slate-700/40 transition-colors group"

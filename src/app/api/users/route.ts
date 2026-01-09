@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
-import { createUser, findUserByUsername, getAllUsers, deleteUser, getUserPermissions, updateUserRole } from "@/lib/db";
+import { createUser, findUserByUsername, getAllUsers, deleteUser, getUserPermissions, updateUserRole, updateUserPassword } from "@/lib/db";
 
 export async function GET() {
   const user = await getAuthUser();
@@ -109,23 +109,35 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const { id, role } = await request.json();
+    const { id, role, password } = await request.json();
 
-    if (!id || !role) {
-      return NextResponse.json({ error: "User ID and role are required" }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ error: "User ID is required" }, { status: 400 });
     }
 
-    if (role !== 'LA' && role !== 'Lecturer') {
-      return NextResponse.json({ error: "Invalid role. Must be 'LA' or 'Lecturer'" }, { status: 400 });
+    // Handle password change
+    if (password) {
+      const updated = await updateUserPassword(id, password);
+      if (updated) {
+        return NextResponse.json({ success: true });
+      }
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const updated = await updateUserRole(id, role);
+    // Handle role change
+    if (role) {
+      if (role !== 'LA' && role !== 'Lecturer') {
+        return NextResponse.json({ error: "Invalid role. Must be 'LA' or 'Lecturer'" }, { status: 400 });
+      }
 
-    if (updated) {
-      return NextResponse.json({ success: true });
+      const updated = await updateUserRole(id, role);
+      if (updated) {
+        return NextResponse.json({ success: true });
+      }
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+    return NextResponse.json({ error: "No update data provided" }, { status: 400 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
