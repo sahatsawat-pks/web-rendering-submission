@@ -5,12 +5,15 @@ import type React from "react"
 import LogoutButton from "@/components/LogoutButton"
 import { useState, useEffect } from "react"
 import { ModeToggle } from "@/components/mode-toggle"
+import { useRouter } from "next/navigation"
 
 export default function AdminDashboard() {
+  const router = useRouter()
   const [labs, setLabs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [role, setRole] = useState<'LA' | 'Lecturer'>('LA')
   const [username, setUsername] = useState('')
+  const [hasAccess, setHasAccess] = useState(false)
 
   const [studentId, setStudentId] = useState("")
   const [selectedLab, setSelectedLab] = useState("")
@@ -37,7 +40,7 @@ export default function AdminDashboard() {
     }
     fetchLabs()
     
-    // Fetch user role
+    // Fetch user role and permissions
     fetch("/api/auth/me")
       .then(res => res.json())
       .then(data => {
@@ -47,8 +50,18 @@ export default function AdminDashboard() {
         if (data.username) {
           setUsername(data.username)
         }
+        // Check if user has access to ITCS223 (or is main admin)
+        if (data.username === 'kanzaki_aito' || (data.permissions && data.permissions.itcs223)) {
+          setHasAccess(true)
+        } else {
+          // Redirect to admin dashboard if no access
+          router.push('/admin/dashboard')
+        }
       })
-      .catch(err => console.error("Failed to fetch user role", err))
+      .catch(err => {
+        console.error("Failed to fetch user role", err)
+        router.push('/admin/dashboard')
+      })
   }, [])
 
   async function handleGradeSubmit(e: React.FormEvent) {
@@ -117,6 +130,18 @@ export default function AdminDashboard() {
       } finally {
           setIsFilling(false)
       }
+  }
+
+  // Show loading screen while checking access
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-cyan-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-teal-600 border-r-transparent"></div>
+          <p className="mt-4 text-slate-600 dark:text-slate-400">Checking access...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

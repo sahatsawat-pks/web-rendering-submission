@@ -19,6 +19,7 @@ export interface Lab {
   isActive: boolean;
   deadline?: string;
   testCases?: string; // JSON string
+  subQuestions?: string; // JSON string
   labType?: 'Lab' | 'Challenge'; // Type of lab
   createdAt: string;
 }
@@ -315,8 +316,7 @@ export async function getAllLabs(activeOnly: boolean = false, subject?: string):
             subject: r.subject,
             isActive: r.is_active,
             deadline: r.deadline,
-            testCases: r.test_cases,
-            labType: r.lab_type || 'Lab',
+            testCases: r.test_cases,            subQuestions: r.sub_questions,            labType: r.lab_type || 'Lab',
             createdAt: r.created_at.toString()
         }));
     } finally {
@@ -400,8 +400,7 @@ export async function createLab(
             subject: r.subject,
             isActive: r.is_active,
             deadline: r.deadline,
-            testCases: r.test_cases,
-            labType: r.lab_type || 'Lab',
+            testCases: r.test_cases,            subQuestions: r.sub_questions,            labType: r.lab_type || 'Lab',
             createdAt: r.created_at.toString()
         };
     } finally {
@@ -427,7 +426,7 @@ export async function updateLab(
         if (updates.subject !== undefined) { fields.push(`subject = $${idx++}`); values.push(updates.subject); }
         if (updates.isActive !== undefined) { fields.push(`is_active = $${idx++}`); values.push(updates.isActive); }
         if (updates.deadline !== undefined) { fields.push(`deadline = $${idx++}`); values.push(updates.deadline); }
-        if (updates.testCases !== undefined) { fields.push(`test_cases = $${idx++}`); values.push(updates.testCases); }
+        if (updates.testCases !== undefined) { fields.push(`test_cases = $${idx++}`); values.push(updates.testCases); }        if (updates.subQuestions !== undefined) { fields.push(`sub_questions = $${idx++}`); values.push(updates.subQuestions); }        if (updates.subQuestions !== undefined) { fields.push(`sub_questions = $${idx++}`); values.push(updates.subQuestions); }
         if (updates.labType !== undefined) { fields.push(`lab_type = $${idx++}`); values.push(updates.labType); }
 
         if (fields.length === 0) return getLabById(id).then(l => l || null); // No updates
@@ -450,6 +449,7 @@ export async function updateLab(
             isActive: r.is_active,
             deadline: r.deadline,
             testCases: r.test_cases,
+            subQuestions: r.sub_questions,
             labType: r.lab_type || 'Lab',
             createdAt: r.created_at.toString()
         };

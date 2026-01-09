@@ -5,12 +5,15 @@ import type React from "react"
 import LogoutButton from "@/components/LogoutButton"
 import { useState, useEffect } from "react"
 import { ModeToggle } from "@/components/mode-toggle"
+import { useRouter } from "next/navigation"
 
 export default function AdminDashboard() {
+  const router = useRouter()
   const [labs, setLabs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [role, setRole] = useState<'LA' | 'Lecturer'>('LA')
   const [username, setUsername] = useState('')
+  const [hasAccess, setHasAccess] = useState(false)
 
   const [studentId, setStudentId] = useState("")
   const [selectedLab, setSelectedLab] = useState("")
@@ -39,7 +42,7 @@ export default function AdminDashboard() {
     }
     fetchLabs()
 
-    // Fetch user role
+    // Fetch user role and permissions
     fetch("/api/auth/me")
       .then(res => res.json())
       .then(data => {
@@ -49,8 +52,18 @@ export default function AdminDashboard() {
         if (data.username) {
           setUsername(data.username)
         }
+        // Check if user has access to ITCS123 (or is main admin)
+        if (data.username === 'kanzaki_aito' || (data.permissions && data.permissions.itcs123)) {
+          setHasAccess(true)
+        } else {
+          // Redirect to admin dashboard if no access
+          router.push('/admin/dashboard')
+        }
       })
-      .catch(err => console.error("Failed to fetch user role", err))
+      .catch(err => {
+        console.error("Failed to fetch user role", err)
+        router.push('/admin/dashboard')
+      })
   }, [])
 
   async function handleGradeSubmit(e: React.FormEvent, scoreType: 'lab' | 'challenge' | 'both') {
@@ -138,6 +151,18 @@ export default function AdminDashboard() {
       } finally {
           setIsFilling(false);
       }
+  }
+
+  // Show loading while checking permissions
+  if (!hasAccess && loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-orange-200 dark:border-orange-800 border-t-orange-600 dark:border-t-orange-400"></div>
+          <p className="text-slate-500 dark:text-slate-400 mt-4">Checking permissions...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -395,10 +420,12 @@ export default function AdminDashboard() {
                 <span className="px-3 py-1.5 bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 rounded-lg text-xs font-medium border border-orange-200 dark:border-orange-700 shadow-sm">
                   {labs.filter(lab => (lab.labType || 'Lab') === 'Lab').length} Active
                 </span>
-                <a href="/admin/itcs123/tests" className="px-3 py-1.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-lg text-xs font-medium border border-orange-200 dark:border-orange-800 shadow-sm hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors">
-                Manage Test Cases
-              </a>
-                {(role === 'Lecturer' || username === 'kanzaki_aito') && (
+                {role === 'Lecturer' && (
+                  <a href="/admin/itcs123/tests" className="px-3 py-1.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-lg text-xs font-medium border border-orange-200 dark:border-orange-800 shadow-sm hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors">
+                    Manage Test Cases
+                  </a>
+                )}
+                {role === 'Lecturer' && (
                   <a href="/admin/labs" className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1">
                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                      New Lab

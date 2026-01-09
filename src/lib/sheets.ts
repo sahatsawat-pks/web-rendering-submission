@@ -177,10 +177,16 @@ function mapRowsToStudents(rows: any[][], subject: string): any[] {
          const cellValue = row[index + 1];
 
         // Try to identify if this is a Lab Column
+        // For ITCS251/ITCS255: "W 1", "W 2" format
+        const wMatch = header.match(/^W\s*(\d+)$/i);
         const match = header.match(/^(?:Lab\s*|L)(\d+)(?:\s*\(.*\))?$/i);
         const chMatch = header.match(/^(?:Ch\s*|Challenge\s*)(\d+)(?:\s*\(.*\))?$/i);
         
-        if (match) {
+        if (wMatch) {
+            // It's a W column for ITCS251/ITCS255, e.g. "W 1" -> "Lab 1"
+            const labNum = parseInt(wMatch[1]).toString();
+            student[`Lab ${labNum}`] = cellValue;
+        } else if (match) {
             // It's a lab column, e.g. "L01 (2)" -> "1"
             const labNum = parseInt(match[1]).toString(); 
             student[`Lab ${labNum}`] = cellValue;
@@ -484,19 +490,23 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
      Fix for Lab/Challenge matching: 
      Handle exact column name matching for ITCS123 format like "Lab01 (2)", "Ch01 (2)"
      Also support legacy formats: "Lab 1", "Lab1", "L1", etc.
+     And W format for ITCS251/ITCS255: "W 1", "W 2", etc.
   */
   const labInt = parseInt(labNumber.toString().replace(/[^\d]/g, '')).toString(); // Extract just numbers: "Lab01 (2)" -> "1"
   const labNumPad = labInt.length === 1 ? `0${labInt}` : labInt; // "01"
   
+  console.log(`[updateSpecificTab] Subject: ${subject}, labNumber: ${labNumber}, labInt: ${labInt}`);
+  console.log(`[updateSpecificTab] Headers:`, headers);
+  
   // First try exact match (for "Lab01 (2)", "Ch01 (2)")
   let labIndex = headers.findIndex((h: string) => h === labNumber);
   
-  // If no exact match, try regex patterns (for legacy formats)
+  // If no exact match, try regex patterns (for legacy formats and W format)
   if (labIndex === -1) {
-    // Use word boundary \b to ensure we match exact numbers (Lab01, not Lab011 or Lab1)
-    // Match: Lab 1, Lab 01, Lab1, Lab01, L1, L01, Ch1, Ch01, etc.
-    const labRegex = new RegExp(`^(Lab|Ch|L)\\s*(${labInt}|${labNumPad})(\\s*\\(.*\\))?$`, 'i');
+    // Match: Lab 1, Lab 01, Lab1, Lab01, L1, L01, Ch1, Ch01, W 1, W 2, etc.
+    const labRegex = new RegExp(`^(Lab|Ch|L|W)\\s*(${labInt}|${labNumPad})(\\s*\\(.*\\))?$`, 'i');
     labIndex = headers.findIndex((h: string) => labRegex.test(h));
+    console.log(`[updateSpecificTab] Regex match result: labIndex=${labIndex}`);
   }
   
   const feedbackRegex = new RegExp(`^(Lab\\s*${labInt}|L${labInt}|L${labNumPad})\\s*Feedback$`, 'i');
@@ -508,15 +518,23 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
   // 1. Add Header if missing
   if (labIndex === -1) {
       labIndex = headers.length; 
-      // Use the labNumber as-is if it's already formatted (contains "Lab" or "Ch"), otherwise format it
-      const headerValue = labNumber.match(/^(Lab|Ch)/i) ? labNumber : `Lab ${labNumber}`;
+      // For ITCS251/ITCS255, use W format; otherwise use Lab format
+      let headerValue;
+      if (subject === 'ITCS251' || subject === 'ITCS255') {
+        headerValue = `W ${labInt}`;
+      } else {
+        headerValue = labNumber.match(/^(Lab|Ch)/i) ? labNumber : `Lab ${labNumber}`;
+      }
       headers.push(headerValue);
       
+      // For ITCS251/ITCS255, header is at row 5, not row 1
+      const headerRow = (subject === 'ITCS251' || subject === 'ITCS255') ? 5 : 1;
+      
       pendingUpdates.push({
-          range: `${tabName}!${getColumnLetter(labIndex + 1)}1`,
+          range: `${tabName}!${getColumnLetter(labIndex + 1)}${headerRow}`,
           values: [[headerValue]]
       });
-      xlsxUpdates.push({ col: labIndex + 1, row: 1, value: headerValue });
+      xlsxUpdates.push({ col: labIndex + 1, row: headerRow, value: headerValue });
   }
 
   // 2. Find row
@@ -526,6 +544,12 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
       return String(val).trim() === String(username).trim();
   });
   
+  // For ITCS251/ITCS255, header starts at row 5, so we need to offset row numbers
+  const startRow = (subject === 'ITCS251' || subject === 'ITCS255') ? 5 : 1;
+  const rowOffset = startRow - 1; // Row 5 -> offset 4, Row 1 -> offset 0
+  
+  console.log(`[updateSpecificTab] rowIndex: ${rowIndex}, startRow: ${startRow}, rowOffset: ${rowOffset}`);
+  
   if (rowIndex === -1) {
     rowIndex = rows.length;
     let newRow = [username];
@@ -533,35 +557,44 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
          newRow = [(rowIndex).toString(), username, "", ""]; 
     }
     
+    const actualSheetRow = rowIndex + 1 + rowOffset;
+    console.log(`[updateSpecificTab] Creating new row at sheet row ${actualSheetRow}`);
     pendingUpdates.push({
-        range: `${tabName}!A${rowIndex + 1}`,
+        range: `${tabName}!A${actualSheetRow}`,
         values: [newRow]
     });
     
     newRow.forEach((val, idx) => {
-        xlsxUpdates.push({ col: idx + 1, row: rowIndex + 1, value: val });
+        xlsxUpdates.push({ col: idx + 1, row: actualSheetRow, value: val });
     });
   }
 
   // 3. Score Update
+  const actualSheetRow = rowIndex + 1 + rowOffset;
+  const scoreRange = `${tabName}!${getColumnLetter(labIndex + 1)}${actualSheetRow}`;
+  console.log(`[updateSpecificTab] Score update: range=${scoreRange}, score=${score}, labIndex=${labIndex}`);
+  
   pendingUpdates.push({
-      range: `${tabName}!${getColumnLetter(labIndex + 1)}${rowIndex + 1}`,
+      range: scoreRange,
       values: [[score]]
   });
-  xlsxUpdates.push({ col: labIndex + 1, row: rowIndex + 1, value: score });
+  xlsxUpdates.push({ col: labIndex + 1, row: actualSheetRow, value: score });
   
-  // Special handling for ITCS251 and ITCS255: Update In-Class column to TRUE
+  // Special handling for ITCS251 and ITCS255: Update In-Class column adjacent to W column
   if (subject === 'ITCS251' || subject === 'ITCS255') {
-    const inClassIndex = headers.findIndex((h: string) => 
-      String(h).toLowerCase().trim() === 'in-class'
-    );
-    
-    if (inClassIndex !== -1) {
-      pendingUpdates.push({
-        range: `${tabName}!${getColumnLetter(inClassIndex + 1)}${rowIndex + 1}`,
-        values: [[true]]
-      });
-      xlsxUpdates.push({ col: inClassIndex + 1, row: rowIndex + 1, value: true });
+    // Check if the column immediately after the lab column is "In-Class"
+    const nextColumnIndex = labIndex + 1;
+    if (nextColumnIndex < headers.length) {
+      const nextColumnHeader = headers[nextColumnIndex];
+      // Check if next column is an In-Class checkbox
+      if (nextColumnHeader && String(nextColumnHeader).toLowerCase().trim() === 'in-class') {
+        // Update the In-Class column adjacent to this specific W column
+        pendingUpdates.push({
+          range: `${tabName}!${getColumnLetter(nextColumnIndex + 1)}${actualSheetRow}`,
+          values: [[true]]
+        });
+        xlsxUpdates.push({ col: nextColumnIndex + 1, row: actualSheetRow, value: true });
+      }
     }
   }
   

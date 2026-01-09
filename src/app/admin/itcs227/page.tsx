@@ -5,68 +5,15 @@ import type React from "react"
 import LogoutButton from "@/components/LogoutButton"
 import { useState, useEffect } from "react"
 import { ModeToggle } from "@/components/mode-toggle"
-
-// Mock Data for "Recently Accessed"
-const RECENT_TOOLS = [
-  {
-    title: "Lab Management",
-    code: "MUICT_LABS",
-    href: "/admin/labs",
-    color: "from-blue-600 to-cyan-500",
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-        />
-      </svg>
-    ),
-    description: "Manage lab assignments and file structures.",
-  },
-  {
-    title: "Account Management",
-    code: "ADMIN_USERS",
-    href: "/admin/users",
-    color: "from-purple-600 to-pink-500",
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-        />
-      </svg>
-    ),
-    description: "Manage system administrators and permissions.",
-  },
-  {
-    title: "Submission Viewer",
-    code: "VIEWER_SITE",
-    href: "/",
-    color: "from-teal-600 to-emerald-500",
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-        />
-      </svg>
-    ),
-    description: "View student submissions and renders.",
-  },
-]
+import { useRouter } from "next/navigation"
 
 export default function AdminDashboard() {
+  const router = useRouter()
   const [labs, setLabs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [role, setRole] = useState<'LA' | 'Lecturer'>('LA')
   const [username, setUsername] = useState('')
+  const [hasAccess, setHasAccess] = useState(false)
 
   const [studentId, setStudentId] = useState("")
   const [selectedLab, setSelectedLab] = useState("")
@@ -74,6 +21,7 @@ export default function AdminDashboard() {
   const [score, setScore] = useState("0")
   const [gradingSuccess, setGradingSuccess] = useState(false)
   const [gradingError, setGradingError] = useState<string | null>(null)
+  const [isFilling, setIsFilling] = useState(false)
 
   useEffect(() => {
     async function fetchLabs() {
@@ -93,7 +41,7 @@ export default function AdminDashboard() {
     }
     fetchLabs()
 
-    // Fetch user role
+    // Fetch user role and permissions
     fetch("/api/auth/me")
       .then(res => res.json())
       .then(data => {
@@ -103,8 +51,18 @@ export default function AdminDashboard() {
         if (data.username) {
           setUsername(data.username)
         }
+        // Check if user has access to ITCS227 (or is main admin)
+        if (data.username === 'kanzaki_aito' || (data.permissions && data.permissions.itcs227)) {
+          setHasAccess(true)
+        } else {
+          // Redirect to admin dashboard if no access
+          router.push('/admin/dashboard')
+        }
       })
-      .catch(err => console.error("Failed to fetch user role", err))
+      .catch(err => {
+        console.error("Failed to fetch user role", err)
+        router.push('/admin/dashboard')
+      })
   }, [])
 
   async function handleGradeSubmit(e: React.FormEvent) {
@@ -138,8 +96,6 @@ export default function AdminDashboard() {
         setGradingError(err.message || "An unexpected error occurred");
     }
   }
-
-  const [isFilling, setIsFilling] = useState(false);
 
   async function handleFillMissing() {
       if (!selectedLab) {
@@ -178,6 +134,18 @@ export default function AdminDashboard() {
       } finally {
           setIsFilling(false);
       }
+  }
+
+  // Show loading screen while checking access
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-cyan-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-teal-600 border-r-transparent"></div>
+          <p className="mt-4 text-slate-600 dark:text-slate-400">Checking access...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

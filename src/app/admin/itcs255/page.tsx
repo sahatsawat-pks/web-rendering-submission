@@ -4,20 +4,22 @@ import type React from "react"
 import LogoutButton from "@/components/LogoutButton"
 import { useState, useEffect } from "react"
 import { ModeToggle } from "@/components/mode-toggle"
+import { useRouter } from "next/navigation"
 
 export default function ITCS255AdminDashboard() {
+  const router = useRouter()
   const [labs, setLabs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [role, setRole] = useState<'LA' | 'Lecturer'>('LA')
   const [username, setUsername] = useState('')
+  const [hasAccess, setHasAccess] = useState(false)
 
   const [studentId, setStudentId] = useState("")
   const [selectedLab, setSelectedLab] = useState("")
   const [score, setScore] = useState("0")
-  const [showScoreDialog, setShowScoreDialog] = useState(false)
   const [gradingSuccess, setGradingSuccess] = useState(false)
   const [gradingError, setGradingError] = useState<string | null>(null)
-  const [lastSubmittedStudentId, setLastSubmittedStudentId] = useState("")
+  const [isFilling, setIsFilling] = useState(false)
 
   useEffect(() => {
     async function fetchLabs() {
@@ -37,7 +39,7 @@ export default function ITCS255AdminDashboard() {
     }
     fetchLabs()
 
-    // Fetch user role
+    // Fetch user role and permissions
     fetch("/api/auth/me")
       .then(res => res.json())
       .then(data => {
@@ -47,8 +49,18 @@ export default function ITCS255AdminDashboard() {
         if (data.username) {
           setUsername(data.username)
         }
+        // Check if user has access to ITCS255 (or is main admin)
+        if (data.username === 'kanzaki_aito' || (data.permissions && data.permissions.itcs255)) {
+          setHasAccess(true)
+        } else {
+          // Redirect to admin dashboard if no access
+          router.push('/admin/dashboard')
+        }
       })
-      .catch(err => console.error("Failed to fetch user role", err))
+      .catch(err => {
+        console.error("Failed to fetch user role", err)
+        router.push('/admin/dashboard')
+      })
   }, [])
 
   async function handleGradeSubmit(e: React.FormEvent) {
@@ -56,28 +68,20 @@ export default function ITCS255AdminDashboard() {
     setGradingError(null)
     setGradingSuccess(false)
 
-    if (!showScoreDialog) {
-      setShowScoreDialog(true)
-      return
-    }
-
     try {
-        const payload = {
-            action: 'update',
-            username: studentId,
-            labNumber: selectedLab,
-            subject: 'ITCS255',
-            labScore: parseInt(score)
-        };
-
         const res = await fetch('/api/scores', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({
+                action: 'update',
+                username: studentId,
+                labNumber: selectedLab,
+                score: parseInt(score),
+                subject: 'ITCS255'
+            })
         });
 
         if (res.ok) {
-             setLastSubmittedStudentId(studentId);
              setGradingSuccess(true);
              setStudentId("");
              setTimeout(() => setGradingSuccess(false), 5000);
@@ -89,8 +93,6 @@ export default function ITCS255AdminDashboard() {
         setGradingError(err.message || "An unexpected error occurred");
     }
   }
-
-  const [isFilling, setIsFilling] = useState(false);
 
   async function handleFillMissing() {
       if (!selectedLab) {
@@ -124,6 +126,18 @@ export default function ITCS255AdminDashboard() {
       } finally {
           setIsFilling(false);
       }
+  }
+
+  // Show loading while checking permissions
+  if (!hasAccess && loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-purple-200 dark:border-purple-800 border-t-purple-600 dark:border-t-purple-400"></div>
+          <p className="text-slate-500 dark:text-slate-400 mt-4">Checking permissions...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -203,7 +217,7 @@ export default function ITCS255AdminDashboard() {
             </div>
 
             <form onSubmit={handleGradeSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     Student ID
@@ -214,9 +228,8 @@ export default function ITCS255AdminDashboard() {
                     onChange={(e) => setStudentId(e.target.value)}
                     placeholder="e.g., 6488001"
                     required
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all font-mono"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all"
                   />
-                  <p className="text-xs text-slate-500 mt-1">Ref: Column A2:A9999</p>
                 </div>
 
                 <div>
@@ -225,12 +238,7 @@ export default function ITCS255AdminDashboard() {
                   </label>
                   <select
                     value={selectedLab}
-                    onChange={(e) => {
-                      setSelectedLab(e.target.value)
-                      if (e.target.value) {
-                        setShowScoreDialog(true)
-                      }
-                    }}
+                    onChange={(e) => setSelectedLab(e.target.value)}
                     required
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all"
                   >
@@ -243,52 +251,33 @@ export default function ITCS255AdminDashboard() {
                   </select>
                 </div>
 
-                {showScoreDialog && selectedLab && (
-                  <div className="col-span-1 md:col-span-3 bg-purple-50 dark:bg-purple-900/20 border-2 border-purple-200 dark:border-purple-800 rounded-xl p-4 space-y-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-bold text-purple-900 dark:text-purple-300 flex items-center gap-2">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                        </svg>
-                        Score Entry for Lab {selectedLab}
-                      </h4>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                        Lab Score
-                      </label>
-                      <select
-                        value={score}
-                        onChange={(e) => setScore(e.target.value)}
-                        required
-                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all"
-                      >
-                        <option value="0">0 - Not Submitted</option>
-                        <option value="1">1 - Partial</option>
-                        <option value="2">2 - Complete</option>
-                      </select>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Column: Lab{selectedLab.padStart(2, '0')} (2)</p>
-                    </div>
-                  </div>
-                )}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Score</label>
+                  <input
+                    type="number"
+                    value={score}
+                    onChange={(e) => setScore(e.target.value)}
+                    placeholder="e.g., 10"
+                    required
+                    min="0"
+                    step="0.5"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all"
+                  />
+                </div>
               </div>
 
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col md:flex-row gap-4">
                   <button
                     type="submit"
-                    className="px-6 py-3 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl shadow-md shadow-purple-500/30 transition-all btn-hover-lift flex items-center justify-center gap-2"
+                    className="flex-1 px-6 py-3 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl shadow-md shadow-purple-500/30 transition-all btn-hover-lift flex items-center justify-center gap-2"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                    Submit Score
+                    Update Score to Spreadsheet
                   </button>
                   <button
                     type="button"
                     onClick={handleFillMissing}
                     disabled={isFilling || !selectedLab}
-                    className="px-6 py-3 text-sm font-medium text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/40 rounded-xl border border-purple-200 dark:border-purple-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="px-6 py-3 text-sm font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-xl border border-amber-200 dark:border-amber-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                     title="Fill all empty cells in this lab column with 0"
                   >
                      {isFilling ? (
@@ -301,16 +290,8 @@ export default function ITCS255AdminDashboard() {
               </div>
 
               {gradingSuccess && (
-                <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 px-4 py-3 rounded-xl text-sm flex items-center gap-3">
-                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <div>
-                    <span className="font-semibold">Success!</span>
-                    <p className="text-xs opacity-90 mt-0.5">
-                       Score updated for Student {lastSubmittedStudentId} in ITCS255 Sheet.
-                    </p>
-                  </div>
+                <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 px-4 py-3 rounded-xl text-sm">
+                   Score updated for Student {studentId} in ITCS255 Sheet.
                 </div>
               )}
 
@@ -351,10 +332,12 @@ export default function ITCS255AdminDashboard() {
                 <span className="px-3 py-1.5 bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-400 rounded-lg text-xs font-medium border border-purple-200 dark:border-purple-700 shadow-sm">
                   {labs.length} Active
                 </span>
-                <a href="/admin/itcs255/tests" className="px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-medium border border-purple-200 dark:border-purple-800 shadow-sm hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors">
-                  Manage Test Cases
-                </a>
-                {(role === 'Lecturer' || username === 'kanzaki_aito') && (
+                {role === 'Lecturer' && (
+                  <a href="/admin/itcs255/tests" className="px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-medium border border-purple-200 dark:border-purple-800 shadow-sm hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors">
+                    Manage Test Cases
+                  </a>
+                )}
+                {role === 'Lecturer' && (
                   <a href="/admin/labs" className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1">
                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                      New Lab

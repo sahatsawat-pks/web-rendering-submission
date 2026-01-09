@@ -14,6 +14,13 @@ interface Lab {
   fileName?: string;
   testCases?: string; // JSON string
   labType?: 'Lab' | 'Challenge';
+  subQuestions?: string; // JSON string
+}
+
+interface SubQuestion {
+  id: string;
+  name: string;
+  order: number;
 }
 
 interface TestCase {
@@ -22,6 +29,7 @@ interface TestCase {
   input: string;
   expectedOutput: string;
   matchMode?: 'trim' | 'exact';
+  subQuestionId?: string; // Optional: which sub-question this test belongs to
 }
 
 export default function ManageTestCasesPage() {
@@ -29,11 +37,14 @@ export default function ManageTestCasesPage() {
   const [labs, setLabs] = useState<Lab[]>([]);
   const [selectedLab, setSelectedLab] = useState<Lab | null>(null);
   const [testCases, setTestCases] = useState<TestCase[]>([]);
+  const [subQuestions, setSubQuestions] = useState<SubQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [labTypeFilter, setLabTypeFilter] = useState<'Lab' | 'Challenge'>('Lab');
+  const [role, setRole] = useState<'LA' | 'Lecturer' | null>(null);
+  const [hasAccess, setHasAccess] = useState(false);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -42,10 +53,33 @@ export default function ManageTestCasesPage() {
   const [testInput, setTestInput] = useState("");
   const [testOutput, setTestOutput] = useState("");
   const [testMatchMode, setTestMatchMode] = useState<'trim' | 'exact'>('trim');
+  const [selectedSubQuestionId, setSelectedSubQuestionId] = useState<string | undefined>(undefined);
+
+  // Sub-question Modal State
+  const [isSubQuestionModalOpen, setIsSubQuestionModalOpen] = useState(false);
+  const [currentSubQuestion, setCurrentSubQuestion] = useState<SubQuestion | null>(null);
+  const [subQuestionName, setSubQuestionName] = useState("");
 
   useEffect(() => {
-    fetchLabs();
-  }, []);
+    // Check role and permissions first
+    fetch("/api/auth/me")
+      .then(res => res.json())
+      .then(data => {
+        setRole(data.role);
+        // Check if user is main admin OR (Lecturer AND has access to ITCS123)
+        if (data.username === 'kanzaki_aito' || (data.role === 'Lecturer' && data.permissions && data.permissions.itcs123)) {
+          setHasAccess(true);
+          fetchLabs();
+        } else {
+          // Redirect to subject dashboard if not Lecturer or no access
+          router.push('/admin/itcs123');
+        }
+      })
+      .catch(err => {
+        console.error("Failed to fetch user permissions", err);
+        router.push('/admin/dashboard');
+      });
+  }, [router]);
 
   const fetchLabs = async () => {
     try {
@@ -76,21 +110,33 @@ export default function ManageTestCasesPage() {
     } else {
       setTestCases([]);
     }
+    if (lab.subQuestions) {
+      try {
+        setSubQuestions(JSON.parse(lab.subQuestions));
+      } catch (e) {
+        console.error("Failed to parse sub-questions", e);
+        setSubQuestions([]);
+      }
+    } else {
+      setSubQuestions([]);
+    }
   };
 
-  const handleOpenModal = (test?: TestCase) => {
+  const handleOpenModal = (test?: TestCase, subQuestionId?: string) => {
     if (test) {
       setCurrentTest(test);
       setTestName(test.name);
       setTestInput(test.input);
       setTestOutput(test.expectedOutput);
       setTestMatchMode(test.matchMode || 'trim');
+      setSelectedSubQuestionId(test.subQuestionId);
     } else {
       setCurrentTest(null);
       setTestName("");
       setTestInput("");
       setTestOutput("");
       setTestMatchMode('trim');
+      setSelectedSubQuestionId(subQuestionId);
     }
     setIsModalOpen(true);
   };
@@ -102,7 +148,7 @@ export default function ManageTestCasesPage() {
       // Edit
       setTestCases(prev => prev.map(t => 
         t.id === currentTest.id 
-          ? { ...t, name: testName, input: testInput, expectedOutput: testOutput, matchMode: testMatchMode }
+          ? { ...t, name: testName, input: testInput, expectedOutput: testOutput, matchMode: testMatchMode, subQuestionId: selectedSubQuestionId }
           : t
       ));
     } else {
@@ -112,11 +158,55 @@ export default function ManageTestCasesPage() {
         name: testName,
         input: testInput,
         expectedOutput: testOutput,
-        matchMode: testMatchMode
+        matchMode: testMatchMode,
+        subQuestionId: selectedSubQuestionId
       };
       setTestCases(prev => [...prev, newTest]);
     }
     setIsModalOpen(false);
+  };
+
+  const handleOpenSubQuestionModal = (subQuestion?: SubQuestion) => {
+    if (subQuestion) {
+      setCurrentSubQuestion(subQuestion);
+      setSubQuestionName(subQuestion.name);
+    } else {
+      setCurrentSubQuestion(null);
+      setSubQuestionName("");
+    }
+    setIsSubQuestionModalOpen(true);
+  };
+
+  const handleSaveSubQuestion = () => {
+    if (!subQuestionName) return;
+
+    if (currentSubQuestion) {
+      // Edit
+      setSubQuestions(prev => prev.map(sq => 
+        sq.id === currentSubQuestion.id 
+          ? { ...sq, name: subQuestionName }
+          : sq
+      ));
+    } else {
+      // Create
+      const newSubQuestion: SubQuestion = {
+        id: crypto.randomUUID(),
+        name: subQuestionName,
+        order: subQuestions.length
+      };
+      setSubQuestions(prev => [...prev, newSubQuestion]);
+    }
+    setIsSubQuestionModalOpen(false);
+  };
+
+  const handleDeleteSubQuestion = (id: string) => {
+    if (confirm("Are you sure? All test cases in this sub-question will be moved to 'No Sub-Question'.")) {
+      setSubQuestions(prev => prev.filter(sq => sq.id !== id));
+      // Move all test cases from this sub-question to no sub-question
+      setTestCases(prev => prev.map(tc => 
+        tc.subQuestionId === id ? { ...tc, subQuestionId: undefined } : tc
+      ));
+    }
   };
 
   const handleDeleteTest = (id: string) => {
@@ -137,7 +227,8 @@ export default function ManageTestCasesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: selectedLab.id,
-          testCases: JSON.stringify(testCases)
+          testCases: JSON.stringify(testCases),
+          subQuestions: JSON.stringify(subQuestions)
         })
       });
       
@@ -145,7 +236,7 @@ export default function ManageTestCasesPage() {
       if (data.success) {
         setSuccess("Test cases saved successfully!");
         // Update local labs state
-        setLabs(prev => prev.map(l => l.id === selectedLab.id ? { ...l, testCases: JSON.stringify(testCases) } : l));
+        setLabs(prev => prev.map(l => l.id === selectedLab.id ? { ...l, testCases: JSON.stringify(testCases), subQuestions: JSON.stringify(subQuestions) } : l));
       } else {
         setError(data.error || "Failed to save changes");
       }
@@ -155,6 +246,18 @@ export default function ManageTestCasesPage() {
       setSaving(false);
     }
   };
+
+  // Show loading while checking permissions
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-[#161b22] text-slate-200 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-200 dark:border-blue-800 border-t-blue-600 dark:border-t-blue-400"></div>
+          <p className="text-slate-400 mt-4">Checking permissions...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#161b22] text-slate-200 p-8 font-['Inter'] animate-fade-in">
@@ -243,9 +346,18 @@ export default function ManageTestCasesPage() {
                                 <h2 className="text-2xl font-bold text-white">{selectedLab.title}</h2>
                                 <p className="text-slate-400 text-sm mt-1">
                                     {testCases.length} Test Case{testCases.length !== 1 && 's'} Defined
+                                    {subQuestions.length > 0 && <span className="mx-2">•</span>}
+                                    {subQuestions.length > 0 && `${subQuestions.length} Sub-Question${subQuestions.length !== 1 ? 's' : ''}`}
                                 </p>
                             </div>
                             <div className="flex items-center gap-3">
+                                <button 
+                                    onClick={() => handleOpenSubQuestionModal()}
+                                    className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 text-purple-400 rounded-lg hover:bg-purple-500/20 transition-all border border-purple-500/20"
+                                >
+                                    <Plus size={18} />
+                                    Add Sub-Question
+                                </button>
                                 <button 
                                     onClick={() => handleOpenModal()}
                                     className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition-all border border-emerald-500/20"
@@ -283,51 +395,153 @@ export default function ManageTestCasesPage() {
                         )}
 
                         {/* Test Cases List */}
-                        <div className="grid gap-3 md:gap-4">
-                            {testCases.map((test, index) => (
-                                <div key={test.id} className="bg-[#161b22] p-4 md:p-6 rounded-2xl border border-white/5 group hover:border-white/10 transition-all">
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 font-mono text-sm border border-white/5">
-                                                {index + 1}
+                        <div className="space-y-6">
+                            {/* No Sub-Question Section (if there are any) */}
+                            {testCases.some(tc => !tc.subQuestionId) && (
+                                <div className="space-y-3">
+                                    {subQuestions.length > 0 && (
+                                        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                                            <span className="text-slate-500">No Sub-Question</span>
+                                        </h3>
+                                    )}
+                                    <div className="grid gap-3 md:gap-4">
+                                        {testCases
+                                            .map((test, idx) => ({ test, originalIndex: idx }))
+                                            .filter(({ test }) => !test.subQuestionId)
+                                            .map(({ test, originalIndex }) => (
+                                            <div key={test.id} className="bg-[#161b22] p-4 md:p-6 rounded-2xl border border-white/5 group hover:border-white/10 transition-all">
+                                                <div className="flex items-start justify-between mb-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 font-mono text-sm border border-white/5">
+                                                            {originalIndex + 1}
+                                                        </div>
+                                                        <h3 className="font-semibold text-white text-lg">{test.name}</h3>
+                                                        {test.matchMode === 'exact' && (
+                                                            <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] font-bold border border-purple-500/30">EXACT</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button 
+                                                            onClick={() => handleOpenModal(test)}
+                                                            className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-blue-400 transition-colors"
+                                                        >
+                                                            <Edit2 size={18} />
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleDeleteTest(test.id)}
+                                                            className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
+                                                        >
+                                                            <Trash2 size={18} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                                                    <div className="space-y-2">
+                                                        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Input</label>
+                                                        <div className="bg-[#0d1117] p-3 rounded-lg border border-white/5 font-mono text-sm text-slate-300 min-h-[60px] whitespace-pre-wrap">
+                                                            {test.input || <span className="text-slate-600 italic">No input</span>}
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Expected Output</label>
+                                                        <div className="bg-[#0d1117] p-3 rounded-lg border border-white/5 font-mono text-sm text-emerald-400/90 min-h-[60px] whitespace-pre-wrap">
+                                                            {test.expectedOutput}
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <h3 className="font-semibold text-white text-lg">{test.name}</h3>
-                                            {test.matchMode === 'exact' && (
-                                                <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] font-bold border border-purple-500/30">EXACT</span>
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button 
-                                                onClick={() => handleOpenModal(test)}
-                                                className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-blue-400 transition-colors"
-                                            >
-                                                <Edit2 size={18} />
-                                            </button>
-                                            <button 
-                                                onClick={() => handleDeleteTest(test.id)}
-                                                className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
-                                            >
-                                                <Trash2 size={18} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                                        <div className="space-y-2">
-                                            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Input</label>
-                                            <div className="bg-[#0d1117] p-3 rounded-lg border border-white/5 font-mono text-sm text-slate-300 min-h-[60px] whitespace-pre-wrap">
-                                                {test.input || <span className="text-slate-600 italic">No input</span>}
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Expected Output</label>
-                                            <div className="bg-[#0d1117] p-3 rounded-lg border border-white/5 font-mono text-sm text-emerald-400/90 min-h-[60px] whitespace-pre-wrap">
-                                                {test.expectedOutput}
-                                            </div>
-                                        </div>
+                                        ))}
                                     </div>
                                 </div>
-                            ))}
+                            )}
+
+                            {/* Sub-Questions Sections */}
+                            {subQuestions.sort((a, b) => a.order - b.order).map((subQuestion) => {
+                                const subQuestionTests = testCases
+                                    .map((test, idx) => ({ test, originalIndex: idx }))
+                                    .filter(({ test }) => test.subQuestionId === subQuestion.id);
+                                
+                                return (
+                                    <div key={subQuestion.id} className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                                                <span className="text-blue-400">{subQuestion.name}</span>
+                                                <span className="text-sm text-slate-500">({subQuestionTests.length} test{subQuestionTests.length !== 1 ? 's' : ''})</span>
+                                            </h3>
+                                            <div className="flex items-center gap-2">
+                                                <button 
+                                                    onClick={() => handleOpenModal(undefined, subQuestion.id)}
+                                                    className="px-3 py-1.5 text-xs bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition-all border border-emerald-500/20 flex items-center gap-1.5"
+                                                >
+                                                    <Plus size={14} />
+                                                    Add Test
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleOpenSubQuestionModal(subQuestion)}
+                                                    className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-blue-400 transition-colors"
+                                                    title="Edit sub-question"
+                                                >
+                                                    <Edit2 size={16} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDeleteSubQuestion(subQuestion.id)}
+                                                    className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
+                                                    title="Delete sub-question"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="grid gap-3 md:gap-4">
+                                            {subQuestionTests.map(({ test, originalIndex }) => (
+                                                <div key={test.id} className="bg-[#161b22] p-4 md:p-6 rounded-2xl border border-blue-500/20 group hover:border-blue-500/40 transition-all">
+                                                    <div className="flex items-start justify-between mb-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 font-mono text-sm border border-white/5">
+                                                                {originalIndex + 1}
+                                                            </div>
+                                                            <h3 className="font-semibold text-white text-lg">{test.name}</h3>
+                                                            {test.matchMode === 'exact' && (
+                                                                <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] font-bold border border-purple-500/30">EXACT</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button 
+                                                                onClick={() => handleOpenModal(test)}
+                                                                className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-blue-400 transition-colors"
+                                                            >
+                                                                <Edit2 size={18} />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleDeleteTest(test.id)}
+                                                                className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
+                                                            >
+                                                                <Trash2 size={18} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                                                        <div className="space-y-2">
+                                                            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Input</label>
+                                                            <div className="bg-[#0d1117] p-3 rounded-lg border border-white/5 font-mono text-sm text-slate-300 min-h-[60px] whitespace-pre-wrap">
+                                                                {test.input || <span className="text-slate-600 italic">No input</span>}
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Expected Output</label>
+                                                            <div className="bg-[#0d1117] p-3 rounded-lg border border-white/5 font-mono text-sm text-emerald-400/90 min-h-[60px] whitespace-pre-wrap">
+                                                                {test.expectedOutput}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                             
                             {testCases.length === 0 && (
                                 <div className="text-center py-12 text-slate-500 bg-[#161b22] rounded-2xl border border-white/5 border-dashed">
@@ -384,6 +598,22 @@ export default function ManageTestCasesPage() {
                             />
                         </div>
                         
+                        {subQuestions.length > 0 && (
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">Sub-Question (Optional)</label>
+                                <select
+                                    value={selectedSubQuestionId || ''}
+                                    onChange={(e) => setSelectedSubQuestionId(e.target.value || undefined)}
+                                    className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                                >
+                                    <option value="">No Sub-Question</option>
+                                    {subQuestions.sort((a, b) => a.order - b.order).map(sq => (
+                                        <option key={sq.id} value={sq.id}>{sq.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                        
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-300">Input (standard in)</label>
                             <textarea 
@@ -427,6 +657,48 @@ export default function ManageTestCasesPage() {
                             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors font-medium"
                         >
                             {currentTest ? "Update Test Case" : "Create Test Case"}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Sub-Question Modal */}
+        {isSubQuestionModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                <div className="bg-[#161b22] w-full max-w-md rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
+                    <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                        <h3 className="text-xl font-bold text-white">
+                            {currentSubQuestion ? "Edit Sub-Question" : "New Sub-Question"}
+                        </h3>
+                        <button onClick={() => setIsSubQuestionModalOpen(false)} className="text-slate-400 hover:text-white">
+                            <XCircle size={24} />
+                        </button>
+                    </div>
+                    <div className="p-6 space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-300">Sub-Question Name</label>
+                            <input 
+                                type="text" 
+                                value={subQuestionName}
+                                onChange={(e) => setSubQuestionName(e.target.value)}
+                                placeholder="e.g. Question 1, Part A"
+                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors"
+                            />
+                        </div>
+                    </div>
+                    <div className="p-6 border-t border-white/5 flex justify-end gap-3 bg-[#0d1117]/50">
+                        <button 
+                            onClick={() => setIsSubQuestionModalOpen(false)}
+                            className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            onClick={handleSaveSubQuestion}
+                            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-500 transition-colors font-medium"
+                        >
+                            {currentSubQuestion ? "Update Sub-Question" : "Create Sub-Question"}
                         </button>
                     </div>
                 </div>
