@@ -36,6 +36,8 @@ public class Solution {
   const [isRunning, setIsRunning] = useState(false)
   const [testCases, setTestCases] = useState<TestCase[]>([])
   const [labTypeFilter, setLabTypeFilter] = useState<'Lab' | 'Challenge'>('Lab')
+  const [selectedTask, setSelectedTask] = useState<string>("all")
+  const [runningTestId, setRunningTestId] = useState<string | null>(null)
 
   // Expanded results state
   const [expandedTestId, setExpandedTestId] = useState<string | null>(null)
@@ -124,8 +126,27 @@ public class Solution {
       if (currentLab && currentLab.testCases) {
         try {
             const parsed = JSON.parse(currentLab.testCases)
-            // Reset status
-            setTestCases(parsed.map((t: any) => ({ ...t, status: 'pending', actualOutput: undefined })))
+            // Parse tasks if available
+            let tasksData: any[] = []
+            if (currentLab.subQuestions) {
+              try {
+                tasksData = JSON.parse(currentLab.subQuestions)
+              } catch (e) {
+                console.error("Error parsing tasks", e)
+              }
+            }
+            // Map test cases with task info
+            const mappedTests = parsed.map((t: any) => {
+              const task = tasksData.find(sq => sq.id === t.subQuestionId)
+              return {
+                ...t,
+                status: 'pending',
+                actualOutput: undefined,
+                taskName: task?.name || null
+              }
+            })
+            setTestCases(mappedTests)
+            setSelectedTask("all")
         } catch (e) {
             console.error("Error parsing test cases", e)
             setTestCases([])
@@ -135,20 +156,101 @@ public class Solution {
       }
     }
   }, [labNumber, labs, labTypeFilter])
-
-
+  const runSingleTest = async (testId: string) => {
+    setRunningTestId(testId)
+    
+    const testIndex = testCases.findIndex(t => t.id === testId)
+    if (testIndex === -1) return
+    
+    const test = testCases[testIndex]
+    
+    setTestCases(prev => prev.map(t => 
+      t.id === testId ? { ...t, status: 'running' as const, actualOutput: undefined, errorMessage: undefined } : t
+    ))
+    
+    try {
+      const response = await fetch('/api/run-java', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code,
+          input: test.input
+        })
+      })
+      
+      const result = await response.json()
+      
+      setTestCases(prev => {
+        const current = [...prev]
+        const activeTest = current[testIndex]
+        
+        if (result.error && !result.output) {
+          activeTest.status = 'fail'
+          activeTest.actualOutput = result.output || ''
+          activeTest.errorMessage = result.error
+        } else {
+          const rawActual = result.output || ''
+          const rawExpected = activeTest.expectedOutput
+          
+          const actualNorm = rawActual.replace(/\r\n/g, '\n')
+          const expectedNorm = rawExpected.replace(/\r\n/g, '\n')
+          
+          const mode = activeTest.matchMode || 'trim'
+          let passed = false
+          
+          if (mode === 'trim') {
+            passed = actualNorm.trim() === expectedNorm.trim()
+          } else {
+            passed = actualNorm === expectedNorm
+          }
+          
+          activeTest.status = passed ? 'pass' : 'fail'
+          activeTest.actualOutput = (result.output || '') + (result.error ? `\n\nError Stream:\n${result.error}` : '')
+        }
+        
+        return current
+      })
+    } catch (e: any) {
+      console.error("Test execution failed", e)
+      setTestCases(prev => {
+        const current = [...prev]
+        current[testIndex].status = 'fail'
+        current[testIndex].errorMessage = "Network or Server Error"
+        return current
+      })
+    } finally {
+      setRunningTestId(null)
+    }
+  }
 
   const runTests = async () => {
     setIsRunning(true)
+    setCustomOutput(null);
     
-    // Reset statuses
-    setTestCases(prev => prev.map(t => ({ ...t, status: 'running', actualOutput: undefined, errorMessage: undefined })))
+    // Filter tests by selected task
+    const testsToRun = selectedTask === "all" 
+      ? testCases 
+      : testCases.filter(t => (t as any).taskName === selectedTask)
+    
+    // First, reset ALL tests to pending (clear old results)
+    setTestCases(prev => prev.map(t => ({ 
+      ...t, 
+      status: 'pending', 
+      actualOutput: undefined, 
+      errorMessage: undefined 
+    })))
+    
+    // Then set only the tests we're about to run to 'running'
+    setTestCases(prev => prev.map(t => {
+      const shouldRun = selectedTask === "all" || (t as any).taskName === selectedTask
+      return shouldRun ? { ...t, status: 'running' } : t
+    }))
 
     // Processing Loop - Sequential to avoid server overload and mixed output
-    const newCases = [...testCases];
     
-    for (let i = 0; i < newCases.length; i++) {
-        const test = newCases[i];
+    for (let i = 0; i < testsToRun.length; i++) {
+        const test = testsToRun[i];
+        const originalIndex = testCases.findIndex(tc => tc.id === test.id);
         
         try {
             const response = await fetch('/api/run-java', {
@@ -165,7 +267,7 @@ public class Solution {
             // Update the specific test in the list
             setTestCases(prev => {
                 const current = [...prev];
-                const activeTest = current[i];
+                const activeTest = current[originalIndex];
                 
                 if (result.error && !result.output) {
                      // Compilation error or crash without output
@@ -206,8 +308,8 @@ public class Solution {
             console.error("Test execution failed", e);
              setTestCases(prev => {
                 const current = [...prev];
-                current[i].status = 'fail';
-                current[i].errorMessage = "Network or Server Error";
+                current[originalIndex].status = 'fail';
+                current[originalIndex].errorMessage = "Network or Server Error";
                 return current;
             });
         }
@@ -272,7 +374,7 @@ public class Solution {
                 </div>
                 
                 <div className="flex items-center gap-4">
-                    <label className="text-xs text-slate-400 font-bold">SELECT:</label>
+                    <label className="text-xs text-slate-400 font-bold">LAB:</label>
                     <select
                         value={labNumber}
                         onChange={e => setLabNumber(e.target.value)}
@@ -288,6 +390,27 @@ public class Solution {
                         ))}
                     </select>
                 </div>
+                {labNumber && testCases.length > 0 && (() => {
+                  const tasks = Array.from(new Set(testCases.map(t => (t as any).taskName).filter(Boolean)))
+                  if (tasks.length > 0) {
+                    return (
+                      <div className="flex items-center gap-4">
+                        <label className="text-xs text-slate-400 font-bold">TASK:</label>
+                        <select
+                          value={selectedTask}
+                          onChange={e => setSelectedTask(e.target.value)}
+                          className="flex-1 bg-slate-800 text-slate-200 px-3 py-1.5 rounded text-xs border border-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        >
+                          <option value="all">All Tasks</option>
+                          {tasks.map(task => (
+                            <option key={task} value={task}>{task}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
             </div>
 
             {/* Editor Header */}
@@ -359,12 +482,20 @@ public class Solution {
                 </div>
 
                 {/* Test Results Summary */}
-                {testCases.length > 0 && !isRunning && testCases.some(t => t.status === 'pass' || t.status === 'fail') && (
+                {(() => {
+                    const filteredTests = selectedTask === "all" 
+                      ? testCases 
+                      : testCases.filter(t => (t as any).taskName === selectedTask)
+                    const hasResults = filteredTests.some(t => t.status === 'pass' || t.status === 'fail')
+                    
+                    if (!hasResults || isRunning || filteredTests.length === 0) return null
+                    
+                    return (
                     <div className="pt-2 border-t border-white/5">
                         {(() => {
-                            const totalTests = testCases.length;
-                            const passedTests = testCases.filter(t => t.status === 'pass').length;
-                            const failedTests = testCases.filter(t => t.status === 'fail').length;
+                            const totalTests = filteredTests.length;
+                            const passedTests = filteredTests.filter(t => t.status === 'pass').length;
+                            const failedTests = filteredTests.filter(t => t.status === 'fail').length;
                             const percentage = totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0;
                             
                             let bgColor, borderColor, textColor, icon, message;
@@ -409,7 +540,8 @@ public class Solution {
                             );
                         })()}
                     </div>
-                )}
+                    )
+                })()}
             </div>
             
             <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-950/50">
@@ -420,7 +552,29 @@ public class Solution {
                     </div>
                 )}
                 
-                {testCases.map((test) => (
+                {(() => {
+                  // Filter tests by selected task
+                  const filteredTests = selectedTask === "all" 
+                    ? testCases 
+                    : testCases.filter(t => (t as any).taskName === selectedTask)
+                  
+                  // Group tests by task
+                  const grouped: { [key: string]: typeof testCases } = {}
+                  filteredTests.forEach(test => {
+                    const key = (test as any).taskName || '__no_task__'
+                    if (!grouped[key]) grouped[key] = []
+                    grouped[key].push(test)
+                  })
+                  
+                  return Object.entries(grouped).map(([taskName, tests]) => (
+                    <div key={taskName}>
+                      {taskName !== '__no_task__' && (
+                        <div className="mb-2 px-2">
+                          <div className="text-xs font-bold text-orange-400 uppercase tracking-wide">{taskName}</div>
+                          <div className="h-px bg-orange-500/30 mt-1"></div>
+                        </div>
+                      )}
+                      {tests.map((test) => (
                     <div key={test.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm hover:border-slate-700 transition-colors">
                         <div className="p-3 flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
@@ -434,12 +588,24 @@ public class Solution {
                             </div>
                         </div>
                         
-                        <div className="px-3 pb-3 flex justify-end">
+                        <div className="px-3 pb-3 flex items-center justify-between gap-2">
+                            <button 
+                                onClick={() => runSingleTest(test.id)}
+                                disabled={runningTestId === test.id || isRunning}
+                                className="text-[10px] font-bold uppercase tracking-wider text-white bg-green-600 hover:bg-green-500 disabled:bg-slate-700 disabled:text-slate-500 px-3 py-1.5 rounded flex items-center gap-1.5 transition-colors disabled:cursor-not-allowed"
+                            >
+                                {runningTestId === test.id ? (
+                                  <div className="animate-spin w-3 h-3 border-2 border-white/30 border-t-white rounded-full"></div>
+                                ) : (
+                                  <Play className="w-3 h-3" />
+                                )}
+                                {runningTestId === test.id ? 'Running' : 'Run Test'}
+                            </button>
                             <button 
                                 onClick={() => setExpandedTestId(expandedTestId === test.id ? null : test.id)}
                                 className="text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-300 bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded flex items-center gap-1 transition-colors"
                             >
-                                {expandedTestId === test.id ? 'Hide Results' : 'Results'}
+                                {expandedTestId === test.id ? 'Hide' : 'Details'}
                                 {expandedTestId === test.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                             </button>
                         </div>
@@ -512,8 +678,9 @@ public class Solution {
                             </div>
                         )}
                     </div>
-                ))}
-
+                ))}                    </div>
+                  ))
+                })()}
                 {testCases.length === 0 && (
                    <div className="text-center py-10 px-4">
                        <div className="bg-slate-900/50 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-800 text-slate-600">

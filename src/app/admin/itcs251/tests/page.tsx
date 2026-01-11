@@ -333,7 +333,7 @@ export default function ManageTestCasesPage() {
                                     className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 text-purple-400 rounded-lg hover:bg-purple-500/20 transition-all border border-purple-500/20"
                                 >
                                     <Plus size={18} />
-                                    Add Sub-Question
+                                    Add Task
                                 </button>
                                 <button 
                                     onClick={() => handleOpenModal()}

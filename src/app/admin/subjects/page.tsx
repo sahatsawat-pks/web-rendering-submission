@@ -43,7 +43,10 @@ export default function SubjectManagementPage() {
     description: '',
     icon: 'Code',
     color: 'from-blue-500 to-indigo-500',
-    isVisible: true
+    isVisible: true,
+    createScoreCheckPlaceholder: false,
+    createLabRunnerPlaceholder: false,
+    courseSummaryLink: ''
   })
 
   useEffect(() => {
@@ -137,6 +140,7 @@ export default function SubjectManagementPage() {
 
     setSaving('creating')
     try {
+      // Step 1: Create subject in database
       const res = await fetch("/api/subjects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -149,7 +153,31 @@ export default function SubjectManagementPage() {
       if (res.ok) {
         const data = await res.json()
         if (data.success) {
-          alert(`Subject ${newSubject.code} created successfully!\n\nNext steps:\n1. Add permissions for users in Account Management\n2. Create route folders: /src/app/${newSubject.code.toLowerCase()} and /src/app/admin/${newSubject.code.toLowerCase()}\n3. Add lab configurations in Lab Management`)
+          // Step 2: Attempt to create routes via GitHub API (Vercel-compatible)
+          try {
+            const routeRes = await fetch("/api/subjects/create-routes", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ 
+                subjectCode: newSubject.code,
+                createScoreCheckPlaceholder: newSubject.createScoreCheckPlaceholder,
+                createLabRunnerPlaceholder: newSubject.createLabRunnerPlaceholder,
+                courseSummaryLink: newSubject.courseSummaryLink
+              })
+            })
+
+            if (routeRes.ok) {
+              const routeData = await routeRes.json()
+              alert(`✅ Subject ${newSubject.code} created successfully!\n\n✅ Route files created and committed to GitHub:\n${routeData.filesCreated.join('\n')}\n\nNext steps:\n1. Wait for Vercel deployment (auto-triggered)\n2. Add permissions for users in Account Management\n3. Add lab configurations in Lab Management`)
+            } else {
+              const routeData = await routeRes.json()
+              // Subject created but route creation failed
+              alert(`⚠️ Subject ${newSubject.code} created in database.\n\n❌ Route creation failed: ${routeData.error}\n\nManual steps required:\n1. Create route folders: /src/app/${newSubject.code.toLowerCase()} and /src/app/admin/${newSubject.code.toLowerCase()}\n2. See SUBJECT_ROUTE_TEMPLATES.md for templates\n3. Add permissions for users in Account Management`)
+            }
+          } catch (routeErr) {
+            alert(`⚠️ Subject ${newSubject.code} created in database.\n\n❌ Could not create routes automatically.\n\nManual steps required:\n1. Create route folders: /src/app/${newSubject.code.toLowerCase()} and /src/app/admin/${newSubject.code.toLowerCase()}\n2. See SUBJECT_ROUTE_TEMPLATES.md for templates\n3. Add permissions for users in Account Management`)
+          }
+
           setShowCreateDialog(false)
           setNewSubject({
             code: '',
@@ -157,7 +185,10 @@ export default function SubjectManagementPage() {
             description: '',
             icon: 'Code',
             color: 'from-blue-500 to-indigo-500',
-            isVisible: true
+            isVisible: true,
+            createScoreCheckPlaceholder: false,
+            createLabRunnerPlaceholder: false,
+            courseSummaryLink: ''
           })
           await fetchSubjects()
         } else {
@@ -408,6 +439,67 @@ export default function SubjectManagementPage() {
                       <p className="text-xs font-medium text-slate-700 dark:text-slate-300">{color.name}</p>
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Route Creation Options */}
+              <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+                <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-sm">Route Creation Options</h3>
+                
+                {/* Score Check Placeholder */}
+                <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg">
+                  <div>
+                    <p className="font-medium text-slate-900 dark:text-slate-100 text-sm">Create Score Check as Placeholder</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">For future implementation</p>
+                  </div>
+                  <button
+                    onClick={() => setNewSubject({ ...newSubject, createScoreCheckPlaceholder: !newSubject.createScoreCheckPlaceholder })}
+                    disabled={saving === 'creating'}
+                    className={`w-12 h-7 rounded-full transition-colors ${
+                      newSubject.createScoreCheckPlaceholder ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-600'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform ${
+                      newSubject.createScoreCheckPlaceholder ? 'translate-x-6' : 'translate-x-1'
+                    }`}></div>
+                  </button>
+                </div>
+
+                {/* Lab Runner Placeholder */}
+                <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg">
+                  <div>
+                    <p className="font-medium text-slate-900 dark:text-slate-100 text-sm">Create Lab Runner as Placeholder</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">For future implementation</p>
+                  </div>
+                  <button
+                    onClick={() => setNewSubject({ ...newSubject, createLabRunnerPlaceholder: !newSubject.createLabRunnerPlaceholder })}
+                    disabled={saving === 'creating'}
+                    className={`w-12 h-7 rounded-full transition-colors ${
+                      newSubject.createLabRunnerPlaceholder ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-600'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform ${
+                      newSubject.createLabRunnerPlaceholder ? 'translate-x-6' : 'translate-x-1'
+                    }`}></div>
+                  </button>
+                </div>
+
+                {/* Course Summary Link */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Course Summary Link (Optional)
+                  </label>
+                  <input
+                    type="url"
+                    value={newSubject.courseSummaryLink}
+                    onChange={(e) => setNewSubject({ ...newSubject, courseSummaryLink: e.target.value })}
+                    placeholder="https://example.com/course-summary"
+                    className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={saving === 'creating'}
+                  />
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Provide a link if you have a course summary document
+                  </p>
                 </div>
               </div>
 

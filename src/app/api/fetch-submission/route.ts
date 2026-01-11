@@ -5,7 +5,7 @@ import { getLabByNumber } from "@/lib/db";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { username, labNumber } = body;
+    const { username, labNumber, subject } = body;
 
     // Validate input
     if (!username || !labNumber) {
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get lab configuration to find the file name
-    const lab = await getLabByNumber(labNumber);
+    const lab = await getLabByNumber(labNumber, subject);
     if (!lab) {
       return NextResponse.json(
         { error: "Lab not found" },

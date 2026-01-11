@@ -352,13 +352,20 @@ export async function getLabById(id: string): Promise<Lab | undefined> {
   }
 }
 
-export async function getLabByNumber(labNumber: string): Promise<Lab | undefined> {
+export async function getLabByNumber(labNumber: string, subject?: string): Promise<Lab | undefined> {
     await init();
-    // This function is ambiguous without subject, but legacy signature used it. 
-    // It might return the first match.
     const client = await getPool().connect();
     try {
-        const res = await client.query('SELECT * FROM labs WHERE lab_number = $1 LIMIT 1', [labNumber]);
+        let query = 'SELECT * FROM labs WHERE lab_number = $1';
+        const params: any[] = [labNumber];
+        
+        if (subject) {
+            query += ' AND subject = $2';
+            params.push(subject);
+        }
+        
+        query += ' LIMIT 1';
+        const res = await client.query(query, params);
         if (res.rowCount === 0) return undefined;
         const r = res.rows[0];
         return {
@@ -576,6 +583,9 @@ export interface Subject {
   color: string;
   isVisible: boolean;
   displayOrder: number;
+  createScoreCheckPlaceholder?: boolean;
+  createLabRunnerPlaceholder?: boolean;
+  courseSummaryLink?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -600,6 +610,9 @@ export async function getSubjects(visibleOnly: boolean = false): Promise<Subject
       color: row.color,
       isVisible: row.is_visible,
       displayOrder: row.display_order,
+      createScoreCheckPlaceholder: row.create_score_check_placeholder,
+      createLabRunnerPlaceholder: row.create_lab_runner_placeholder,
+      courseSummaryLink: row.course_summary_link,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     }));
@@ -647,7 +660,10 @@ export async function createSubject(
   icon: string = 'Code',
   color: string = 'from-blue-500 to-indigo-500',
   isVisible: boolean = true,
-  displayOrder: number = 0
+  displayOrder: number = 0,
+  createScoreCheckPlaceholder: boolean = false,
+  createLabRunnerPlaceholder: boolean = false,
+  courseSummaryLink?: string
 ): Promise<Subject> {
   await init();
   const pool = getPool();
@@ -655,10 +671,12 @@ export async function createSubject(
   
   try {
     const result = await client.query(`
-      INSERT INTO subjects (code, title, description, icon, color, is_visible, display_order)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO subjects (code, title, description, icon, color, is_visible, display_order, 
+        create_score_check_placeholder, create_lab_runner_placeholder, course_summary_link)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
-    `, [code, title, description, icon, color, isVisible, displayOrder]);
+    `, [code, title, description, icon, color, isVisible, displayOrder, 
+        createScoreCheckPlaceholder, createLabRunnerPlaceholder, courseSummaryLink || null]);
     
     const row = result.rows[0];
     return {
@@ -670,6 +688,9 @@ export async function createSubject(
       color: row.color,
       isVisible: row.is_visible,
       displayOrder: row.display_order,
+      createScoreCheckPlaceholder: row.create_score_check_placeholder,
+      createLabRunnerPlaceholder: row.create_lab_runner_placeholder,
+      courseSummaryLink: row.course_summary_link,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
@@ -697,6 +718,9 @@ export async function updateSubject(
     if (updates.color !== undefined) { fields.push(`color = $${idx++}`); values.push(updates.color); }
     if (updates.isVisible !== undefined) { fields.push(`is_visible = $${idx++}`); values.push(updates.isVisible); }
     if (updates.displayOrder !== undefined) { fields.push(`display_order = $${idx++}`); values.push(updates.displayOrder); }
+    if (updates.createScoreCheckPlaceholder !== undefined) { fields.push(`create_score_check_placeholder = $${idx++}`); values.push(updates.createScoreCheckPlaceholder); }
+    if (updates.createLabRunnerPlaceholder !== undefined) { fields.push(`create_lab_runner_placeholder = $${idx++}`); values.push(updates.createLabRunnerPlaceholder); }
+    if (updates.courseSummaryLink !== undefined) { fields.push(`course_summary_link = $${idx++}`); values.push(updates.courseSummaryLink); }
 
     if (fields.length === 0) {
       const existing = await client.query('SELECT * FROM subjects WHERE code = $1', [code]);

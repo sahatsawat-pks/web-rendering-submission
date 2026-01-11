@@ -28,7 +28,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { code, title, description, icon, color, isVisible, displayOrder } = body;
+    const { code, title, description, icon, color, isVisible, displayOrder, 
+            createScoreCheckPlaceholder, createLabRunnerPlaceholder, courseSummaryLink } = body;
 
     if (!code || !title) {
       return NextResponse.json({ error: "Code and title are required" }, { status: 400 });
@@ -46,7 +47,10 @@ export async function POST(request: NextRequest) {
       icon || 'Code',
       color || 'from-blue-500 to-indigo-500',
       isVisible !== undefined ? isVisible : true,
-      displayOrder || 0
+      displayOrder || 0,
+      createScoreCheckPlaceholder || false,
+      createLabRunnerPlaceholder || false,
+      courseSummaryLink || undefined
     );
 
     return NextResponse.json({ 

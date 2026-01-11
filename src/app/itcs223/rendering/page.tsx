@@ -44,6 +44,9 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const [files, setFiles] = useState<FileEntry[]>([])
   const [currentFile, setCurrentFile] = useState<string>("")
+  const [viewMode, setViewMode] = useState<'rendering' | 'code'>('rendering')
+  const [codeContent, setCodeContent] = useState<string>('')
+  const [loadingCode, setLoadingCode] = useState(false)
   
   // Responsive preview controls
   const [previewWidth, setPreviewWidth] = useState<number | null>(null)
@@ -96,7 +99,7 @@ export default function Home() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ username, labNumber }),
+        body: JSON.stringify({ username, labNumber, subject: "ITCS223" }),
       })
 
       const data = await response.json()
@@ -211,6 +214,29 @@ export default function Home() {
     })
     setIsRunningTests(false)
   }
+
+  const fetchCodeContent = async () => {
+    if (!username || !labNumber || !currentFile) return
+    
+    setLoadingCode(true)
+    try {
+      const response = await fetch(`/api/render/${username}/${labNumber}/${currentFile}`)
+      const content = await response.text()
+      setCodeContent(content)
+    } catch (err) {
+      console.error('Failed to fetch code content:', err)
+      setCodeContent('// Error loading file content')
+    } finally {
+      setLoadingCode(false)
+    }
+  }
+
+  // Fetch code content when switching to code view or changing files
+  useEffect(() => {
+    if (viewMode === 'code' && currentFile) {
+      fetchCodeContent()
+    }
+  }, [viewMode, currentFile, username, labNumber])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-cyan-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950 relative overflow-hidden">
@@ -399,11 +425,36 @@ export default function Home() {
                   </h3>
                   <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-1">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-slow"></span>
-                    Preview
+                    {viewMode === 'rendering' ? 'Preview' : 'Code View'}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
+                {/* View Mode Switcher */}
+                <div className="flex items-center bg-white/80 dark:bg-slate-800/80 rounded-xl border-2 border-slate-200 dark:border-slate-600 p-1 shadow-sm">
+                  <button
+                    onClick={() => setViewMode('rendering')}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+                      viewMode === 'rendering'
+                        ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-md'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    <Eye className="w-4 h-4" />
+                    Rendering
+                  </button>
+                  <button
+                    onClick={() => setViewMode('code')}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+                      viewMode === 'code'
+                        ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-md'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    <FileCode className="w-4 h-4" />
+                    Code
+                  </button>
+                </div>
                 <div className="flex items-center gap-3 text-xs font-mono bg-white/80 dark:bg-slate-800/80 px-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-600 shadow-sm">
                   <FileCode className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                   <span className="text-slate-700 dark:text-slate-300 font-semibold">{currentFile}</span>
@@ -496,6 +547,30 @@ export default function Home() {
 
               {/* Preview Window */}
               <div className="flex-1 bg-white dark:bg-slate-900 relative flex flex-col">
+                {viewMode === 'code' ? (
+                  /* Code View */
+                  <div className="flex-1 flex flex-col overflow-hidden">
+                    <div className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-2 flex items-center justify-between">
+                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Source Code</span>
+                      {loadingCode && (
+                        <span className="text-xs text-teal-600 dark:text-teal-400 flex items-center gap-2">
+                          <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Loading...
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1 overflow-auto bg-slate-900 p-4">
+                      <pre className="text-sm font-mono text-slate-100 whitespace-pre-wrap break-words">
+                        <code>{codeContent || '// No content available'}</code>
+                      </pre>
+                    </div>
+                  </div>
+                ) : (
+                  /* Rendering View */
+                  <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Responsive Controls */}
                 {isTestLab ? (
                     <div className="flex flex-col h-full">
@@ -759,6 +834,8 @@ export default function Home() {
                   </div>
                 </div>
                 </>
+                )}
+                  </div>
                 )}
               </div>
             </div>
