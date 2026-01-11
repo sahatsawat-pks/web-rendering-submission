@@ -44,7 +44,7 @@ export default function ITCS251LandingPage() {
            </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl animate-scale-in">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl animate-scale-in">
            {/* Card 1: Test Runner */}
            <Link href="/itcs251/test-case" className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 shadow-2xl hover:shadow-blue-500/20 transition-all duration-500 hover:-translate-y-2">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-sky-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -69,6 +69,22 @@ export default function ITCS251LandingPage() {
                  <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3">Check <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-sky-500">Lab Scores</span></h2>
                  <p className="text-slate-500 dark:text-slate-400">
                     View your grade status, feedback, and lab completion progress.
+                 </p>
+              </div>
+           </Link>
+
+           {/* Card 3: Quiz */}
+           <Link href="/itcs251/quiz" className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 shadow-2xl hover:shadow-purple-500/20 transition-all duration-500 hover:-translate-y-2">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative z-10 flex flex-col items-center text-center">
+                 <div className="w-20 h-20 rounded-2xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500">
+                    <svg className="w-10 h-10 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                 </div>
+                 <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3">Check Your Understanding</h2>
+                 <p className="text-slate-500 dark:text-slate-400">
+                    Test your knowledge with quizzes for each lab.
                  </p>
               </div>
            </Link>

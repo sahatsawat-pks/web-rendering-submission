@@ -374,6 +374,11 @@ export default function AdminDashboard() {
                     Manage Test Cases
                   </a>
                 )}
+                {role === 'Lecturer' && (
+                  <a href="/admin/itcs223/quiz" className="px-3 py-1.5 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded-lg text-xs font-medium border border-pink-200 dark:border-pink-800 shadow-sm hover:bg-pink-200 dark:hover:bg-pink-900/50 transition-colors">
+                    Manage Quiz
+                  </a>
+                )}
                 {(role === 'Lecturer' || username === 'kanzaki_aito') && (
                   <a href="/admin/itcs223/credentials" className="px-3 py-1.5 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-lg text-xs font-medium border border-teal-200 dark:border-teal-800 shadow-sm hover:bg-teal-200 dark:hover:bg-teal-900/50 transition-colors flex items-center gap-1">
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>

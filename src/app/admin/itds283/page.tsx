@@ -144,9 +144,16 @@ export default function ITDS283AdminPage() {
 
       <main className="container mx-auto max-w-6xl px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-2">
-            ITDS283 - Mobile Development
-          </h1>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              ITDS283 - Mobile Development
+            </h1>
+            {role === 'Lecturer' && (
+              <a href="/admin/itds283/quiz" className="px-4 py-2 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded-lg text-sm font-medium border border-pink-200 dark:border-pink-800 shadow-sm hover:bg-pink-200 dark:hover:bg-pink-900/50 transition-colors">
+                Manage Quiz
+              </a>
+            )}
+          </div>
           <p className="text-lg text-slate-600 dark:text-slate-400">
             Mobile dev labs score management and grading system
           </p>

@@ -23,6 +23,11 @@ export interface Lab {
   labType?: 'Lab' | 'Challenge'; // Type of lab
   totalScore?: number; // Total possible score for gradient display
   databaseStarter?: string; // SQL to initialize database for this lab (ITCS255)
+  quizQuestions?: string; // JSON string for quiz questions
+  quizCategories?: string; // JSON string for quiz categories
+  quizEnabled?: boolean; // Whether quiz is enabled for this lab
+  quizTimeLimit?: number; // Time limit in minutes (0 = no limit)
+  quizTimeLimitEnabled?: boolean; // Whether time limit is enabled
   createdAt: string;
 }
 
@@ -127,6 +132,52 @@ async function ensureTables() {
         // Set kanzaki_aito as Lecturer if exists
         await client.query(`
             UPDATE users SET role = 'Lecturer' WHERE username = 'kanzaki_aito' AND role != 'Lecturer';
+        `);
+        
+        // Add quiz columns to labs table
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'labs' AND column_name = 'quiz_questions') THEN 
+                    ALTER TABLE labs ADD COLUMN quiz_questions TEXT; 
+                END IF; 
+            END $$;
+        `);
+        
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'labs' AND column_name = 'quiz_categories') THEN 
+                    ALTER TABLE labs ADD COLUMN quiz_categories TEXT; 
+                END IF; 
+            END $$;
+        `);
+        
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'labs' AND column_name = 'quiz_enabled') THEN 
+                    ALTER TABLE labs ADD COLUMN quiz_enabled BOOLEAN DEFAULT FALSE; 
+                END IF; 
+            END $$;
+        `);
+        
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'labs' AND column_name = 'quiz_time_limit') THEN 
+                    ALTER TABLE labs ADD COLUMN quiz_time_limit INTEGER DEFAULT 0; 
+                END IF; 
+            END $$;
+        `);
+        
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'labs' AND column_name = 'quiz_time_limit_enabled') THEN 
+                    ALTER TABLE labs ADD COLUMN quiz_time_limit_enabled BOOLEAN DEFAULT FALSE; 
+                END IF; 
+            END $$;
         `);
 
         // Create subjects table
@@ -323,6 +374,11 @@ export async function getAllLabs(activeOnly: boolean = false, subject?: string):
             labType: r.lab_type || 'Lab',
             totalScore: r.total_score,
             databaseStarter: r.database_starter,
+            quizQuestions: r.quiz_questions,
+            quizCategories: r.quiz_categories,
+            quizEnabled: r.quiz_enabled,
+            quizTimeLimit: r.quiz_time_limit,
+            quizTimeLimitEnabled: r.quiz_time_limit_enabled,
             createdAt: r.created_at.toString()
         }));
     } finally {
@@ -345,6 +401,16 @@ export async function getLabById(id: string): Promise<Lab | undefined> {
             subject: r.subject,
             isActive: r.is_active,
             deadline: r.deadline,
+            testCases: r.test_cases,
+            subQuestions: r.sub_questions,
+            labType: r.lab_type || 'Lab',
+            totalScore: r.total_score,
+            databaseStarter: r.database_starter,
+            quizQuestions: r.quiz_questions,
+            quizCategories: r.quiz_categories,
+            quizEnabled: r.quiz_enabled,
+            quizTimeLimit: r.quiz_time_limit,
+            quizTimeLimitEnabled: r.quiz_time_limit_enabled,
             createdAt: r.created_at.toString()
       };
   } finally {
@@ -377,9 +443,15 @@ export async function getLabByNumber(labNumber: string, subject?: string): Promi
               isActive: r.is_active,
               deadline: r.deadline,
               testCases: r.test_cases,
+              subQuestions: r.sub_questions,
               labType: r.lab_type || 'Lab',
               totalScore: r.total_score,
               databaseStarter: r.database_starter,
+              quizQuestions: r.quiz_questions,
+              quizCategories: r.quiz_categories,
+              quizEnabled: r.quiz_enabled,
+              quizTimeLimit: r.quiz_time_limit,
+              quizTimeLimitEnabled: r.quiz_time_limit_enabled,
               createdAt: r.created_at.toString()
         };
     } finally {
@@ -450,6 +522,11 @@ export async function updateLab(
         if (updates.labType !== undefined) { fields.push(`lab_type = $${idx++}`); values.push(updates.labType); }
         if (updates.totalScore !== undefined) { fields.push(`total_score = $${idx++}`); values.push(updates.totalScore); }
         if (updates.databaseStarter !== undefined) { fields.push(`database_starter = $${idx++}`); values.push(updates.databaseStarter); }
+        if (updates.quizQuestions !== undefined) { fields.push(`quiz_questions = $${idx++}`); values.push(updates.quizQuestions); }
+        if (updates.quizCategories !== undefined) { fields.push(`quiz_categories = $${idx++}`); values.push(updates.quizCategories); }
+        if (updates.quizEnabled !== undefined) { fields.push(`quiz_enabled = $${idx++}`); values.push(updates.quizEnabled); }
+        if (updates.quizTimeLimit !== undefined) { fields.push(`quiz_time_limit = $${idx++}`); values.push(updates.quizTimeLimit); }
+        if (updates.quizTimeLimitEnabled !== undefined) { fields.push(`quiz_time_limit_enabled = $${idx++}`); values.push(updates.quizTimeLimitEnabled); }
 
         if (fields.length === 0) return getLabById(id).then(l => l || null); // No updates
 
@@ -475,6 +552,11 @@ export async function updateLab(
             labType: r.lab_type || 'Lab',
             totalScore: r.total_score,
             databaseStarter: r.database_starter,
+            quizQuestions: r.quiz_questions,
+            quizCategories: r.quiz_categories,
+            quizEnabled: r.quiz_enabled,
+            quizTimeLimit: r.quiz_time_limit,
+            quizTimeLimitEnabled: r.quiz_time_limit_enabled,
             createdAt: r.created_at.toString()
         };
     } finally {
