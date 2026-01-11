@@ -21,6 +21,9 @@ export default function AdminDashboard() {
   const [gradingSuccess, setGradingSuccess] = useState(false)
   const [gradingError, setGradingError] = useState<string | null>(null)
   const [lastSubmittedStudentId, setLastSubmittedStudentId] = useState("")
+  const [prefixes, setPrefixes] = useState<string[]>([])
+  const [selectedPrefix, setSelectedPrefix] = useState("6788")
+  const [remainingDigits, setRemainingDigits] = useState("")
 
   useEffect(() => {
     async function fetchLabs() {
@@ -39,6 +42,16 @@ export default function AdminDashboard() {
       }
     }
     fetchLabs()
+    
+    // Fetch student ID prefixes
+    fetch("/api/student-prefixes?subject=ITCS223")
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.prefixes) {
+          setPrefixes(data.prefixes)
+        }
+      })
+      .catch(err => console.error("Failed to fetch prefixes", err))
     
     // Fetch user role and permissions
     fetch("/api/auth/me")
@@ -146,17 +159,17 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-cyan-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950 relative overflow-hidden">
-      {/* Animated Background - Further reduced opacity */}
+      {/* Animated Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 -left-4 w-96 h-96 bg-teal-300 rounded-full mix-blend-multiply filter blur-xl opacity-5 animate-float"></div>
+        <div className="absolute top-0 -left-4 w-96 h-96 bg-teal-300 dark:bg-teal-900 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-xl opacity-5 dark:opacity-10 animate-float"></div>
         <div
-          className="absolute bottom-0 -right-4 w-96 h-96 bg-cyan-300 rounded-full mix-blend-multiply filter blur-xl opacity-5 animate-float"
+          className="absolute bottom-0 -right-4 w-96 h-96 bg-cyan-300 dark:bg-cyan-900 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-xl opacity-5 dark:opacity-10 animate-float"
           style={{ animationDelay: "3s" }}
         ></div>
       </div>
 
       {/* Glass Navbar */}
-      <nav className="sticky top-0 z-50 w-full glass border-b border-white/20 shadow-sm">
+      <nav className="sticky top-0 z-50 w-full glass border-b border-white/20 dark:border-slate-700/50 shadow-sm">
         <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-4">
@@ -218,6 +231,18 @@ export default function AdminDashboard() {
                 </svg>
                 Student Lab Grader
               </h3>
+              <a
+                href="https://studentmahidolac-my.sharepoint.com/personal/wudhichart_saw_mahidol_ac_th/_layouts/15/doc2.aspx?sourcedoc=%7B8DEAE777-D52D-4BFE-8610-A99ACC9153ED%7D&file=682_ITCS223_LabScore.xlsx&action=default&mobileredirect=true"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-600 text-white rounded-lg transition-colors text-sm font-semibold shadow-lg shadow-teal-500/20"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span className="hidden sm:inline">Open Lab Sheet</span>
+                <span className="sm:hidden">Sheet</span>
+              </a>
             </div>
 
             <form onSubmit={handleGradeSubmit} className="space-y-4">
@@ -226,14 +251,34 @@ export default function AdminDashboard() {
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     Student ID
                   </label>
-                  <input
-                    type="text"
-                    value={studentId}
-                    onChange={(e) => setStudentId(e.target.value)}
-                    placeholder="e.g., 6488001"
-                    required
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 shadow-sm hover:border-teal-300 dark:hover:border-teal-600 transition-all font-mono"
-                  />
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedPrefix}
+                      onChange={(e) => {
+                        setSelectedPrefix(e.target.value)
+                        setStudentId(e.target.value + remainingDigits)
+                      }}
+                      className="w-28 px-3 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 shadow-sm hover:border-teal-300 dark:hover:border-teal-600 transition-all font-mono"
+                    >
+                      {prefixes.map(prefix => (
+                        <option key={prefix} value={prefix}>{prefix}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      value={remainingDigits}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '')
+                        setRemainingDigits(val)
+                        setStudentId(selectedPrefix + val)
+                      }}
+                      placeholder="xxxxx"
+                      maxLength={5}
+                      required
+                      className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 shadow-sm hover:border-teal-300 dark:hover:border-teal-600 transition-all font-mono"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Select prefix, then enter remaining digits</p>
                 </div>
 
                 <div>
@@ -324,6 +369,17 @@ export default function AdminDashboard() {
                 <span className="px-3 py-1.5 bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-400 rounded-lg text-xs font-medium border border-teal-200 dark:border-teal-700 shadow-sm">
                   {labs.length} Active
                 </span>
+                {role === 'Lecturer' && (
+                  <a href="/admin/itcs223/tests" className="px-3 py-1.5 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-lg text-xs font-medium border border-teal-200 dark:border-teal-800 shadow-sm hover:bg-teal-200 dark:hover:bg-teal-900/50 transition-colors">
+                    Manage Test Cases
+                  </a>
+                )}
+                {(role === 'Lecturer' || username === 'kanzaki_aito') && (
+                  <a href="/admin/itcs223/credentials" className="px-3 py-1.5 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-lg text-xs font-medium border border-teal-200 dark:border-teal-800 shadow-sm hover:bg-teal-200 dark:hover:bg-teal-900/50 transition-colors flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+                    Credentials
+                  </a>
+                )}
                 {(role === 'Lecturer' || username === 'kanzaki_aito') && (
                 <a href="/admin/labs" className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1">
                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>

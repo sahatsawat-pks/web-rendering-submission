@@ -23,6 +23,9 @@ export default function AdminDashboard() {
   const [gradingSuccess, setGradingSuccess] = useState(false)
   const [gradingError, setGradingError] = useState<string | null>(null)
   const [lastSubmittedStudentId, setLastSubmittedStudentId] = useState("")
+  const [prefixes, setPrefixes] = useState<string[]>([])
+  const [selectedPrefix, setSelectedPrefix] = useState("6888")
+  const [remainingDigits, setRemainingDigits] = useState("")
 
   useEffect(() => {
     async function fetchLabs() {
@@ -41,6 +44,16 @@ export default function AdminDashboard() {
       }
     }
     fetchLabs()
+
+    // Fetch student ID prefixes
+    fetch("/api/student-prefixes?subject=ITCS123")
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.prefixes) {
+          setPrefixes(data.prefixes)
+        }
+      })
+      .catch(err => console.error("Failed to fetch prefixes", err))
 
     // Fetch user role and permissions
     fetch("/api/auth/me")
@@ -167,17 +180,17 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950 relative overflow-hidden">
-      {/* Animated Background - Further reduced opacity */}
+      {/* Animated Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 -left-4 w-96 h-96 bg-orange-300 rounded-full mix-blend-multiply filter blur-xl opacity-5 animate-float"></div>
+        <div className="absolute top-0 -left-4 w-96 h-96 bg-orange-300 dark:bg-orange-900 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-xl opacity-5 dark:opacity-10 animate-float"></div>
         <div
-          className="absolute bottom-0 -right-4 w-96 h-96 bg-amber-300 rounded-full mix-blend-multiply filter blur-xl opacity-5 animate-float"
+          className="absolute bottom-0 -right-4 w-96 h-96 bg-amber-300 dark:bg-amber-900 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-xl opacity-5 dark:opacity-10 animate-float"
           style={{ animationDelay: "3s" }}
         ></div>
       </div>
 
       {/* Glass Navbar */}
-      <nav className="sticky top-0 z-50 w-full glass border-b border-white/20 shadow-sm">
+      <nav className="sticky top-0 z-50 w-full glass border-b border-white/20 dark:border-slate-700/50 shadow-sm">
         <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-4">
@@ -239,6 +252,18 @@ export default function AdminDashboard() {
                 </svg>
                 Student Lab Grader
               </h3>
+              <a
+                href="https://docs.google.com/spreadsheets/d/1tXj1QnbQFR3RQUWdzimR0vfWVtu-aUyeCbnAgv3RAbE/edit?gid=1780660857#gid=1780660857"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 dark:bg-orange-500 dark:hover:bg-orange-600 text-white rounded-lg transition-colors text-sm font-semibold shadow-lg shadow-orange-500/20"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span className="hidden sm:inline">Open Lab Sheet</span>
+                <span className="sm:hidden">Sheet</span>
+              </a>
             </div>
 
             <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
@@ -247,15 +272,35 @@ export default function AdminDashboard() {
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     Student ID
                   </label>
-                  <input
-                    type="text"
-                    value={studentId}
-                    onChange={(e) => setStudentId(e.target.value)}
-                    placeholder="e.g., 6488001"
-                    required
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 shadow-sm hover:border-orange-300 dark:hover:border-orange-600 transition-all font-mono"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Ref: Column A2:A9999</p>
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedPrefix}
+                      onChange={(e) => {
+                        setSelectedPrefix(e.target.value)
+                        setStudentId(e.target.value + remainingDigits)
+                      }}
+                      className="w-28 px-3 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 shadow-sm hover:border-orange-300 dark:hover:border-orange-600 transition-all font-mono"
+                    >
+                      <option value="1"></option>
+                      {prefixes.map(prefix => (
+                        <option key={prefix} value={prefix}>{prefix}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      value={remainingDigits}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '')
+                        setRemainingDigits(val)
+                        setStudentId(selectedPrefix + val)
+                      }}
+                      placeholder="xxxxx"
+                      maxLength={5}
+                      required
+                      className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 shadow-sm hover:border-orange-300 dark:hover:border-orange-600 transition-all font-mono"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Select prefix, then enter remaining digits</p>
                 </div>
 
                 <div>

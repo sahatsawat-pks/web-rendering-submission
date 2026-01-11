@@ -205,8 +205,28 @@ export default function SubjectManagementPage() {
     }
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-slate-200 dark:border-slate-800 border-t-slate-600 dark:border-t-slate-400"></div>
+          <p className="text-slate-600 dark:text-slate-400 mt-4 font-medium">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950 relative overflow-hidden animate-fade-in">
+      {/* Animated Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 -left-4 w-96 h-96 bg-slate-300 dark:bg-slate-900 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-10 dark:opacity-5 animate-float"></div>
+        <div
+          className="absolute bottom-0 -right-4 w-96 h-96 bg-slate-400 dark:bg-slate-800 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-10 dark:opacity-5 animate-float"
+          style={{ animationDelay: "3s" }}
+        ></div>
+      </div>
+
       <nav className="sticky top-0 z-50 w-full glass border-b border-white/30 dark:border-slate-700/50 shadow-lg">
         <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-8">
@@ -236,14 +256,14 @@ export default function SubjectManagementPage() {
         </div>
       </nav>
 
-      <main className="container mx-auto max-w-6xl px-4 py-8">
+      <main className="container mx-auto max-w-6xl px-4 py-8 relative z-10">
         <div className="mb-8 flex items-end justify-between">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-2">
               Subject Modules
             </h1>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              Control which subjects appear on the main landing page. Drag to reorder display sequence.
+              Create new subjects, manage visibility, and reorder display sequence on the landing page.
             </p>
           </div>
           

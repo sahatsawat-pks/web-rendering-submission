@@ -10,6 +10,14 @@ import Footer from "@/components/Footer"
 export default function AdminHub() {
   const modules = [
     {
+      code: "ITCS123",
+      title: "Object Oriented Programming",
+      desc: "Java test case configuration and logs.",
+      icon: <Terminal className="w-8 h-8" />,
+      color: "from-orange-500 to-amber-500",
+      href: "/admin/itcs123"
+    },
+    {
       code: "ITCS223",
       title: "Introduction to Web Development",
       desc: "Manage lab submissions, file rendering, and deadlines.",
@@ -32,14 +40,6 @@ export default function AdminHub() {
       icon: <Layers className="w-8 h-8" />,
       color: "from-emerald-500 to-green-500",
       href: "/admin/itge162"
-    },
-    {
-      code: "ITCS123",
-      title: "Object Oriented Programming",
-      desc: "Java test case configuration and logs.",
-      icon: <Terminal className="w-8 h-8" />,
-      color: "from-orange-500 to-amber-500",
-      href: "/admin/itcs123"
     },
     {
       code: "ITCS251",
@@ -373,6 +373,31 @@ export default function AdminHub() {
                 </div>
             </Link>
             )}
+
+            <a 
+                href="https://academic.ict.mahidol.ac.th/Admin/TeachingAttendance/Default.aspx"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+            >
+                <div className="h-2 animate-pulse bg-gradient-to-r from-green-500 to-emerald-500"></div>
+                <div className="p-8 flex items-start gap-6">
+                    <div className="flex-shrink-0 h-16 w-16 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white shadow-lg">
+                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </div>
+                    <div className="flex-1">
+                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Teaching Attendance</h3>
+                        <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Check-in System</h4>
+                        <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                            Record and manage teaching attendance sessions.
+                        </p>
+                    </div>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-800/50 px-8 py-4 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
+                    <span className="text-sm font-bold text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200 transition-colors">Check In</span>
+                    <svg className="w-5 h-5 text-slate-400 group-hover:translate-x-1 transition-transform group-hover:text-slate-900 dark:group-hover:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                </div>
+            </a>
             </div>
           </>
         )}

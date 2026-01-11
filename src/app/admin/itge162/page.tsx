@@ -22,6 +22,9 @@ export default function AdminDashboard() {
   const [gradingError, setGradingError] = useState<string | null>(null)
   const [lastSubmittedStudentId, setLastSubmittedStudentId] = useState("")
   const [isFilling, setIsFilling] = useState(false)
+  const [prefixes, setPrefixes] = useState<string[]>([])
+  const [selectedPrefix, setSelectedPrefix] = useState("6688")
+  const [remainingDigits, setRemainingDigits] = useState("")
 
   useEffect(() => {
     async function fetchLabs() {
@@ -40,6 +43,16 @@ export default function AdminDashboard() {
       }
     }
     fetchLabs()
+
+    // Fetch student ID prefixes
+    fetch("/api/student-prefixes?subject=ITGE162")
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.prefixes) {
+          setPrefixes(data.prefixes)
+        }
+      })
+      .catch(err => console.error("Failed to fetch prefixes", err))
 
     // Fetch user role and permissions
     fetch("/api/auth/me")
@@ -64,6 +77,11 @@ export default function AdminDashboard() {
         router.push('/admin/dashboard')
       })
   }, [])
+
+  useEffect(() => {
+    // Combine prefix and remaining digits to form studentId
+    setStudentId(selectedPrefix + remainingDigits)
+  }, [selectedPrefix, remainingDigits])
 
   async function handleGradeSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -220,6 +238,18 @@ export default function AdminDashboard() {
                 </svg>
                 Student Lab Grader
               </h3>
+              <a
+                href="https://docs.google.com/spreadsheets/d/1b3BdHlzBc5jVcaaldRkdUVLAVicTG5hqKDYEModLraA/edit?gid=0#gid=0"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-600 text-white rounded-lg transition-colors text-sm font-semibold shadow-lg shadow-teal-500/20"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span className="hidden sm:inline">Open Lab Sheet</span>
+                <span className="sm:hidden">Sheet</span>
+              </a>
             </div>
 
             <form onSubmit={handleGradeSubmit} className="space-y-4">
@@ -228,14 +258,34 @@ export default function AdminDashboard() {
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     Student ID
                   </label>
-                  <input
-                    type="text"
-                    value={studentId}
-                    onChange={(e) => setStudentId(e.target.value)}
-                    placeholder="e.g., 6488001"
-                    required
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 shadow-sm hover:border-teal-300 dark:hover:border-teal-600 transition-all font-mono"
-                  />
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedPrefix}
+                      onChange={(e) => setSelectedPrefix(e.target.value)}
+                      required
+                      className="w-24 px-3 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 shadow-sm hover:border-teal-300 dark:hover:border-teal-600 transition-all font-mono"
+                    >
+                      {prefixes.map((prefix) => (
+                        <option key={prefix} value={prefix}>
+                          {prefix}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      value={remainingDigits}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        if (/^\d{0,3}$/.test(val)) {
+                          setRemainingDigits(val)
+                        }
+                      }}
+                      placeholder="001"
+                      maxLength={3}
+                      required
+                      className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 shadow-sm hover:border-teal-300 dark:hover:border-teal-600 transition-all font-mono"
+                    />
+                  </div>
                   <p className="text-xs text-slate-500 mt-1">Ref: Column A2:A9999</p>
                 </div>
 

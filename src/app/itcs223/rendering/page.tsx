@@ -160,60 +160,102 @@ export default function Home() {
   }
 
   const runTests = async () => {
-    setIsRunningTests(true)
-    setTestResults(null)
-    
-    // Simulate test execution delay
-    await new Promise(resolve => setTimeout(resolve, 1500))
-
-    // Mock test data based on current file/lab
-    // In real implementation, this would execute against the iframe content
-    let cases = []
-    
-    if (labNumber.includes("5")) {
-      if (currentFile.toLowerCase().includes("calc")) {
-        cases = [
-          { id: "1", name: "Addition (10 + 5 = 15)", status: "pass" },
-          { id: "2", name: "Subtraction (10 - 5 = 5)", status: "pass" },
-          { id: "3", name: "Multiplication (10 * 5 = 50)", status: "pass" },
-          { id: "4", name: "Division (10 / 5 = 2)", status: "pass" }
-        ]
-      } else if (currentFile.toLowerCase().includes("loop")) {
-        cases = [
-          { id: "1", name: "Loop defines Array", status: "pass" },
-          { id: "2", name: "Output contains names", status: "pass" },
-          { id: "3", name: "Correct number of iterations", status: "pass" }
-        ]
-      } else if (currentFile.toLowerCase().includes("fib")) {
-         cases = [
-          { id: "1", name: "Sequence starts with 0, 1", status: "pass" },
-          { id: "2", name: "Calculates correct Nth number", status: "pass" },
-          { id: "3", name: "Handles Input > 0", status: "pass" }
-        ]       
-      } else {
-        // Default Lab 5 Tests
-        cases = [
-           { id: "1", name: "File Structure Valid", status: "pass" },
-           { id: "2", name: "Script Tag Present", status: "pass" }
-        ]
-      }
-    } else {
-      // Lab 6 Tests
-      cases = [
-          { id: "1", name: "Class Defined Correctly", status: "pass" },
-          { id: "2", name: "Constructor initializes properties", status: "pass" },
-          { id: "3", name: "Methods return expected values", status: "pass" },
-          { id: "4", name: "Inheritance implemented", status: "pass" }
-      ]
+    if (!username || !labNumber) {
+      setError("Please load a submission first");
+      return;
     }
 
-    setTestResults({
-      passed: cases.length,
-      total: cases.length,
-      cases: cases as any[]
-    })
-    setIsRunningTests(false)
-  }
+    setIsRunningTests(true);
+    setTestResults(null);
+    setError(null);
+    
+    try {
+      // Fetch test cases for this lab
+      const labRes = await fetch(`/api/labs?subject=ITCS223&labNumber=${labNumber}`);
+      if (!labRes.ok) {
+        throw new Error("Failed to fetch lab configuration");
+      }
+      
+      const labData = await labRes.json();
+      if (!labData.success || !labData.labs || labData.labs.length === 0) {
+        throw new Error("Lab not found");
+      }
+
+      const lab = labData.labs[0];
+      let testCases = [];
+      
+      if (lab.testCases) {
+        try {
+          testCases = JSON.parse(lab.testCases);
+        } catch (e) {
+          console.error("Failed to parse test cases", e);
+        }
+      }
+
+      if (testCases.length === 0) {
+        setTestResults({
+          passed: 0,
+          total: 0,
+          cases: []
+        });
+        setError("No test cases configured for this lab");
+        setIsRunningTests(false);
+        return;
+      }
+
+      // Initialize test results with pending status
+      const initialCases = testCases.map((tc: any) => ({
+        id: tc.id,
+        name: tc.name,
+        status: 'pending' as const,
+        message: 'Running...'
+      }));
+
+      setTestResults({
+        passed: 0,
+        total: testCases.length,
+        cases: initialCases
+      });
+
+      // Run tests by calling the test runner API
+      const testRes = await fetch('/api/test-runner/javascript', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          labNumber,
+          subject: 'ITCS223',
+          testCases: testCases
+        })
+      });
+
+      if (!testRes.ok) {
+        throw new Error("Failed to execute tests");
+      }
+
+      const testData = await testRes.json();
+      
+      if (testData.success) {
+        const passed = testData.results.filter((r: any) => r.status === 'pass').length;
+        setTestResults({
+          passed,
+          total: testCases.length,
+          cases: testData.results
+        });
+      } else {
+        throw new Error(testData.error || "Test execution failed");
+      }
+    } catch (err: any) {
+      setError(err.message || "An error occurred while running tests");
+      setTestResults({
+        passed: 0,
+        total: 0,
+        cases: []
+      });
+    } finally {
+      setIsRunningTests(false);
+    }
+  };
 
   const fetchCodeContent = async () => {
     if (!username || !labNumber || !currentFile) return

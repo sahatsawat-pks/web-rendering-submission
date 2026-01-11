@@ -14,11 +14,11 @@ interface Lab {
   fileName?: string;
   testCases?: string; // JSON string
   labType?: 'Lab' | 'Challenge';
-  subQuestions?: string; // JSON string
+  subTasks?: string; // JSON string
   totalScore?: number; // Total possible score for gradient display
 }
 
-interface SubQuestion {
+interface subTask {
   id: string;
   name: string;
   order: number;
@@ -30,7 +30,7 @@ interface TestCase {
   input: string;
   expectedOutput: string;
   matchMode?: 'trim' | 'exact';
-  subQuestionId?: string; // Optional: which sub-question this test belongs to
+  subTaskId?: string; // Optional: which task this test belongs to
 }
 
 export default function ManageTestCasesPage() {
@@ -38,7 +38,7 @@ export default function ManageTestCasesPage() {
   const [labs, setLabs] = useState<Lab[]>([]);
   const [selectedLab, setSelectedLab] = useState<Lab | null>(null);
   const [testCases, setTestCases] = useState<TestCase[]>([]);
-  const [subQuestions, setSubQuestions] = useState<SubQuestion[]>([]);
+  const [subTasks, setsubTasks] = useState<subTask[]>([]);
   const [totalScore, setTotalScore] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -54,12 +54,12 @@ export default function ManageTestCasesPage() {
   const [testInput, setTestInput] = useState("");
   const [testOutput, setTestOutput] = useState("");
   const [testMatchMode, setTestMatchMode] = useState<'trim' | 'exact'>('trim');
-  const [selectedSubQuestionId, setSelectedSubQuestionId] = useState<string | undefined>(undefined);
+  const [selectedsubTaskId, setSelectedsubTaskId] = useState<string | undefined>(undefined);
 
-  // Sub-question Modal State
-  const [isSubQuestionModalOpen, setIsSubQuestionModalOpen] = useState(false);
-  const [currentSubQuestion, setCurrentSubQuestion] = useState<SubQuestion | null>(null);
-  const [subQuestionName, setSubQuestionName] = useState("");
+  // task Modal State
+  const [issubTaskModalOpen, setIssubTaskModalOpen] = useState(false);
+  const [currentsubTask, setCurrentsubTask] = useState<subTask | null>(null);
+  const [subTaskName, setsubTaskName] = useState("");
 
   useEffect(() => {
     // Check role and permissions first
@@ -112,47 +112,48 @@ export default function ManageTestCasesPage() {
     } else {
       setTestCases([]);
     }
-    if (lab.subQuestions) {
+    if (lab.subTasks) {
       try {
-        setSubQuestions(JSON.parse(lab.subQuestions));
+        setsubTasks(JSON.parse(lab.subTasks));
       } catch (e) {
-        console.error("Failed to parse sub-questions", e);
-        setSubQuestions([]);
+        console.error("Failed to parse tasks", e);
+        setsubTasks([]);
       }
     } else {
-      setSubQuestions([]);
+      setsubTasks([]);
     }
   };
 
-  const handleOpenModal = (test?: TestCase, subQuestionId?: string) => {
+  const handleOpenModal = (test?: TestCase, subTaskId?: string) => {
     if (test) {
       setCurrentTest(test);
       setTestName(test.name);
       setTestInput(test.input);
       setTestOutput(test.expectedOutput);
       setTestMatchMode(test.matchMode || 'trim');
-      setSelectedSubQuestionId(test.subQuestionId);
+      setSelectedsubTaskId(test.subTaskId);
     } else {
       setCurrentTest(null);
       setTestName("");
       setTestInput("");
       setTestOutput("");
       setTestMatchMode('trim');
-      setSelectedSubQuestionId(subQuestionId);
+      setSelectedsubTaskId(subTaskId);
     }
     setIsModalOpen(true);
   };
 
-  const handleSaveTest = () => {
-    if (!testName) return;
+  const handleSaveTest = async () => {
+    if (!testName || !selectedLab) return;
 
+    let updatedTestCases: TestCase[];
     if (currentTest) {
       // Edit
-      setTestCases(prev => prev.map(t => 
+      updatedTestCases = testCases.map(t => 
         t.id === currentTest.id 
-          ? { ...t, name: testName, input: testInput, expectedOutput: testOutput, matchMode: testMatchMode, subQuestionId: selectedSubQuestionId }
+          ? { ...t, name: testName, input: testInput, expectedOutput: testOutput, matchMode: testMatchMode, subTaskId: selectedsubTaskId }
           : t
-      ));
+      );
     } else {
       // Create
       const newTest: TestCase = {
@@ -161,52 +162,115 @@ export default function ManageTestCasesPage() {
         input: testInput,
         expectedOutput: testOutput,
         matchMode: testMatchMode,
-        subQuestionId: selectedSubQuestionId
+        subTaskId: selectedsubTaskId
       };
-      setTestCases(prev => [...prev, newTest]);
+      updatedTestCases = [...testCases, newTest];
     }
+    
+    setTestCases(updatedTestCases);
     setIsModalOpen(false);
-  };
 
-  const handleOpenSubQuestionModal = (subQuestion?: SubQuestion) => {
-    if (subQuestion) {
-      setCurrentSubQuestion(subQuestion);
-      setSubQuestionName(subQuestion.name);
-    } else {
-      setCurrentSubQuestion(null);
-      setSubQuestionName("");
+    // Auto-save
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const res = await fetch("/api/labs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedLab.id,
+          testCases: JSON.stringify(updatedTestCases),
+          subTasks: JSON.stringify(subTasks)
+        })
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        setSuccess("Test case saved successfully!");
+        setLabs(prev => prev.map(l => l.id === selectedLab.id ? { ...l, testCases: JSON.stringify(updatedTestCases), subTasks: JSON.stringify(subTasks) } : l));
+      } else {
+        setError(data.error || "Failed to save changes");
+      }
+    } catch (err) {
+      setError("An error occurred while saving");
+    } finally {
+      setSaving(false);
     }
-    setIsSubQuestionModalOpen(true);
   };
 
-  const handleSaveSubQuestion = () => {
-    if (!subQuestionName) return;
+  const handleOpensubTaskModal = (subTask?: subTask) => {
+    if (subTask) {
+      setCurrentsubTask(subTask);
+      setsubTaskName(subTask.name);
+    } else {
+      setCurrentsubTask(null);
+      setsubTaskName("");
+    }
+    setIssubTaskModalOpen(true);
+  };
 
-    if (currentSubQuestion) {
+  const handleSavesubTask = async () => {
+    if (!subTaskName || !selectedLab) return;
+
+    let updatedsubTasks: subTask[];
+    if (currentsubTask) {
       // Edit
-      setSubQuestions(prev => prev.map(sq => 
-        sq.id === currentSubQuestion.id 
-          ? { ...sq, name: subQuestionName }
+      updatedsubTasks = subTasks.map(sq => 
+        sq.id === currentsubTask.id 
+          ? { ...sq, name: subTaskName }
           : sq
-      ));
+      );
     } else {
       // Create
-      const newSubQuestion: SubQuestion = {
+      const newsubTask: subTask = {
         id: crypto.randomUUID(),
-        name: subQuestionName,
-        order: subQuestions.length
+        name: subTaskName,
+        order: subTasks.length
       };
-      setSubQuestions(prev => [...prev, newSubQuestion]);
+      updatedsubTasks = [...subTasks, newsubTask];
     }
-    setIsSubQuestionModalOpen(false);
+    
+    setsubTasks(updatedsubTasks);
+    setIssubTaskModalOpen(false);
+
+    // Auto-save
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const res = await fetch("/api/labs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedLab.id,
+          testCases: JSON.stringify(testCases),
+          subTasks: JSON.stringify(updatedsubTasks)
+        })
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        setSuccess("task saved successfully!");
+        setLabs(prev => prev.map(l => l.id === selectedLab.id ? { ...l, testCases: JSON.stringify(testCases), subTasks: JSON.stringify(updatedsubTasks) } : l));
+      } else {
+        setError(data.error || "Failed to save changes");
+      }
+    } catch (err) {
+      setError("An error occurred while saving");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteSubQuestion = (id: string) => {
-    if (confirm("Are you sure? All test cases in this sub-question will be moved to 'No Sub-Question'.")) {
-      setSubQuestions(prev => prev.filter(sq => sq.id !== id));
-      // Move all test cases from this sub-question to no sub-question
+  const handleDeletesubTask = (id: string) => {
+    if (confirm("Are you sure? All test cases in this task will be moved to 'No task'.")) {
+      setsubTasks(prev => prev.filter(sq => sq.id !== id));
+      // Move all test cases from this task to no task
       setTestCases(prev => prev.map(tc => 
-        tc.subQuestionId === id ? { ...tc, subQuestionId: undefined } : tc
+        tc.subTaskId === id ? { ...tc, subTaskId: undefined } : tc
       ));
     }
   };
@@ -230,7 +294,7 @@ export default function ManageTestCasesPage() {
         body: JSON.stringify({
           id: selectedLab.id,
           testCases: JSON.stringify(testCases),
-          subQuestions: JSON.stringify(subQuestions),
+          subTasks: JSON.stringify(subTasks),
           totalScore: totalScore
         })
       });
@@ -239,7 +303,7 @@ export default function ManageTestCasesPage() {
       if (data.success) {
         setSuccess("Test cases saved successfully!");
         // Update local labs state
-        setLabs(prev => prev.map(l => l.id === selectedLab.id ? { ...l, testCases: JSON.stringify(testCases), subQuestions: JSON.stringify(subQuestions), totalScore: totalScore } : l));
+        setLabs(prev => prev.map(l => l.id === selectedLab.id ? { ...l, testCases: JSON.stringify(testCases), subTasks: JSON.stringify(subTasks), totalScore: totalScore } : l));
       } else {
         setError(data.error || "Failed to save changes");
       }
@@ -263,36 +327,44 @@ export default function ManageTestCasesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#161b22] text-slate-200 p-8 font-['Inter'] animate-fade-in">
-      <div className="max-w-6xl mx-auto space-y-8">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 -left-4 w-96 h-96 bg-blue-300 dark:bg-blue-900 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-20 dark:opacity-10 animate-float"></div>
+        <div className="absolute top-0 -right-4 w-96 h-96 bg-indigo-300 dark:bg-indigo-900 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-20 dark:opacity-10 animate-float" style={{ animationDelay: '2s' }}></div>
+        <div className="absolute -bottom-8 left-20 w-96 h-96 bg-purple-300 dark:bg-purple-900 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-20 dark:opacity-10 animate-float" style={{ animationDelay: '4s' }}></div>
+      </div>
+
+      {/* Header */}
+      <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50">
+        <div className="container mx-auto px-6 py-6">
           <div className="flex items-center gap-4">
-             <Link href="/admin/dashboard" className="p-2 hover:bg-white/5 rounded-full transition-colors text-slate-400 hover:text-white">
-               <ArrowLeft size={24} />
-             </Link>
-             <div>
-               <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                 Manage Test Cases
-               </h1>
-               <p className="text-slate-400 mt-1">ITCS251 - Programming in Python</p>
-             </div>
+            <Link href="/admin/dashboard" className="p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-200 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400">
+              <ArrowLeft size={24} />
+            </Link>
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
+                Manage Test Cases
+              </h1>
+              <p className="text-slate-600 dark:text-slate-400 mt-1">ITCS251 - Programming in Python</p>
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
+      <div className="container mx-auto px-6 py-8 relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* Lab List Sidebar */}
-            <div className="bg-white dark:bg-[#161b22] p-6 rounded-2xl border border-slate-200 dark:border-white/5 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold text-white">Select Lab</h2>
+            <div className="lg:col-span-1 animate-fade-in">
+                <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Select Lab</h2>
                 </div>
                 
                 <div className="space-y-2">
                     {loading ? (
-                        <div className="text-slate-500 animate-pulse">Loading labs...</div>
+                        <div className="text-slate-500 dark:text-slate-400 animate-pulse">Loading labs...</div>
                     ) : (
                         labs.map(lab => (
                             <button
@@ -300,8 +372,8 @@ export default function ManageTestCasesPage() {
                                 onClick={() => handleSelectLab(lab)}
                                 className={`w-full text-left p-4 rounded-xl transition-all border ${
                                     selectedLab?.id === lab.id 
-                                    ? "bg-blue-500/20 border-blue-500/50 text-white"
-                                    : "bg-[#161b22] border-white/5 text-slate-400 hover:bg-[#1c2128] hover:border-white/10"
+                                    ? "bg-blue-50 dark:bg-blue-500/20 border-blue-200 dark:border-blue-500/50 text-slate-900 dark:text-white"
+                                    : "bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600"
                                 }`}
                             >
                                 <div className="font-medium">{lab.title}</div>
@@ -312,24 +384,25 @@ export default function ManageTestCasesPage() {
                         ))
                     )}
                 </div>
+                </div>
             </div>
 
             {/* Editor Area */}
-            <div className="lg:col-span-3 space-y-6">
+            <div className="lg:col-span-2 space-y-6 animate-fade-in" style={{ animationDelay: '0.1s' }}>
                 {selectedLab ? (
                     <>
-                        <div className="flex items-center justify-between bg-[#161b22] p-6 rounded-2xl border border-white/5">
+                        <div className="flex items-center justify-between bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl">
                             <div>
-                                <h2 className="text-2xl font-bold text-white">{selectedLab.title}</h2>
-                                <p className="text-slate-400 text-sm mt-1">
+                                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{selectedLab.title}</h2>
+                                <p className="text-slate-600 dark:text-slate-400 text-sm mt-1">
                                     {testCases.length} Test Case{testCases.length !== 1 && 's'} Defined
-                                    {subQuestions.length > 0 && <span className="mx-2">•</span>}
-                                    {subQuestions.length > 0 && `${subQuestions.length} Sub-Question${subQuestions.length !== 1 ? 's' : ''}`}
+                                    {subTasks.length > 0 && <span className="mx-2">•</span>}
+                                    {subTasks.length > 0 && `${subTasks.length} task${subTasks.length !== 1 ? 's' : ''}`}
                                 </p>
                             </div>
                             <div className="flex items-center gap-3">
                                 <button 
-                                    onClick={() => handleOpenSubQuestionModal()}
+                                    onClick={() => handleOpensubTaskModal()}
                                     className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 text-purple-400 rounded-lg hover:bg-purple-500/20 transition-all border border-purple-500/20"
                                 >
                                     <Plus size={18} />
@@ -380,14 +453,14 @@ export default function ManageTestCasesPage() {
                         </div>
 
                         {error && (
-                            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 flex items-center gap-3">
+                            <div className="p-4 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-xl text-red-600 dark:text-red-400 flex items-center gap-3 animate-slide-down">
                                 <AlertCircle size={20} />
                                 {error}
                             </div>
                         )}
                         
                         {success && (
-                            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 flex items-center gap-3">
+                            <div className="p-4 bg-green-50 dark:bg-emerald-500/10 border border-green-200 dark:border-emerald-500/20 rounded-xl text-green-600 dark:text-emerald-400 flex items-center gap-3 animate-slide-down">
                                 <CheckCircle size={20} />
                                 {success}
                             </div>
@@ -395,18 +468,18 @@ export default function ManageTestCasesPage() {
 
                         {/* Test Cases List */}
                         <div className="space-y-6">
-                            {/* No Sub-Question Section (if there are any) */}
-                            {testCases.some(tc => !tc.subQuestionId) && (
+                            {/* No task Section (if there are any) */}
+                            {testCases.some(tc => !tc.subTaskId) && (
                                 <div className="space-y-3">
-                                    {subQuestions.length > 0 && (
-                                        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                                            <span className="text-slate-500">No Sub-Question</span>
+                                    {subTasks.length > 0 && (
+                                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                                            <span className="text-slate-500 dark:text-slate-400">No task</span>
                                         </h3>
                                     )}
                                     <div className="grid gap-3 md:gap-4">
                                         {testCases
                                             .map((test, idx) => ({ test, originalIndex: idx }))
-                                            .filter(({ test }) => !test.subQuestionId)
+                                            .filter(({ test }) => !test.subTaskId)
                                             .map(({ test, originalIndex }) => (
                                             <div key={test.id} className="bg-[#161b22] p-4 md:p-6 rounded-2xl border border-white/5 group hover:border-white/10 transition-all">
                                                 <div className="flex items-start justify-between mb-4">
@@ -437,14 +510,14 @@ export default function ManageTestCasesPage() {
                                                 
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                                                     <div className="space-y-2">
-                                                        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Input</label>
-                                                        <div className="bg-[#0d1117] p-3 rounded-lg border border-white/5 font-mono text-sm text-slate-300 min-h-[60px] whitespace-pre-wrap">
-                                                            {test.input || <span className="text-slate-600 italic">No input</span>}
+                                                        <label className="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">Input</label>
+                                                        <div className="bg-slate-50 dark:bg-slate-900/80 p-3 rounded-lg border border-slate-200 dark:border-slate-700 font-mono text-sm text-slate-700 dark:text-slate-300 min-h-[60px] whitespace-pre-wrap">
+                                                            {test.input || <span className="text-slate-400 dark:text-slate-600 italic">No input</span>}
                                                         </div>
                                                     </div>
                                                     <div className="space-y-2">
-                                                        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Expected Output</label>
-                                                        <div className="bg-[#0d1117] p-3 rounded-lg border border-white/5 font-mono text-sm text-emerald-400/90 min-h-[60px] whitespace-pre-wrap">
+                                                        <label className="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">Expected Output</label>
+                                                        <div className="bg-slate-50 dark:bg-slate-900/80 p-3 rounded-lg border border-slate-200 dark:border-slate-700 font-mono text-sm text-green-600 dark:text-emerald-400/90 min-h-[60px] whitespace-pre-wrap">
                                                             {test.expectedOutput}
                                                         </div>
                                                     </div>
@@ -455,52 +528,52 @@ export default function ManageTestCasesPage() {
                                 </div>
                             )}
 
-                            {/* Sub-Questions Sections */}
-                            {subQuestions.sort((a, b) => a.order - b.order).map((subQuestion) => {
-                                const subQuestionTests = testCases
+                            {/* tasks Sections */}
+                            {subTasks.sort((a, b) => a.order - b.order).map((subTask) => {
+                                const subTaskTests = testCases
                                     .map((test, idx) => ({ test, originalIndex: idx }))
-                                    .filter(({ test }) => test.subQuestionId === subQuestion.id);
+                                    .filter(({ test }) => test.subTaskId === subTask.id);
                                 
                                 return (
-                                    <div key={subQuestion.id} className="space-y-3">
+                                    <div key={subTask.id} className="space-y-3">
                                         <div className="flex items-center justify-between">
-                                            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                                                <span className="text-blue-400">{subQuestion.name}</span>
-                                                <span className="text-sm text-slate-500">({subQuestionTests.length} test{subQuestionTests.length !== 1 ? 's' : ''})</span>
+                                            <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                                                <span className="text-blue-600 dark:text-blue-400">{subTask.name}</span>
+                                                <span className="text-sm text-slate-500 dark:text-slate-400">({subTaskTests.length} test{subTaskTests.length !== 1 ? 's' : ''})</span>
                                             </h3>
                                             <div className="flex items-center gap-2">
                                                 <button 
-                                                    onClick={() => handleOpenModal(undefined, subQuestion.id)}
-                                                    className="px-3 py-1.5 text-xs bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition-all border border-emerald-500/20 flex items-center gap-1.5"
+                                                    onClick={() => handleOpenModal(undefined, subTask.id)}
+                                                    className="px-3 py-1.5 text-xs bg-green-50 dark:bg-emerald-500/10 text-green-600 dark:text-emerald-400 rounded-lg hover:bg-green-100 dark:hover:bg-emerald-500/20 transition-all border border-green-200 dark:border-emerald-500/20 flex items-center gap-1.5"
                                                 >
                                                     <Plus size={14} />
                                                     Add Test
                                                 </button>
                                                 <button 
-                                                    onClick={() => handleOpenSubQuestionModal(subQuestion)}
-                                                    className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-blue-400 transition-colors"
-                                                    title="Edit sub-question"
+                                                    onClick={() => handleOpensubTaskModal(subTask)}
+                                                    className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                                    title="Edit task"
                                                 >
                                                     <Edit2 size={16} />
                                                 </button>
                                                 <button 
-                                                    onClick={() => handleDeleteSubQuestion(subQuestion.id)}
-                                                    className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
-                                                    title="Delete sub-question"
+                                                    onClick={() => handleDeletesubTask(subTask.id)}
+                                                    className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                                    title="Delete task"
                                                 >
                                                     <Trash2 size={16} />
                                                 </button>
                                             </div>
                                         </div>
                                         <div className="grid gap-3 md:gap-4">
-                                            {subQuestionTests.map(({ test, originalIndex }) => (
-                                                <div key={test.id} className="bg-[#161b22] p-4 md:p-6 rounded-2xl border border-blue-500/20 group hover:border-blue-500/40 transition-all">
+                                            {subTaskTests.map(({ test, originalIndex }) => (
+                                                <div key={test.id} className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm p-4 md:p-6 rounded-2xl border border-slate-200 dark:border-blue-500/20 group hover:border-blue-300 dark:hover:border-blue-500/40 transition-all shadow-sm">
                                                     <div className="flex items-start justify-between mb-4">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 font-mono text-sm border border-white/5">
+                                                            <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 font-mono text-sm border border-slate-200 dark:border-slate-600">
                                                                 {originalIndex + 1}
                                                             </div>
-                                                            <h3 className="font-semibold text-white text-lg">{test.name}</h3>
+                                                            <h3 className="font-semibold text-slate-900 dark:text-white text-lg">{test.name}</h3>
                                                             {test.matchMode === 'exact' && (
                                                                 <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] font-bold border border-purple-500/30">EXACT</span>
                                                             )}
@@ -523,14 +596,14 @@ export default function ManageTestCasesPage() {
                                                     
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                                                         <div className="space-y-2">
-                                                            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Input</label>
-                                                            <div className="bg-[#0d1117] p-3 rounded-lg border border-white/5 font-mono text-sm text-slate-300 min-h-[60px] whitespace-pre-wrap">
-                                                                {test.input || <span className="text-slate-600 italic">No input</span>}
+                                                            <label className="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">Input</label>
+                                                            <div className="bg-slate-50 dark:bg-slate-900/80 p-3 rounded-lg border border-slate-200 dark:border-slate-700 font-mono text-sm text-slate-700 dark:text-slate-300 min-h-[60px] whitespace-pre-wrap">
+                                                                {test.input || <span className="text-slate-400 dark:text-slate-600 italic">No input</span>}
                                                             </div>
                                                         </div>
                                                         <div className="space-y-2">
-                                                            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Expected Output</label>
-                                                            <div className="bg-[#0d1117] p-3 rounded-lg border border-white/5 font-mono text-sm text-emerald-400/90 min-h-[60px] whitespace-pre-wrap">
+                                                            <label className="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">Expected Output</label>
+                                                            <div className="bg-slate-50 dark:bg-slate-900/80 p-3 rounded-lg border border-slate-200 dark:border-slate-700 font-mono text-sm text-green-600 dark:text-emerald-400/90 min-h-[60px] whitespace-pre-wrap">
                                                                 {test.expectedOutput}
                                                             </div>
                                                         </div>
@@ -597,16 +670,16 @@ export default function ManageTestCasesPage() {
                             />
                         </div>
                         
-                        {subQuestions.length > 0 && (
+                        {subTasks.length > 0 && (
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-300">Sub-Question (Optional)</label>
+                                <label className="text-sm font-medium text-slate-300">task (Optional)</label>
                                 <select
-                                    value={selectedSubQuestionId || ''}
-                                    onChange={(e) => setSelectedSubQuestionId(e.target.value || undefined)}
+                                    value={selectedsubTaskId || ''}
+                                    onChange={(e) => setSelectedsubTaskId(e.target.value || undefined)}
                                     className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
                                 >
-                                    <option value="">No Sub-Question</option>
-                                    {subQuestions.sort((a, b) => a.order - b.order).map(sq => (
+                                    <option value="">No task</option>
+                                    {subTasks.sort((a, b) => a.order - b.order).map(sq => (
                                         <option key={sq.id} value={sq.id}>{sq.name}</option>
                                     ))}
                                 </select>
@@ -662,25 +735,25 @@ export default function ManageTestCasesPage() {
             </div>
         )}
 
-        {/* Sub-Question Modal */}
-        {isSubQuestionModalOpen && (
+        {/* task Modal */}
+        {issubTaskModalOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
                 <div className="bg-[#161b22] w-full max-w-md rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
                     <div className="p-6 border-b border-white/5 flex items-center justify-between">
                         <h3 className="text-xl font-bold text-white">
-                            {currentSubQuestion ? "Edit Sub-Question" : "New Sub-Question"}
+                            {currentsubTask ? "Edit task" : "New task"}
                         </h3>
-                        <button onClick={() => setIsSubQuestionModalOpen(false)} className="text-slate-400 hover:text-white">
+                        <button onClick={() => setIssubTaskModalOpen(false)} className="text-slate-400 hover:text-white">
                             <XCircle size={24} />
                         </button>
                     </div>
                     <div className="p-6 space-y-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-300">Sub-Question Name</label>
+                            <label className="text-sm font-medium text-slate-300">task Name</label>
                             <input 
                                 type="text" 
-                                value={subQuestionName}
-                                onChange={(e) => setSubQuestionName(e.target.value)}
+                                value={subTaskName}
+                                onChange={(e) => setsubTaskName(e.target.value)}
                                 placeholder="e.g. Question 1, Part A"
                                 className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors"
                             />
@@ -688,16 +761,16 @@ export default function ManageTestCasesPage() {
                     </div>
                     <div className="p-6 border-t border-white/5 flex justify-end gap-3 bg-[#0d1117]/50">
                         <button 
-                            onClick={() => setIsSubQuestionModalOpen(false)}
+                            onClick={() => setIssubTaskModalOpen(false)}
                             className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
                         >
                             Cancel
                         </button>
                         <button 
-                            onClick={handleSaveSubQuestion}
+                            onClick={handleSavesubTask}
                             className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-500 transition-colors font-medium"
                         >
-                            {currentSubQuestion ? "Update Sub-Question" : "Create Sub-Question"}
+                            {currentsubTask ? "Update task" : "Create task"}
                         </button>
                     </div>
                 </div>
