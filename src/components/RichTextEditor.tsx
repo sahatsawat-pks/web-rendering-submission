@@ -21,6 +21,7 @@ interface RichTextEditorProps {
 
 export default function RichTextEditor({ value, onChange, placeholder, className }: RichTextEditorProps) {
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         codeBlock: false, // Disable default code block
