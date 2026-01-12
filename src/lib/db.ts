@@ -180,6 +180,16 @@ async function ensureTables() {
             END $$;
         `);
 
+        // Add quiz_section_enabled to subjects table
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subjects' AND column_name = 'quiz_section_enabled') THEN 
+                    ALTER TABLE subjects ADD COLUMN quiz_section_enabled BOOLEAN DEFAULT TRUE; 
+                END IF; 
+            END $$;
+        `);
+
         // Create subjects table
         await client.query(`
             CREATE TABLE IF NOT EXISTS subjects (
@@ -668,6 +678,7 @@ export interface Subject {
   createScoreCheckPlaceholder?: boolean;
   createLabRunnerPlaceholder?: boolean;
   courseSummaryLink?: string;
+  quizSectionEnabled?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -695,6 +706,7 @@ export async function getSubjects(visibleOnly: boolean = false): Promise<Subject
       createScoreCheckPlaceholder: row.create_score_check_placeholder,
       createLabRunnerPlaceholder: row.create_lab_runner_placeholder,
       courseSummaryLink: row.course_summary_link,
+      quizSectionEnabled: row.quiz_section_enabled !== false,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     }));

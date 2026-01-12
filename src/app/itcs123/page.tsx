@@ -7,6 +7,20 @@ import Link from "next/link"
 import Footer from "@/components/Footer"
 
 export default function ITCS123LandingPage() {
+  const [quizSectionEnabled, setQuizSectionEnabled] = useState(true)
+  
+  useEffect(() => {
+    // Fetch quiz section status
+    fetch('/api/subjects?code=ITCS123')
+      .then(res => res.json())
+      .then(data => {
+        if (data.subjects && data.subjects.length > 0) {
+          setQuizSectionEnabled(data.subjects[0].quizSectionEnabled !== false)
+        }
+      })
+      .catch(err => console.error('Failed to fetch subject info:', err))
+  }, [])
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {/* Navigation */}
@@ -44,7 +58,7 @@ export default function ITCS123LandingPage() {
            </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 w-full max-w-7xl animate-scale-in">
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-7xl animate-scale-in ${quizSectionEnabled ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
            {/* Card 1: Test Runner */}
            <Link href="/itcs123/test-case" className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 shadow-2xl hover:shadow-orange-500/20 transition-all duration-500 hover:-translate-y-2">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -73,21 +87,23 @@ export default function ITCS123LandingPage() {
               </div>
            </Link>
 
-           {/* Card 3: Quiz */}
-           <Link href="/itcs123/quiz" className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 shadow-2xl hover:shadow-purple-500/20 transition-all duration-500 hover:-translate-y-2">
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative z-10 flex flex-col items-center text-center">
-                 <div className="w-20 h-20 rounded-2xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500">
-                    <svg className="w-10 h-10 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                 </div>
-                 <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3">Check Your Understanding</h2>
-                 <p className="text-slate-500 dark:text-slate-400">
-                    Test your knowledge with quizzes for each lab.
-                 </p>
-              </div>
-           </Link>
+           {/* Card 3: Quiz - Conditionally Rendered */}
+           {quizSectionEnabled && (
+             <Link href="/itcs123/quiz" className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 shadow-2xl hover:shadow-purple-500/20 transition-all duration-500 hover:-translate-y-2">
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="relative z-10 flex flex-col items-center text-center">
+                   <div className="w-20 h-20 rounded-2xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500">
+                      <svg className="w-10 h-10 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                   </div>
+                   <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3">Check Your Understanding</h2>
+                   <p className="text-slate-500 dark:text-slate-400">
+                      Test your knowledge with quizzes for each lab.
+                   </p>
+                </div>
+             </Link>
+           )}
 
            {/* Card 4: Notion Summary */}
            <a href="https://kanzaki-aito.notion.site/ICT-1st-Year-2nd-2025-499db3618b5049a4aa2abb96188ee4ca" target="_blank" rel="noopener noreferrer" className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 shadow-2xl hover:shadow-orange-500/20 transition-all duration-500 hover:-translate-y-2">

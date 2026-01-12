@@ -21,6 +21,8 @@ export default function ITDS283AdminPage() {
   const [gradingSuccess, setGradingSuccess] = useState(false)
   const [gradingError, setGradingError] = useState<string | null>(null)
   const [togglingQuiz, setTogglingQuiz] = useState<number | null>(null)
+  const [quizSectionEnabled, setQuizSectionEnabled] = useState(true)
+  const [togglingQuizSection, setTogglingQuizSection] = useState(false)
 
   // New Lab Dialog state
   const [showNewLabDialog, setShowNewLabDialog] = useState(false)
@@ -55,6 +57,16 @@ export default function ITDS283AdminPage() {
     }
     fetchLabs()
 
+    // Fetch quiz section status
+    fetch('/api/subjects?code=ITDS283')
+      .then(res => res.json())
+      .then(data => {
+        if (data.subjects && data.subjects.length > 0) {
+          setQuizSectionEnabled(data.subjects[0].quizSectionEnabled !== false)
+        }
+      })
+      .catch(err => console.error('Failed to fetch subject info:', err))
+
     // Fetch user role and permissions
     fetch("/api/auth/me")
       .then(res => res.json())
@@ -78,6 +90,28 @@ export default function ITDS283AdminPage() {
         router.push('/admin/dashboard')
       })
   }, [])
+
+  async function toggleQuizSection() {
+    setTogglingQuizSection(true)
+    try {
+      const res = await fetch('/api/subjects/toggle-quiz-section', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subjectCode: 'ITDS283', enabled: !quizSectionEnabled })
+      })
+      
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) {
+          setQuizSectionEnabled(data.quizSectionEnabled)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to toggle quiz section:', error)
+    } finally {
+      setTogglingQuizSection(false)
+    }
+  }
 
   async function handleGradeSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -298,6 +332,22 @@ export default function ITDS283AdminPage() {
               ITDS283 - Mobile Development
             </h1>
             <div className="flex gap-2">
+              {role === 'Lecturer' && (
+                <button
+                  onClick={toggleQuizSection}
+                  disabled={togglingQuizSection}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-all disabled:opacity-50 flex items-center gap-2 ${
+                    quizSectionEnabled
+                      ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Check Your Understanding: {quizSectionEnabled ? "ON" : "OFF"}
+                </button>
+              )}
               {role === 'Lecturer' && (
                 <a href="/admin/itds283/quiz" className="px-4 py-2 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded-lg text-sm font-medium border border-pink-200 dark:border-pink-800 shadow-sm hover:bg-pink-200 dark:hover:bg-pink-900/50 transition-colors">
                   Manage Quiz

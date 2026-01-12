@@ -7,6 +7,20 @@ import Link from "next/link"
 import Footer from "@/components/Footer"
 
 export default function ITCS251LandingPage() {
+  const [quizSectionEnabled, setQuizSectionEnabled] = useState(true)
+  
+  useEffect(() => {
+    // Fetch quiz section status
+    fetch('/api/subjects?code=ITCS251')
+      .then(res => res.json())
+      .then(data => {
+        if (data.subjects && data.subjects.length > 0) {
+          setQuizSectionEnabled(data.subjects[0].quizSectionEnabled !== false)
+        }
+      })
+      .catch(err => console.error('Failed to fetch subject info:', err))
+  }, [])
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-sky-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {/* Navigation */}
@@ -44,7 +58,7 @@ export default function ITCS251LandingPage() {
            </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl animate-scale-in">
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-6xl animate-scale-in ${quizSectionEnabled ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
            {/* Card 1: Test Runner */}
            <Link href="/itcs251/test-case" className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 shadow-2xl hover:shadow-blue-500/20 transition-all duration-500 hover:-translate-y-2">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-sky-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -73,8 +87,9 @@ export default function ITCS251LandingPage() {
               </div>
            </Link>
 
-           {/* Card 3: Quiz */}
-           <Link href="/itcs251/quiz" className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 shadow-2xl hover:shadow-purple-500/20 transition-all duration-500 hover:-translate-y-2">
+           {/* Card 3: Quiz - Conditionally Rendered */}
+           {quizSectionEnabled && (
+             <Link href="/itcs251/quiz" className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 shadow-2xl hover:shadow-purple-500/20 transition-all duration-500 hover:-translate-y-2">
               <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <div className="relative z-10 flex flex-col items-center text-center">
                  <div className="w-20 h-20 rounded-2xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500">
@@ -87,7 +102,8 @@ export default function ITCS251LandingPage() {
                     Test your knowledge with quizzes for each lab.
                  </p>
               </div>
-           </Link>
+             </Link>
+           )}
         </div>
       </main>
 
