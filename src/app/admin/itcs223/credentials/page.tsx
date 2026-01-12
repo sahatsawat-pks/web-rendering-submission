@@ -187,10 +187,42 @@ export default function ITCS223CredentialsPage() {
     document.body.removeChild(link)
   }
 
-  const handleRegenerate = (index: number) => {
+  const handleRegenerate = async (index: number) => {
     const newCredentials = [...credentials]
-    newCredentials[index].credential = generateCredential()
-    setCredentials(newCredentials)
+    const newCredential = generateCredential()
+    newCredentials[index].credential = newCredential
+    
+    try {
+      // Save the regenerated credential to database
+      const response = await fetch('/api/credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          credentials: [{
+            studentId: newCredentials[index].studentId,
+            name: newCredentials[index].name,
+            surname: newCredentials[index].surname,
+            section: newCredentials[index].section,
+            credential: newCredential
+          }],
+          subject: 'ITCS223'
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to save regenerated credential')
+      }
+
+      setCredentials(newCredentials)
+      setMessage({ 
+        type: 'success', 
+        text: `Successfully regenerated credential for student ${newCredentials[index].studentId}` 
+      })
+      
+    } catch (error: any) {
+      console.error('Error regenerating credential:', error)
+      setMessage({ type: 'error', text: 'Failed to save regenerated credential' })
+    }
   }
 
   const handleFetchAndGenerateNewOnly = async () => {

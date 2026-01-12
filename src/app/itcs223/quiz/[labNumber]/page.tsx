@@ -44,10 +44,35 @@ export default function QuizTakingPage() {
 
   // Check verification status on mount
   useEffect(() => {
-    const verified = sessionStorage.getItem('quiz_verified') === 'true'
-    const storedStudentId = sessionStorage.getItem('quiz_student_id') || ''
-    const storedCredential = sessionStorage.getItem('quiz_credential') || ''
-    const storedLab = sessionStorage.getItem('quiz_lab') || ''
+    // Check sessionStorage first (for current session)
+    let verified = sessionStorage.getItem('quiz_verified') === 'true'
+    let storedStudentId = sessionStorage.getItem('quiz_student_id') || ''
+    let storedCredential = sessionStorage.getItem('quiz_credential') || ''
+    let storedLab = sessionStorage.getItem('quiz_lab') || ''
+
+    // If not in sessionStorage, check localStorage (for persistent login)
+    if (!verified || storedLab !== labNumber) {
+      const persistentAuth = localStorage.getItem(`quiz_auth_${labNumber}`)
+      if (persistentAuth) {
+        try {
+          const authData = JSON.parse(persistentAuth)
+          storedStudentId = authData.studentId || ''
+          storedCredential = authData.credential || ''
+          storedLab = authData.labNumber || ''
+          
+          // Restore session
+          if (storedLab === labNumber && storedStudentId && storedCredential) {
+            verified = true
+            sessionStorage.setItem('quiz_verified', 'true')
+            sessionStorage.setItem('quiz_student_id', storedStudentId)
+            sessionStorage.setItem('quiz_credential', storedCredential)
+            sessionStorage.setItem('quiz_lab', labNumber)
+          }
+        } catch (e) {
+          // Invalid saved data
+        }
+      }
+    }
 
     if (verified && storedLab === labNumber) {
       setIsVerified(true)
@@ -134,12 +159,13 @@ export default function QuizTakingPage() {
   }
 
   const handleLogout = () => {
-    // Clear verification session but keep answers in localStorage
+    // Clear only sessionStorage but keep localStorage (for persistent login and answers)
     sessionStorage.removeItem('quiz_verified')
     sessionStorage.removeItem('quiz_student_id')
     sessionStorage.removeItem('quiz_credential')
     sessionStorage.removeItem('quiz_lab')
     
+    // Note: We keep localStorage data so user can log back in and continue
     // Redirect to verify page
     router.push(`/itcs223/quiz/${labNumber}/verify`)
   }
@@ -165,10 +191,10 @@ export default function QuizTakingPage() {
           })
         })
         
-        // Clear saved answers from localStorage
+        // Clear saved answers from localStorage after submission
         localStorage.removeItem(`quiz_answers_${labNumber}_${studentId}`)
         
-        // Clear verification session
+        // Keep auth data but clear current session
         sessionStorage.removeItem('quiz_verified')
         sessionStorage.removeItem('quiz_student_id')
         sessionStorage.removeItem('quiz_credential')
@@ -446,6 +472,7 @@ export default function QuizTakingPage() {
             </button>
             <button
               onClick={() => {
+                // Clear current answers
                 setAnswers({})
                 setCurrentQuestionIndex(0)
                 setShowResults(false)
@@ -453,6 +480,21 @@ export default function QuizTakingPage() {
                 if (timeLimitEnabled) {
                   setTimeRemaining(timeLimit * 60)
                 }
+                
+                // Clear saved answers from localStorage
+                if (studentId) {
+                  localStorage.removeItem(`quiz_answers_${labNumber}_${studentId}`)
+                }
+                
+                // Clear authentication to allow credential change
+                sessionStorage.removeItem('quiz_verified')
+                sessionStorage.removeItem('quiz_student_id')
+                sessionStorage.removeItem('quiz_credential')
+                sessionStorage.removeItem('quiz_lab')
+                localStorage.removeItem(`quiz_auth_${labNumber}`)
+                
+                // Redirect to verification page
+                router.push(`/itcs223/quiz/${labNumber}/verify`)
               }}
               className="flex-1 flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl font-bold transition-all hover:shadow-2xl hover:from-teal-600 hover:to-cyan-600 transform hover:scale-105 hover:-translate-y-1 shadow-lg shadow-teal-500/30"
             >
@@ -730,7 +772,7 @@ export default function QuizTakingPage() {
 
               {/* Clear Answer Button */}
               {answers[currentQuestion.id] && (
-                <div className="mt-6 animate-bounce-in">
+                <div className="mt-6">
                   <button
                     onClick={() => {
                       const newAnswers = { ...answers }

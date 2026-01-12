@@ -33,6 +33,13 @@ export default function QuizVerificationPage() {
         sessionStorage.setItem('quiz_credential', credential)
         sessionStorage.setItem('quiz_lab', labNumber)
         
+        // Also store in localStorage for persistent login across sessions
+        localStorage.setItem(`quiz_auth_${labNumber}`, JSON.stringify({
+          studentId,
+          credential,
+          labNumber
+        }))
+        
         // Redirect to actual quiz
         router.push(`/itcs223/quiz/${labNumber}`)
       } else {
