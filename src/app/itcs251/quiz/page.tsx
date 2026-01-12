@@ -47,37 +47,44 @@ export default function ITCS251QuizPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-sky-50 to-cyan-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-purple-200 dark:border-purple-800 border-t-purple-600"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading quizzes...</p>
+          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-200 dark:border-blue-800 border-t-blue-600"></div>
+          <p className="mt-4 text-slate-600 dark:text-slate-400">Loading quizzes...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-sky-50 to-cyan-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       {/* Header */}
-      <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-sm border-b border-purple-100 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
+      <nav className="sticky top-0 z-50 w-full glass border-b border-white/30 dark:border-slate-700/50 shadow-lg">
+        <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-4 md:px-6">
+          <div className="flex items-center gap-2 md:gap-3">
             <button
               onClick={() => router.push('/itcs251')}
-              className="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300"
+              className="flex items-center justify-center w-10 h-10 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+              title="Back to ITCS251"
             >
-              ← Back to ITCS251
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
             </button>
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-              Check Your Understanding
-            </h1>
+            <img src="/logo.png" alt="Logo" className="h-9 w-9 md:h-11 md:w-11 rounded-xl shadow-lg shadow-blue-500/20" />
+            <div>
+              <span className="text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                ITCS251 Quiz
+              </span>
+              <p className="text-xs text-blue-600 dark:text-blue-400 font-medium hidden sm:block">Check Your Understanding</p>
+            </div>
           </div>
           <ModeToggle />
         </div>
-      </div>
+      </nav>
 
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl shadow-lg border border-blue-100 dark:border-slate-700 p-6 mb-6">
           <h2 className="text-xl font-bold mb-2 text-gray-800 dark:text-white">
             Test Your Knowledge
           </h2>

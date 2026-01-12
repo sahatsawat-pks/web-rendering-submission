@@ -191,7 +191,9 @@ function StatusChecker() {
         if (scoreData.scores) {
             setScores(scoreData.scores)
         } else {
-             setScores({})
+             // No scores found - user doesn't exist in sheet
+             setError(`Student ID "${studentId}" not found in the ITGE162 score sheet. Please check your Student ID and try again.`)
+             setScores(null)
         }
 
         if (labsData.labs) {
@@ -199,7 +201,7 @@ function StatusChecker() {
         }
       } else {
          const errData = await scoreRes.json().catch(() => ({}))
-         setError(errData.error || "Failed to fetch data")
+         setError(errData.error || "Failed to fetch data. Please try again.")
       }
     } catch (e) {
       console.error(e)

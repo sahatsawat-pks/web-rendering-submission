@@ -1001,3 +1001,113 @@ export async function deleteSubject(code: string): Promise<boolean> {
     client.release();
   }
 }
+
+// Quiz Scores Interface
+export interface QuizScore {
+  id: string;
+  studentId: string;
+  subject: string;
+  labNumber: string;
+  score: number;
+  totalQuestions: number;
+  correctAnswers: number;
+  answers: any;
+  submittedAt: string;
+}
+
+// Get quiz scores with optional filters
+export async function getQuizScores(
+  subject?: string,
+  labNumber?: string,
+  studentId?: string
+): Promise<QuizScore[]> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    let query = 'SELECT * FROM quiz_scores WHERE 1=1';
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    if (subject) {
+      query += ` AND subject = $${paramIndex}`;
+      params.push(subject);
+      paramIndex++;
+    }
+
+    if (labNumber) {
+      query += ` AND lab_number = $${paramIndex}`;
+      params.push(labNumber);
+      paramIndex++;
+    }
+
+    if (studentId) {
+      query += ` AND student_id = $${paramIndex}`;
+      params.push(studentId);
+      paramIndex++;
+    }
+
+    query += ' ORDER BY submitted_at DESC';
+
+    const result = await client.query(query, params);
+    
+    return result.rows.map((row) => ({
+      id: row.id,
+      studentId: row.student_id,
+      subject: row.subject,
+      labNumber: row.lab_number,
+      score: row.score,
+      totalQuestions: row.total_questions,
+      correctAnswers: row.correct_answers,
+      answers: row.answers,
+      submittedAt: row.submitted_at
+    }));
+  } finally {
+    client.release();
+  }
+}
+
+// Save a quiz score
+export async function saveQuizScore(
+  studentId: string,
+  subject: string,
+  labNumber: string,
+  score: number,
+  totalQuestions: number,
+  correctAnswers: number,
+  answers: any
+): Promise<QuizScore> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const submittedAt = new Date().toISOString();
+
+    const result = await client.query(
+      `INSERT INTO quiz_scores (
+        id, student_id, subject, lab_number, score, 
+        total_questions, correct_answers, answers, submitted_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING *`,
+      [id, studentId, subject, labNumber, score, totalQuestions, correctAnswers, JSON.stringify(answers), submittedAt]
+    );
+
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      studentId: row.student_id,
+      subject: row.subject,
+      labNumber: row.lab_number,
+      score: row.score,
+      totalQuestions: row.total_questions,
+      correctAnswers: row.correct_answers,
+      answers: row.answers,
+      submittedAt: row.submitted_at
+    };
+  } finally {
+    client.release();
+  }
+}

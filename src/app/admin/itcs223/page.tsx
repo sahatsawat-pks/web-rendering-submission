@@ -7,6 +7,7 @@ import { useState, useEffect } from "react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { ArrowLeft, Home, Layers } from "lucide-react"
 
 export default function AdminDashboard() {
   const router = useRouter()
@@ -290,86 +291,28 @@ export default function AdminDashboard() {
       </div>
 
       {/* Glass Navbar */}
-      <nav className="sticky top-0 z-50 w-full glass border-b border-white/20 dark:border-slate-700/50 shadow-sm">
+      <nav className="sticky top-0 z-50 w-full border-b border-white/20 dark:border-slate-800 shadow-sm bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
         <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-4 md:px-6">
-          <div className="flex items-center gap-2 md:gap-8">
-            <div className="flex items-center gap-2 md:gap-4">
-              <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-600 to-cyan-600 text-white font-bold shadow-lg shadow-teal-500/30 text-xs">
-                WD
-              </div>
-              <span className="text-base md:text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-                ITCS223
-              </span>
+          <div className="flex items-center gap-2 md:gap-4">
+            <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-teal-500 hover:text-white transition-all shadow-sm hover:shadow-lg" title="Back to Main Page">
+              <Home className="h-5 w-5" />
+            </Link>
+            <Link href="/admin/dashboard" className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-teal-500 hover:text-white transition-all shadow-sm hover:shadow-lg" title="Back to Dashboard">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-cyan-500 text-white shadow-lg">
+              <Layers className="h-5 w-5" />
             </div>
-
-            {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center gap-4 md:gap-6">
-              <a
-                 href="/admin/dashboard"
-                 className="text-sm font-medium text-slate-500 hover:text-teal-600 transition-colors whitespace-nowrap"
-              >
-                &larr; Hub
-              </a>
-              <span
-                className="text-sm font-medium text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 dark:border-teal-400 h-16 flex items-center px-1 whitespace-nowrap"
-              >
-                Dashboard
-              </span>
-              <a
-                href="/admin/quiz-management?subject=ITCS223"
-                className="text-sm font-medium text-slate-500 hover:text-teal-600 transition-colors whitespace-nowrap"
-              >
-                Quiz Management
-              </a>
-            </div>
+            <span className="text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 hidden sm:inline">
+              ITCS223 Dashboard
+            </span>
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
             <ModeToggle />
-            <div className="hidden sm:block">
-              <LogoutButton />
-            </div>
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {mobileMenuOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
-            </button>
+            <LogoutButton />
           </div>
         </div>
-
-        {/* Mobile Menu Dropdown */}
-        {mobileMenuOpen && (
-          <div className="lg:hidden border-t border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg">
-            <div className="container mx-auto max-w-7xl px-4 py-4 space-y-2">
-              <a
-                href="/admin/dashboard"
-                className="block px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg transition-colors"
-              >
-                &larr; Hub
-              </a>
-              <div className="block px-4 py-2 text-sm font-medium text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 rounded-lg">
-                Dashboard
-              </div>
-              <a
-                href="/admin/quiz-management?subject=ITCS223"
-                className="block px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg transition-colors"
-              >
-                Quiz Management
-              </a>
-              <div className="sm:hidden pt-2 border-t border-slate-200 dark:border-slate-700">
-                <LogoutButton />
-              </div>
-            </div>
-          </div>
-        )}
       </nav>
 
       <main className="container mx-auto max-w-7xl px-4 py-8 flex flex-col lg:flex-row gap-8 relative z-10">
@@ -656,7 +599,7 @@ export default function AdminDashboard() {
                       {(role === 'Lecturer' || username === 'kanzaki_aito') && (
                         <Link
                           href={`/admin/itcs223/credentials?labId=${lab.id}`}
-                          className="px-4 py-2 bg-pink-100 text-pink-700 rounded-lg hover:bg-pink-200 transition-all font-medium text-sm dark:bg-pink-900/30 dark:text-pink-400 dark:hover:bg-pink-900/50"
+                          className="px-4 py-2 rounded-lg transition-all font-medium text-sm bg-teal-600 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-600 text-white rounded-lg transition-colors text-sm font-semibold shadow-lg shadow-teal-500/20"
                         >
                           Manage
                         </Link>

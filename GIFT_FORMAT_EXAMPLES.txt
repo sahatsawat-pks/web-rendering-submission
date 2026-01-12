@@ -1,0 +1,153 @@
+# GIFT Format Examples for Quiz Import
+
+This file contains example questions in GIFT format that can be imported into the quiz system.
+
+## Basic Multiple Choice
+
+What is the capital of France? {
+=Paris
+~London
+~Berlin
+~Madrid
+}
+
+## Multiple Choice with Feedback
+
+What is 2+2? {
+=4 #Correct! Basic arithmetic
+~3 #Too low, try again
+~5 #Too high, check your math
+~6 #Way too high!
+}
+
+## Short Answer
+
+What is the answer to life, the universe, and everything? {
+=42
+}
+
+Who wrote "Romeo and Juliet"? {
+=Shakespeare
+=William Shakespeare
+}
+
+## True/False
+
+The Earth is flat. {FALSE}
+
+Python is a programming language. {TRUE}
+
+## Programming Questions
+
+What does this JavaScript code output: console.log("Hello"); ? {
+=Hello
+~"Hello"
+~undefined
+~null
+}
+
+What is the correct way to declare a variable in JavaScript? {
+=let x \= 10;
+=const x \= 10;
+=var x \= 10;
+~x \= 10
+}
+
+## Code Block Questions
+
+Given this Python code:
+```python
+def add(a, b):
+    return a + b
+result = add(5, 3)
+```
+What is the value of result? {
+=8
+~5
+~3
+~53
+}
+
+## Questions with Categories
+
+$CATEGORY: Programming Basics
+
+What does HTML stand for? {
+=HyperText Markup Language
+~High Tech Modern Language
+~Home Tool Markup Language
+}
+
+$CATEGORY: Data Structures
+
+Which data structure uses LIFO (Last In First Out)? {
+=Stack
+~Queue
+~Array
+~Tree
+}
+
+## Complex Multiple Choice
+
+Which of the following are valid Python data types? {
+=list #Correct! Lists are mutable sequences
+=tuple #Correct! Tuples are immutable sequences
+=dict #Correct! Dictionaries store key-value pairs
+~array #Not a built-in Python type
+}
+
+## Essay Questions (Converted to Short Answer)
+
+Explain the concept of object-oriented programming. {
+}
+
+## Special Characters in Questions
+
+What symbol is used for comments in Python? {
+=\#
+~//
+~/*
+}
+
+## Formatted Text in Questions
+
+What is the time complexity of *binary search*? {
+=O(log n)
+~O(n)
+~O(n^2)
+~O(1)
+}
+
+## Numeric Answers
+
+What is 15 + 27? {
+=42
+}
+
+What is the square root of 144? {
+=12
+=-12
+}
+
+## Notes for Using GIFT Format:
+
+1. **Correct answers** start with `=`
+2. **Wrong answers** start with `~`
+3. **Feedback** can be added after `#`
+4. **Categories** are set with `$CATEGORY: name`
+5. **Special characters** need escaping with backslash: `\=`, `\~`, `\#`, `\{`, `\}`
+6. **Multiple correct answers** are supported for short answer questions
+7. **True/False** questions use `{T}`, `{F}`, `{TRUE}`, or `{FALSE}`
+8. **Essay questions** use empty braces `{}` and are converted to short answer
+9. **Code** should be escaped or you can use HTML entities
+10. **Blank lines** separate questions
+
+## Tips:
+
+- Keep questions clear and concise
+- Use feedback to help students learn
+- Test your GIFT format before importing
+- Use the "View Example" button in the import modal
+- Categories help organize questions by topic
+- Use code blocks for programming questions
+- Escape special characters properly

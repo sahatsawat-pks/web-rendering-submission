@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { ModeToggle } from "@/components/mode-toggle"
 import { QuizNavigation } from "@/components/QuizNavigation"
+import RichTextDisplay from "@/components/RichTextDisplay"
 
 interface QuizQuestion {
   id: string
@@ -203,7 +204,7 @@ export default function QuizTakingPage() {
                       Q{idx + 1}.
                     </span>
                     <div className="flex-1">
-                      <p className="text-gray-800 dark:text-white mb-3">{question.question}</p>
+                      <RichTextDisplay content={question.question} className="mb-3" />
                       
                       {question.type === 'multiple-choice' && question.options && (
                         <div className="space-y-2 mb-4">
@@ -249,7 +250,7 @@ export default function QuizTakingPage() {
                       {question.explanation && (
                         <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                           <span className="text-xs font-medium text-blue-700 dark:text-blue-400">Explanation:</span>
-                          <p className="text-sm text-blue-800 dark:text-blue-300 mt-1">{question.explanation}</p>
+                          <RichTextDisplay content={question.explanation} className="mt-1" />
                         </div>
                       )}
                       
@@ -349,7 +350,7 @@ export default function QuizTakingPage() {
                       Q{idx + 1}.
                     </span>
                     <div className="flex-1">
-                      <p className="text-gray-800 dark:text-white mb-3">{question.question}</p>
+                      <RichTextDisplay content={question.question} className="mb-3" />
                       
                       {userAnswer ? (
                         <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
@@ -428,9 +429,7 @@ export default function QuizTakingPage() {
                 </span>
               </div>
 
-              <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">
-                {currentQuestion.question}
-              </h2>
+              <RichTextDisplay content={currentQuestion.question} className="text-2xl font-bold mb-6" />
 
               {currentQuestion.type === 'multiple-choice' && currentQuestion.options && (
                 <div className="space-y-3">

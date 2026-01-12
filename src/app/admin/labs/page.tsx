@@ -260,10 +260,23 @@ export default function LabManagement() {
   console.log("User permissions:", userPermissions)
   console.log("Allowed subjects:", allowedSubjects)
 
-  // Filter labs based on user permissions
-  const filteredLabs = isMainAdmin 
+  // Filter labs based on user permissions and sort by subject and lab number
+  const filteredLabs = (isMainAdmin 
     ? labs 
-    : labs.filter(lab => userPermissions[lab.subject.toLowerCase()])
+    : labs.filter(lab => userPermissions[lab.subject.toLowerCase()]))
+    .sort((a, b) => {
+      // First sort by subject
+      const subjectCompare = a.subject.localeCompare(b.subject)
+      if (subjectCompare !== 0) return subjectCompare
+      
+      // Then sort by lab number (numeric sort for proper ordering)
+      const aNum = parseInt(a.labNumber) || 0
+      const bNum = parseInt(b.labNumber) || 0
+      if (aNum !== bNum) return aNum - bNum
+      
+      // If numeric values are same, fall back to string comparison
+      return a.labNumber.localeCompare(b.labNumber)
+    })
 
   if (loading) {
     return (

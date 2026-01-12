@@ -6,6 +6,8 @@ import LogoutButton from "@/components/LogoutButton"
 import { useState, useEffect } from "react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
+import { ArrowLeft, Home, Layers } from "lucide-react"
 
 export default function AdminDashboard() {
   const router = useRouter()
@@ -313,86 +315,28 @@ export default function AdminDashboard() {
       </div>
 
       {/* Glass Navbar */}
-      <nav className="sticky top-0 z-50 w-full glass border-b border-white/20 dark:border-slate-700/50 shadow-sm">
+      <nav className="sticky top-0 z-50 w-full border-b border-white/20 dark:border-slate-800 shadow-sm bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
         <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-4 md:px-6">
-          <div className="flex items-center gap-2 md:gap-8">
-            <div className="flex items-center gap-2 md:gap-4">
-              <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-600 to-amber-600 text-white font-bold shadow-lg shadow-orange-500/30 text-xs">
-                OOP
-              </div>
-              <span className="text-base md:text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-                ITCS123
-              </span>
+          <div className="flex items-center gap-2 md:gap-4">
+            <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-orange-500 hover:text-white transition-all shadow-sm hover:shadow-lg" title="Back to Main Page">
+              <Home className="h-5 w-5" />
+            </Link>
+            <Link href="/admin/dashboard" className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-orange-500 hover:text-white transition-all shadow-sm hover:shadow-lg" title="Back to Dashboard">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-lg">
+              <Layers className="h-5 w-5" />
             </div>
-
-            {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center gap-4 md:gap-6">
-              <a
-                 href="/admin/dashboard"
-                 className="text-sm font-medium text-slate-500 hover:text-orange-600 transition-colors whitespace-nowrap"
-              >
-                &larr; Hub
-              </a>
-              <span
-                className="text-sm font-medium text-orange-600 dark:text-orange-400 border-b-2 border-orange-600 dark:border-orange-400 h-16 flex items-center px-1 whitespace-nowrap"
-              >
-                Dashboard
-              </span>
-              <a
-                href="/admin/quiz-management?subject=ITCS123"
-                className="text-sm font-medium text-slate-500 hover:text-orange-600 transition-colors whitespace-nowrap"
-              >
-                Quiz Management
-              </a>
-            </div>
+            <span className="text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 hidden sm:inline">
+              ITCS123 Dashboard
+            </span>
           </div>
-
           <div className="flex items-center gap-2 md:gap-4">
             <ModeToggle />
-            <div className="hidden sm:block">
-              <LogoutButton />
-            </div>
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {mobileMenuOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
-            </button>
+            <LogoutButton
+            />
           </div>
         </div>
-
-        {/* Mobile Menu Dropdown */}
-        {mobileMenuOpen && (
-          <div className="lg:hidden border-t border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg">
-            <div className="container mx-auto max-w-7xl px-4 py-4 space-y-2">
-              <a
-                href="/admin/dashboard"
-                className="block px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors"
-              >
-                &larr; Hub
-              </a>
-              <div className="block px-4 py-2 text-sm font-medium text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                Dashboard
-              </div>
-              <a
-                href="/admin/quiz-management?subject=ITCS123"
-                className="block px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors"
-              >
-                Quiz Management
-              </a>
-              <div className="sm:hidden pt-2 border-t border-slate-200 dark:border-slate-700">
-                <LogoutButton />
-              </div>
-            </div>
-          </div>
-        )}
       </nav>
 
       <main className="container mx-auto max-w-7xl px-4 py-8 flex flex-col lg:flex-row gap-8 relative z-10">
@@ -652,7 +596,7 @@ export default function AdminDashboard() {
               </h3>
               <div className="flex gap-2">
                 <span className="px-3 py-1.5 bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 rounded-lg text-xs font-medium border border-orange-200 dark:border-orange-700 shadow-sm">
-                  {labs.filter(lab => (lab.labType || 'Lab') === 'Lab').length} Active
+                  {new Set(labs.map(lab => lab.labNumber)).size} Active
                 </span>
                 {role === 'Lecturer' && (
                   <a href="/admin/itcs123/tests" className="px-3 py-1.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-lg text-xs font-medium border border-orange-200 dark:border-orange-800 shadow-sm hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors">
@@ -699,7 +643,10 @@ export default function AdminDashboard() {
               </div>
             ) : (
               <div className="grid gap-4">
-                {labs.filter(lab => (lab.labType || 'Lab') === 'Lab').map((lab) => (
+                {/* Group labs by labNumber and show only one entry per lab with challenge tag if exists */}
+                {Array.from(new Map(labs.map(lab => [lab.labNumber, lab])).values()).map((lab) => {
+                  const hasChallenge = labs.some(l => l.labNumber === lab.labNumber && (l.labType || 'Lab') === 'Challenge');
+                  return (
                   <div
                     key={lab.id}
                     className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5 p-4 sm:p-5 rounded-2xl border border-slate-100 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 hover:border-orange-300 dark:hover:border-orange-600 hover:shadow-lg hover:shadow-orange-500/5 transition-all smooth-transition group"
@@ -708,7 +655,14 @@ export default function AdminDashboard() {
                       {lab.labNumber}
                     </div>
                     <div className="flex-grow min-w-0">
-                      <h4 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-slate-100 mb-1 truncate">{lab.title}</h4>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-slate-100 truncate">{lab.title}</h4>
+                        {hasChallenge && (
+                          <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 whitespace-nowrap">
+                            Lab Challenge
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path
@@ -753,7 +707,8 @@ export default function AdminDashboard() {
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

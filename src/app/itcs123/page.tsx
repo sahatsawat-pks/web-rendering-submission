@@ -25,8 +25,8 @@ export default function ITCS123LandingPage() {
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {/* Navigation */}
        <nav className="sticky top-0 z-50 w-full glass border-b border-white/30 dark:border-slate-700/50 shadow-lg">
-        <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-6">
-          <div className="flex items-center gap-3">
+        <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-4 md:px-6">
+          <div className="flex items-center gap-2 md:gap-3">
             <a
               href="/"
               className="flex items-center justify-center w-10 h-10 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
@@ -34,12 +34,12 @@ export default function ITCS123LandingPage() {
             >
               <ArrowLeft className="w-5 h-5" />
             </a>
-            <img src="/logo.png" alt="Logo" className="h-11 w-11 rounded-xl shadow-lg shadow-orange-500/20" />
+            <img src="/logo.png" alt="Logo" className="h-9 w-9 md:h-11 md:w-11 rounded-xl shadow-lg shadow-orange-500/20" />
             <div>
-              <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              <span className="text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
                 ITCS123
               </span>
-              <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">Object Oriented Programming</p>
+              <p className="text-xs text-orange-600 dark:text-orange-400 font-medium hidden sm:block">Object Oriented Programming</p>
             </div>
           </div>
           <div className="flex items-center gap-4">

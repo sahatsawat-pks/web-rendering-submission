@@ -4,6 +4,9 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import LogoutButton from "@/components/LogoutButton"
 import { ModeToggle } from "@/components/mode-toggle"
+import RichTextEditor from "@/components/RichTextEditor"
+import RichTextDisplay from "@/components/RichTextDisplay"
+import GiftImportModal from "@/components/GiftImportModal"
 
 interface QuizQuestion {
   id: string
@@ -53,6 +56,7 @@ export default function ITGE162QuizManagementPage() {
   })
   
   const [saveStatus, setSaveStatus] = useState<string | null>(null)
+  const [showGiftImport, setShowGiftImport] = useState(false)
 
   useEffect(() => {
     // Check auth and permissions
@@ -269,6 +273,52 @@ export default function ITGE162QuizManagementPage() {
     setQuestions(questions.filter(q => q.id !== questionId))
   }
 
+  const handleGiftImport = (importedQuestions: QuizQuestion[], categoryId: string) => {
+    if (categoryId === 'GIFT_CATEGORIES') {
+      // Using GIFT categories - create categories from question data
+      const categoryNameToId = new Map<string, string>()
+      const updatedCategories = [...categories]
+      
+      // First pass: create missing categories
+      importedQuestions.forEach(q => {
+        const catName = q.category || 'Uncategorized'
+        
+        // Check if category already exists
+        const existing = categories.find(c => c.name === catName)
+        if (existing) {
+          categoryNameToId.set(catName, existing.id)
+        } else if (!categoryNameToId.has(catName)) {
+          // Create new category
+          const newCat = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            name: catName
+          }
+          updatedCategories.push(newCat)
+          categoryNameToId.set(catName, newCat.id)
+        }
+      })
+      
+      // Second pass: assign category IDs to questions
+      importedQuestions.forEach(q => {
+        const catName = q.category || 'Uncategorized'
+        q.category = categoryNameToId.get(catName) || updatedCategories[0]?.id || ''
+      })
+      
+      setCategories(updatedCategories)
+      const newCatCount = updatedCategories.length - categories.length
+      const msg = newCatCount > 0
+        ? `Successfully imported ${importedQuestions.length} question(s) with ${newCatCount} new categor${newCatCount > 1 ? 'ies' : 'y'}!`
+        : `Successfully imported ${importedQuestions.length} question(s)!`
+      alert(msg)
+    } else {
+      // Using selected category - assign to all questions
+      importedQuestions.forEach(q => q.category = categoryId)
+      alert(`Successfully imported ${importedQuestions.length} question(s)!`)
+    }
+    
+    setQuestions([...questions, ...importedQuestions])
+  }
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>
   }
@@ -320,7 +370,7 @@ export default function ITGE162QuizManagementPage() {
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
           >
             <option value="">-- Select a Lab --</option>
-            {labs.map(lab => (
+            {labs.filter(lab => lab.labType !== 'Challenge').map(lab => (
               <option key={lab.labNumber} value={lab.labNumber}>
                 {lab.labNumber} - {lab.title}
               </option>
@@ -448,6 +498,13 @@ export default function ITGE162QuizManagementPage() {
                     💾 Save All Questions
                   </button>
                   <button
+                    onClick={() => setShowGiftImport(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    title="Import questions from GIFT format (Moodle)"
+                  >
+                    📥 Import GIFT
+                  </button>
+                  <button
                     onClick={openAddQuestion}
                     disabled={categories.length === 0}
                     className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
@@ -488,7 +545,7 @@ export default function ITGE162QuizManagementPage() {
                                       {question.type === 'multiple-choice' ? 'Multiple Choice' : 'Short Answer'}
                                     </span>
                                   </div>
-                                  <p className="text-gray-800 dark:text-white mb-2">{question.question}</p>
+                                  <RichTextDisplay content={question.question} className="mb-2" />
                                   
                                   {question.type === 'multiple-choice' && question.options && (
                                     <div className="ml-4 space-y-1 mb-2">
@@ -513,8 +570,9 @@ export default function ITGE162QuizManagementPage() {
                                   )}
                                   
                                   {question.explanation && (
-                                    <div className="ml-4 text-sm text-gray-500 dark:text-gray-400 italic">
-                                      Explanation: {question.explanation}
+                                    <div className="ml-4 text-sm text-gray-500 dark:text-gray-400">
+                                      <span className="italic">Explanation: </span>
+                                      <RichTextDisplay content={question.explanation} />
                                     </div>
                                   )}
                                 </div>
@@ -624,12 +682,10 @@ export default function ITGE162QuizManagementPage() {
 
               <div>
                 <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Question</label>
-                <textarea
+                <RichTextEditor
                   value={questionFormData.question}
-                  onChange={(e) => setQuestionFormData({ ...questionFormData, question: e.target.value })}
-                  placeholder="Enter your question here"
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                  onChange={(value) => setQuestionFormData({ ...questionFormData, question: value })}
+                  placeholder="Enter your question here (supports rich text formatting)"
                 />
               </div>
 
@@ -679,12 +735,10 @@ export default function ITGE162QuizManagementPage() {
 
               <div>
                 <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Explanation (optional)</label>
-                <textarea
+                <RichTextEditor
                   value={questionFormData.explanation}
-                  onChange={(e) => setQuestionFormData({ ...questionFormData, explanation: e.target.value })}
-                  placeholder="Explain why this is the correct answer"
-                  rows={2}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                  onChange={(value) => setQuestionFormData({ ...questionFormData, explanation: value })}
+                  placeholder="Explain why this is the correct answer (supports rich text formatting)"
                 />
               </div>
             </div>
@@ -709,6 +763,14 @@ export default function ITGE162QuizManagementPage() {
           </div>
         </div>
       )}
+    
+      {/* GIFT Import Modal */}
+      <GiftImportModal
+        show={showGiftImport}
+        onClose={() => setShowGiftImport(false)}
+        onImport={handleGiftImport}
+        categories={categories}
+      />
     </div>
   )
 }

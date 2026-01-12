@@ -1,0 +1,68 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getQuizScores, saveQuizScore } from '@/lib/db'
+
+// GET - Get quiz scores
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const subject = searchParams.get('subject') || undefined
+    const labNumber = searchParams.get('labNumber') || undefined
+    const studentId = searchParams.get('studentId') || undefined
+
+    const scores = await getQuizScores(subject, labNumber, studentId)
+
+    return NextResponse.json({ success: true, scores })
+  } catch (error) {
+    console.error('Error fetching quiz scores:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch quiz scores' },
+      { status: 500 }
+    )
+  }
+}
+
+// POST - Save quiz score
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const {
+      studentId,
+      subject,
+      labNumber,
+      score,
+      totalQuestions,
+      correctAnswers,
+      answers
+    } = body
+
+    // Validation
+    if (!studentId || !subject || !labNumber || score === undefined) {
+      return NextResponse.json(
+        { success: false, error: 'Missing required fields' },
+        { status: 400 }
+      )
+    }
+
+    const newScore = await saveQuizScore(
+      studentId,
+      subject,
+      labNumber,
+      score,
+      totalQuestions,
+      correctAnswers,
+      answers
+    )
+
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Quiz score saved successfully',
+      scoreId: newScore.id 
+    })
+  } catch (error) {
+    console.error('Error saving quiz score:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to save quiz score' },
+      { status: 500 }
+    )
+  }
+}

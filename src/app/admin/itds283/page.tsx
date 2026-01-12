@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { Smartphone } from "lucide-react"
+import { Smartphone, ArrowLeft, Home, Layers } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
 import Link from "next/link"
@@ -243,86 +243,27 @@ export default function ITDS283AdminPage() {
         ></div>
       </div>
 
-      <nav className="sticky top-0 z-50 w-full glass border-b border-white/30 dark:border-slate-700/50 shadow-lg">
+      <nav className="sticky top-0 z-50 w-full border-b border-white/20 dark:border-slate-800 shadow-sm bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
         <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-4 md:px-6">
-          <div className="flex items-center gap-2 md:gap-8">
-            <div className="flex items-center gap-2 md:gap-4">
-              <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-rose-600 to-red-600 text-white font-bold shadow-lg">
-                <Smartphone className="h-4 w-4 md:h-5 md:w-5" />
-              </div>
-              <span className="text-base md:text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-                ITDS283 Admin
-              </span>
+          <div className="flex items-center gap-2 md:gap-4">
+            <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-rose-500 hover:text-white transition-all shadow-sm hover:shadow-lg" title="Back to Main Page">
+              <Home className="h-5 w-5" />
+            </Link>
+            <Link href="/admin/dashboard" className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-rose-500 hover:text-white transition-all shadow-sm hover:shadow-lg" title="Back to Dashboard">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-red-500 text-white shadow-lg">
+              <Smartphone className="h-5 w-5" />
             </div>
-
-            {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center gap-4 md:gap-6">
-              <Link
-                href="/admin/dashboard"
-                className="text-sm font-medium text-slate-500 hover:text-rose-700 dark:hover:text-rose-300 transition-colors whitespace-nowrap"
-              >
-                &larr; Back to Dashboard
-              </Link>
-              <span
-                className="text-sm font-medium text-rose-600 dark:text-rose-400 border-b-2 border-rose-600 dark:border-rose-400 h-16 flex items-center px-1 whitespace-nowrap"
-              >
-                Dashboard
-              </span>
-              <Link
-                href="/admin/quiz-management?subject=ITDS283"
-                className="text-sm font-medium text-slate-500 hover:text-rose-600 transition-colors whitespace-nowrap"
-              >
-                Quiz Management
-              </Link>
-            </div>
+            <span className="text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 hidden sm:inline">
+              ITDS283 Dashboard
+            </span>
           </div>
-
           <div className="flex items-center gap-2 md:gap-4">
             <ModeToggle />
-            <div className="hidden sm:block">
-              <LogoutButton />
-            </div>
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {mobileMenuOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
-            </button>
+            <LogoutButton />
           </div>
         </div>
-
-        {/* Mobile Menu Dropdown */}
-        {mobileMenuOpen && (
-          <div className="lg:hidden border-t border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg">
-            <div className="container mx-auto max-w-7xl px-4 py-4 space-y-2">
-              <Link
-                href="/admin/dashboard"
-                className="block px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
-              >
-                &larr; Back to Dashboard
-              </Link>
-              <div className="block px-4 py-2 text-sm font-medium text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 rounded-lg">
-                Dashboard
-              </div>
-              <Link
-                href="/admin/quiz-management?subject=ITDS283"
-                className="block px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
-              >
-                Quiz Management
-              </Link>
-              <div className="sm:hidden pt-2 border-t border-slate-200 dark:border-slate-700">
-                <LogoutButton />
-              </div>
-            </div>
-          </div>
-        )}
       </nav>
 
       <main className="container mx-auto max-w-6xl px-4 py-8 relative z-10">
