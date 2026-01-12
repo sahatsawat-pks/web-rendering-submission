@@ -18,6 +18,16 @@ export default function ITDS283QuizPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Check if quiz section is enabled
+    fetch('/api/subjects?code=ITDS283')
+      .then(res => res.json())
+      .then(data => {
+        if (data.subjects?.[0]?.quizSectionEnabled === false) {
+          router.push('/itds283')
+        }
+      })
+      .catch(() => {})
+    
     fetchLabsWithQuiz()
   }, [])
 

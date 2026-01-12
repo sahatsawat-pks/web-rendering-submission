@@ -4,14 +4,24 @@ import { getSubjects, updateSubjectVisibility, updateSubjectOrder, createSubject
 
 export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const code = searchParams.get('code');
+    
     const subjects = await getSubjects();
+    
+    // Filter by code if provided
+    const filteredSubjects = code 
+      ? subjects.filter(s => s.code === code)
+      : subjects;
+    
     // Map title to name for frontend compatibility
-    const mappedSubjects = subjects.map(s => ({
+    const mappedSubjects = filteredSubjects.map(s => ({
       ...s,
       name: s.title,
       is_visible: s.isVisible,
       display_order: s.displayOrder
     }));
+    
     return NextResponse.json({ success: true, subjects: mappedSubjects });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

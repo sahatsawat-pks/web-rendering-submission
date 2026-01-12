@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server"
-import { getPool } from "@/lib/db"
+import { updateSubjectQuizSection } from "@/lib/db"
 
 export async function POST(req: Request) {
   try {
     const { subjectCode, enabled } = await req.json()
+    
+    console.log('📝 Toggle request:', { subjectCode, enabled })
 
     if (!subjectCode || typeof enabled !== 'boolean') {
       return NextResponse.json(
@@ -12,30 +14,18 @@ export async function POST(req: Request) {
       )
     }
 
-    const pool = getPool()
-    const result = await pool.query(
-      `UPDATE subjects 
-       SET quiz_section_enabled = $1, updated_at = CURRENT_TIMESTAMP 
-       WHERE code = $2 
-       RETURNING quiz_section_enabled`,
-      [enabled, subjectCode]
-    )
-
-    if (result.rows.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "Subject not found" },
-        { status: 404 }
-      )
-    }
+    const quizSectionEnabled = await updateSubjectQuizSection(subjectCode, enabled)
+    
+    console.log('✅ Updated quiz section:', { subjectCode, quizSectionEnabled })
 
     return NextResponse.json({
       success: true,
-      quizSectionEnabled: result.rows[0].quiz_section_enabled
+      quizSectionEnabled
     })
   } catch (error) {
-    console.error("Error toggling quiz section:", error)
+    console.error("❌ Error toggling quiz section:", error)
     return NextResponse.json(
-      { success: false, error: "Internal server error" },
+      { success: false, error: error instanceof Error ? error.message : "Internal server error" },
       { status: 500 }
     )
   }

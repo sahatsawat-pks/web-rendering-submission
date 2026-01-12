@@ -18,6 +18,16 @@ export default function ITCS255QuizPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Check if quiz section is enabled
+    fetch('/api/subjects?code=ITCS255')
+      .then(res => res.json())
+      .then(data => {
+        if (data.subjects?.[0]?.quizSectionEnabled === false) {
+          router.push('/itcs255')
+        }
+      })
+      .catch(() => {})
+    
     fetchLabsWithQuiz()
   }, [])
 

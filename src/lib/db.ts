@@ -189,6 +189,13 @@ async function ensureTables() {
                 END IF; 
             END $$;
         `);
+        
+        // Ensure all existing subjects have quiz_section_enabled set to TRUE (if NULL)
+        await client.query(`
+            UPDATE subjects 
+            SET quiz_section_enabled = TRUE 
+            WHERE quiz_section_enabled IS NULL;
+        `);
 
         // Create subjects table
         await client.query(`
@@ -742,6 +749,33 @@ export async function updateSubjectOrder(code: string, displayOrder: number): Pr
       SET display_order = $1, updated_at = CURRENT_TIMESTAMP 
       WHERE code = $2
     `, [displayOrder, code]);
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateSubjectQuizSection(code: string, enabled: boolean): Promise<boolean> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+  
+  try {
+    console.log('🔄 Updating subject quiz section:', { code, enabled });
+    
+    const result = await client.query(`
+      UPDATE subjects 
+      SET quiz_section_enabled = $1, updated_at = CURRENT_TIMESTAMP 
+      WHERE code = $2
+      RETURNING quiz_section_enabled
+    `, [enabled, code]);
+    
+    console.log('📊 Query result:', { rowCount: result.rows.length, rows: result.rows });
+    
+    if (result.rows.length === 0) {
+      throw new Error(`Subject with code '${code}' not found`);
+    }
+    
+    return result.rows[0].quiz_section_enabled;
   } finally {
     client.release();
   }
