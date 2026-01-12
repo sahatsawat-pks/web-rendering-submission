@@ -159,7 +159,8 @@ export default function AdminDashboard() {
              setLastSubmittedStudentId(studentId);
              setGradingSuccess(true);
              setStudentId("");
-             setScore("0");
+             setRemainingDigits("");
+             // Keep score value for next student
              setTimeout(() => setGradingSuccess(false), 5000);
         } else {
             const data = await res.json();

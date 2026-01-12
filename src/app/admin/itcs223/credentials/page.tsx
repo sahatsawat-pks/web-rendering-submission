@@ -15,6 +15,8 @@ interface StudentCredential {
 export default function ITCS223CredentialsPage() {
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [generatingNew, setGeneratingNew] = useState(false)
+  const [removing, setRemoving] = useState(false)
   const [credentials, setCredentials] = useState<StudentCredential[]>([])
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
@@ -191,6 +193,125 @@ export default function ITCS223CredentialsPage() {
     setCredentials(newCredentials)
   }
 
+  const handleFetchAndGenerateNewOnly = async () => {
+    setLoading(true)
+    setGeneratingNew(true)
+    setMessage(null)
+    
+    try {
+      // Fetch all students from Google Sheets
+      const response = await fetch('/api/scores?subject=ITCS223&action=list_all')
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch student list')
+      }
+      
+      const data = await response.json()
+      
+      if (!data.students || data.students.length === 0) {
+        setMessage({ type: 'error', text: 'No students found in the system' })
+        return
+      }
+
+      // Get existing student IDs with credentials
+      const existingIds = new Set(credentials.map(c => c.studentId))
+      
+      // Filter only new students
+      const newStudents = data.students.filter((student: any) => {
+        const studentId = student.id || student.studentId || ''
+        return studentId && !existingIds.has(studentId)
+      })
+
+      if (newStudents.length === 0) {
+        setMessage({ type: 'success', text: 'All students already have credentials!' })
+        return
+      }
+      
+      // Generate credentials only for new students
+      const newCredentials = newStudents.map((student: any) => ({
+        studentId: student.id || student.studentId || '',
+        name: student.name || '',
+        surname: student.surname || '',
+        section: student.section || '',
+        credential: generateCredential()
+      }))
+      
+      // Save new credentials to database
+      const saveResponse = await fetch('/api/credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          credentials: newCredentials,
+          subject: 'ITCS223'
+        })
+      })
+
+      if (!saveResponse.ok) {
+        throw new Error('Failed to save credentials to database')
+      }
+
+      // Merge with existing credentials
+      setCredentials([...credentials, ...newCredentials])
+      setMessage({ 
+        type: 'success', 
+        text: `Successfully generated and saved credentials for ${newCredentials.length} new students` 
+      })
+      
+    } catch (error: any) {
+      console.error('Error:', error)
+      setMessage({ type: 'error', text: error.message || 'An error occurred' })
+    } finally {
+      setLoading(false)
+      setGeneratingNew(false)
+    }
+  }
+
+  const handleRemoveAllCredentials = async () => {
+    if (!confirm('⚠️ Are you sure you want to REMOVE ALL credentials? This action cannot be undone and is typically done when preparing for a new semester.')) {
+      return
+    }
+
+    if (!confirm('This will delete ALL student credentials from the database. Type YES in the next dialog to confirm.')) {
+      return
+    }
+
+    const confirmation = prompt('Type "DELETE ALL" to confirm removal of all credentials:')
+    if (confirmation !== 'DELETE ALL') {
+      setMessage({ type: 'error', text: 'Confirmation text did not match. Credentials were not deleted.' })
+      return
+    }
+
+    setRemoving(true)
+    setMessage(null)
+
+    try {
+      const response = await fetch('/api/credentials', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: 'ITCS223',
+          removeAll: true
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to remove credentials from database')
+      }
+
+      setCredentials([])
+      setMessage({ 
+        type: 'success', 
+        text: 'All credentials have been removed successfully. Ready for next semester!' 
+      })
+      
+    } catch (error: any) {
+      console.error('Error:', error)
+      setMessage({ type: 'error', text: error.message || 'An error occurred' })
+    } finally {
+      setRemoving(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#0f1115] text-slate-200 p-8 font-['Inter']">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -235,29 +356,71 @@ export default function ITCS223CredentialsPage() {
               {generating ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Generating...
+                  Generating All...
                 </>
               ) : (
                 <>
                   <RefreshCw className="w-4 h-4" />
-                  Fetch Students & Generate Credentials
+                  Fetch & Generate All
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={handleFetchAndGenerateNewOnly}
+              disabled={loading}
+              className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors"
+            >
+              {generatingNew ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Generating New...
+                </>
+              ) : (
+                <>
+                  <Key className="w-4 h-4" />
+                  Generate for New Students Only
                 </>
               )}
             </button>
             
             {credentials.length > 0 && (
-              <button
-                onClick={handleDownloadCSV}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                Download CSV
-              </button>
+              <>
+                <button
+                  onClick={handleDownloadCSV}
+                  className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-500 text-white font-semibold rounded-lg transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  Download CSV
+                </button>
+
+                <button
+                  onClick={handleRemoveAllCredentials}
+                  disabled={removing}
+                  className="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors ml-auto"
+                >
+                  {removing ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Removing...
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="w-4 h-4" />
+                      Remove All Credentials
+                    </>
+                  )}
+                </button>
+              </>
             )}
           </div>
-          <p className="text-xs text-slate-500">
-            This will fetch all students from Google Sheets and generate unique 6-character access codes.
-          </p>
+          <div className="space-y-2 text-xs text-slate-500">
+            <p><strong>Fetch & Generate All:</strong> Replace all credentials with new ones for all students in the sheet.</p>
+            <p><strong>Generate for New Students Only:</strong> Only generate credentials for students who don't have one yet.</p>
+            {credentials.length > 0 && (
+              <p className="text-red-400"><strong>Remove All Credentials:</strong> Clear all credentials to prepare for next semester.</p>
+            )}
+          </div>
         </div>
 
         {/* Credentials Table */}
@@ -313,11 +476,12 @@ export default function ITCS223CredentialsPage() {
             Instructions
           </h3>
           <ul className="space-y-2 text-sm text-slate-300 list-disc list-inside">
-            <li>Click "Fetch Students & Generate Credentials" to load all students from Google Sheets</li>
-            <li>Each student will receive a unique 6-character alphanumeric access code</li>
-            <li>Use "Regenerate" button to create a new code for a specific student</li>
-            <li>Download the CSV file to share credentials with students</li>
-            <li>Students will use these codes to access their lab scores securely</li>
+            <li><strong>Generate for New Students Only:</strong> Use this during the semester when new students join. Only students without credentials will get new codes.</li>
+            <li><strong>Fetch & Generate All:</strong> Regenerates credentials for ALL students. Use this at the start of a new semester or to reset all codes.</li>
+            <li>Each student receives a unique 6-character alphanumeric access code</li>
+            <li>Use "Regenerate" button to create a new code for a specific student if needed</li>
+            <li>Download the CSV file to share credentials with students via email or LMS</li>
+            <li><strong className="text-red-400">Remove All Credentials:</strong> Clears the entire credential database. Use this only when preparing for a new semester.</li>
           </ul>
         </div>
 
