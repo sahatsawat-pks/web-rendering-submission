@@ -213,6 +213,19 @@ async function ensureTables() {
             );
         `);
         
+        // Create credentials table
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS credentials (
+                id SERIAL PRIMARY KEY,
+                student_id VARCHAR(50) NOT NULL,
+                credential VARCHAR(10) NOT NULL,
+                subject VARCHAR(20) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(student_id, subject)
+            );
+        `);
+        
         // Seed subjects if table is empty
         const subjectsCount = await client.query('SELECT COUNT(*) FROM subjects');
         if (parseInt(subjectsCount.rows[0].count) === 0) {
@@ -895,6 +908,86 @@ export async function updateSubject(
     client.release();
   }
 }
+
+// Credentials Management Functions
+export interface Credential {
+  id: number;
+  studentId: string;
+  credential: string;
+  subject: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getCredentials(subject?: string, credential?: string): Promise<Credential[]> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+  
+  try {
+    let query = 'SELECT * FROM credentials WHERE 1=1';
+    const params: any[] = [];
+    let paramIndex = 1;
+    
+    if (subject) {
+      query += ` AND subject = $${paramIndex}`;
+      params.push(subject);
+      paramIndex++;
+    }
+    
+    if (credential) {
+      query += ` AND credential = $${paramIndex}`;
+      params.push(credential);
+    }
+    
+    query += ' ORDER BY student_id';
+    
+    const result = await client.query(query, params);
+    return result.rows.map(row => ({
+      id: row.id,
+      studentId: row.student_id,
+      credential: row.credential,
+      subject: row.subject,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }));
+  } finally {
+    client.release();
+  }
+}
+
+export async function saveCredentials(credentials: { studentId: string; credential: string }[], subject: string): Promise<number> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+  
+  try {
+    await client.query('BEGIN');
+    
+    // Delete existing credentials for this subject
+    await client.query('DELETE FROM credentials WHERE subject = $1', [subject]);
+    
+    // Insert new credentials
+    for (const cred of credentials) {
+      await client.query(
+        `INSERT INTO credentials (student_id, credential, subject) 
+         VALUES ($1, $2, $3) 
+         ON CONFLICT (student_id, subject) 
+         DO UPDATE SET credential = $2, updated_at = CURRENT_TIMESTAMP`,
+        [cred.studentId, cred.credential, subject]
+      );
+    }
+    
+    await client.query('COMMIT');
+    return credentials.length;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 
 export async function deleteSubject(code: string): Promise<boolean> {
   await init();
