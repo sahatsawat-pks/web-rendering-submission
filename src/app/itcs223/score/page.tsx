@@ -18,7 +18,7 @@ interface ActiveLab {
 }
 
 function StatusChecker() {
-  const [studentId, setStudentId] = useState("")
+  const [credential, setCredential] = useState("")
   const [scores, setScores] = useState<any | null>(null)
   const [activeLabs, setActiveLabs] = useState<ActiveLab[]>([])
   const [loading, setLoading] = useState(false)
@@ -27,14 +27,43 @@ function StatusChecker() {
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault()
-    if (!studentId.trim()) return
+    if (!credential.trim()) return
 
     setLoading(true)
     setError(null)
     setScores(null)
-    setSearchedId(studentId)
+    setSearchedId("")
 
     try {
+      // First, validate credential and get student ID
+      const credentialRes = await fetch(`/api/credentials?subject=ITCS223`)
+      if (!credentialRes.ok) {
+        setError("Failed to validate credential")
+        setLoading(false)
+        return
+      }
+
+      const credentialData = await credentialRes.json()
+      if (!credentialData.success || !credentialData.credentials) {
+        setError("Failed to load credentials")
+        setLoading(false)
+        return
+      }
+
+      // Find matching credential
+      const matchedCredential = credentialData.credentials.find(
+        (cred: any) => cred.credential.toUpperCase() === credential.trim().toUpperCase()
+      )
+
+      if (!matchedCredential) {
+        setError("Invalid credential code. Please check your code and try again.")
+        setLoading(false)
+        return
+      }
+
+      const studentId = matchedCredential.studentId
+      setSearchedId(studentId)
+
       // Fetch Scores
       const scoreRes = await fetch(`/api/scores?subject=ITCS223&username=${studentId}`)
       
@@ -101,14 +130,14 @@ function StatusChecker() {
                     <input 
                         type="text" 
                         placeholder="Enter your credential code here" 
-                        value={studentId}
-                        onChange={(e) => setStudentId(e.target.value)}
+                        value={credential}
+                        onChange={(e) => setCredential(e.target.value)}
                         className="w-full pl-12 pr-4 py-4 rounded-xl bg-slate-50 dark:bg-slate-800 border-none focus:ring-2 focus:ring-purple-500/50 outline-none transition-all placeholder:text-slate-400 text-lg font-medium"
                     />
                 </div>
                 <button 
                     type="submit" 
-                    disabled={loading || !studentId.trim()}
+                    disabled={loading || !credential.trim()}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-8 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 justify-center shrink-0 shadow-lg shadow-indigo-500/30"
                 >
                     {loading ? <Loader2 className="animate-spin w-5 h-5" /> : "Check Status"}
@@ -317,7 +346,7 @@ export default function ITCS223ScorePage() {
         <div className="mx-auto max-w-3xl mb-16 animate-slide-up">
              <div className="border-t border-b border-slate-200 dark:border-slate-800 py-8 text-center mb-8">
                  <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Check Your Lab Scores</h2>
-                 <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Enter your Student ID to view your progress</p>
+                 <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Enter your credential code to view your progress</p>
              </div>
              
              <StatusChecker />
