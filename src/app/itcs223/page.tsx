@@ -2,11 +2,24 @@
 
 import { useState, useEffect } from "react"
 import { ModeToggle } from "@/components/mode-toggle"
+import LogoutButton from "@/components/LogoutButton"
 import { ArrowLeft, BookOpen, Presentation, Code } from "lucide-react"
 import Link from "next/link"
 import Footer from "@/components/Footer"
 
 export default function ITCS223LandingPage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  useEffect(() => {
+    // Check if user is logged in
+    fetch("/api/auth/check")
+      .then(res => res.json())
+      .then(data => {
+        setIsLoggedIn(data.authenticated)
+      })
+      .catch(() => setIsLoggedIn(false))
+  }, [])
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {/* Navigation */}
@@ -30,6 +43,7 @@ export default function ITCS223LandingPage() {
           </div>
           <div className="flex items-center gap-4">
             <ModeToggle />
+            {isLoggedIn && <LogoutButton />}
           </div>
         </div>
       </nav>

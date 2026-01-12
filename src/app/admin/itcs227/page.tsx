@@ -26,6 +26,22 @@ export default function AdminDashboard() {
   const [prefixes, setPrefixes] = useState<string[]>([])
   const [selectedPrefix, setSelectedPrefix] = useState("6788")
   const [remainingDigits, setRemainingDigits] = useState("")
+  const [togglingQuiz, setTogglingQuiz] = useState<number | null>(null)
+  
+  // New Lab Dialog state
+  const [showNewLabDialog, setShowNewLabDialog] = useState(false)
+  const [newLabData, setNewLabData] = useState({
+    labNumber: "",
+    title: "",
+    fileName: "index.html",
+    isActive: true,
+    deadline: "",
+    totalScore: ""
+  })
+  const [creatingLab, setCreatingLab] = useState(false)
+
+  // Mobile menu state
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     async function fetchLabs() {
@@ -151,6 +167,77 @@ export default function AdminDashboard() {
       }
   }
 
+  async function toggleQuiz(labId: number, currentStatus: boolean) {
+    setTogglingQuiz(labId)
+    try {
+      const res = await fetch('/api/admin/quiz-management', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ labId, enabled: !currentStatus })
+      })
+      const data = await res.json()
+      if (data.success) {
+        // Refresh lab list
+        const labsRes = await fetch("/api/labs?activeOnly=true&subject=ITCS227")
+        if (labsRes.ok) {
+          const labsData = await labsRes.json()
+          if (labsData.success) {
+            setLabs(labsData.labs.sort((a: any, b: any) => a.labNumber.localeCompare(b.labNumber)))
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to toggle quiz", e)
+    } finally {
+      setTogglingQuiz(null)
+    }
+  }
+
+  async function handleCreateLab(e: React.FormEvent) {
+    e.preventDefault()
+    setCreatingLab(true)
+    
+    try {
+      const response = await fetch("/api/labs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...newLabData,
+          subject: "ITCS227",
+          totalScore: newLabData.totalScore ? parseInt(newLabData.totalScore) : undefined
+        })
+      })
+      
+      if (response.ok) {
+        setNewLabData({
+          labNumber: "",
+          title: "",
+          fileName: "index.html",
+          isActive: true,
+          deadline: "",
+          totalScore: ""
+        })
+        setShowNewLabDialog(false)
+        
+        const labsRes = await fetch("/api/labs?activeOnly=true&subject=ITCS227")
+        if (labsRes.ok) {
+          const data = await labsRes.json()
+          if (data.success) {
+            setLabs(data.labs.sort((a: any, b: any) => a.labNumber.localeCompare(b.labNumber)))
+          }
+        }
+      } else {
+        const data = await response.json()
+        alert(data.error || "Failed to create lab")
+      }
+    } catch (error) {
+      console.error("Failed to create lab:", error)
+      alert("Failed to create lab")
+    } finally {
+      setCreatingLab(false)
+    }
+  }
+
   // Show loading screen while checking access
   if (!hasAccess) {
     return (
@@ -176,37 +263,85 @@ export default function AdminDashboard() {
 
       {/* Glass Navbar */}
       <nav className="sticky top-0 z-50 w-full glass border-b border-white/20 shadow-sm">
-        <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-6">
-          <div className="flex items-center gap-8">
-            <div className="flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white font-bold shadow-lg shadow-indigo-500/30 text-xs">
+        <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-4 md:px-6">
+          <div className="flex items-center gap-2 md:gap-8">
+            <div className="flex items-center gap-2 md:gap-4">
+              <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white font-bold shadow-lg shadow-indigo-500/30 text-xs">
                 DS
               </div>
-              <span className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+              <span className="text-base md:text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
                 ITCS227
               </span>
             </div>
 
-            <div className="flex items-center gap-4 md:gap-6">
+            {/* Desktop Navigation */}
+            <div className="hidden lg:flex items-center gap-4 md:gap-6">
               <a
                  href="/admin/dashboard"
                  className="text-sm font-medium text-slate-500 hover:text-teal-600 transition-colors whitespace-nowrap"
               >
-                &larr; <span className="hidden sm:inline">Hub</span>
+                &larr; Hub
               </a>
               <span
                 className="text-sm font-medium text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 dark:border-teal-400 h-16 flex items-center px-1 whitespace-nowrap"
               >
                 Dashboard
               </span>
+              <a
+                href="/admin/quiz-management?subject=ITCS227"
+                className="text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors whitespace-nowrap"
+              >
+                Quiz Management
+              </a>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             <ModeToggle />
-            <LogoutButton />
+            <div className="hidden sm:block">
+              <LogoutButton />
+            </div>
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="lg:hidden p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {mobileMenuOpen ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                )}
+              </svg>
+            </button>
           </div>
         </div>
+
+        {/* Mobile Menu Dropdown */}
+        {mobileMenuOpen && (
+          <div className="lg:hidden border-t border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg">
+            <div className="container mx-auto max-w-7xl px-4 py-4 space-y-2">
+              <a
+                href="/admin/dashboard"
+                className="block px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+              >
+                &larr; Hub
+              </a>
+              <div className="block px-4 py-2 text-sm font-medium text-teal-600 dark:text-teal-400 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                Dashboard
+              </div>
+              <a
+                href="/admin/quiz-management?subject=ITCS227"
+                className="block px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+              >
+                Quiz Management
+              </a>
+              <div className="sm:hidden pt-2 border-t border-slate-200 dark:border-slate-700">
+                <LogoutButton />
+              </div>
+            </div>
+          </div>
+        )}
       </nav>
 
       <main className="container mx-auto max-w-7xl px-4 py-8 flex flex-col lg:flex-row gap-8 relative z-10">
@@ -396,10 +531,10 @@ export default function AdminDashboard() {
                   </a>
                 )}
                 {(role === 'Lecturer' || username === 'kanzaki_aito') && (
-                  <a href="/admin/labs" className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1">
+                  <button onClick={() => setShowNewLabDialog(true)} className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1">
                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                      New Lab
-                  </a>
+                  </button>
                 )}
               </div>
             </div>
@@ -453,15 +588,38 @@ export default function AdminDashboard() {
                         </svg>
                         {lab.deadline ? `Due: ${lab.deadline}` : "No deadline set"}
                       </p>
+                      {lab.quizQuestions && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                          </svg>
+                          {JSON.parse(lab.quizQuestions).length} quiz questions
+                        </p>
+                      )}
                     </div>
-                    {(role === 'Lecturer' || username === 'kanzaki_aito') && (
-                      <a
-                        href="/admin/labs"
-                        className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 rounded-lg shadow-md shadow-teal-500/30 transition-all btn-hover-lift"
-                      >
-                        Manage
-                      </a>
-                    )}
+                    <div className="flex gap-2">
+                      {role === 'Lecturer' && lab.quizQuestions && (
+                        <button
+                          onClick={() => toggleQuiz(lab.id, lab.quizEnabled)}
+                          disabled={togglingQuiz === lab.id}
+                          className={`px-3 py-2 text-xs font-medium rounded-lg transition-all disabled:opacity-50 ${
+                            lab.quizEnabled
+                              ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
+                              : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                          }`}
+                        >
+                          {lab.quizEnabled ? "Quiz: ON" : "Quiz: OFF"}
+                        </button>
+                      )}
+                      {(role === 'Lecturer' || username === 'kanzaki_aito') && (
+                        <a
+                          href="/admin/labs"
+                          className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 rounded-lg shadow-md shadow-teal-500/30 transition-all btn-hover-lift"
+                        >
+                          Manage
+                        </a>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -473,6 +631,123 @@ export default function AdminDashboard() {
 
 
       </main>
+
+      {/* New Lab Dialog */}
+      {showNewLabDialog && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-scale-in">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Create New Lab</h3>
+              <button
+                onClick={() => setShowNewLabDialog(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateLab} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Lab Number *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newLabData.labNumber}
+                  onChange={(e) => setNewLabData({...newLabData, labNumber: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="e.g., Lab01"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newLabData.title}
+                  onChange={(e) => setNewLabData({...newLabData, title: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="e.g., Data Structures Basics"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  File Name
+                </label>
+                <input
+                  type="text"
+                  value={newLabData.fileName}
+                  onChange={(e) => setNewLabData({...newLabData, fileName: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="index.html"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Total Score
+                </label>
+                <input
+                  type="number"
+                  value={newLabData.totalScore}
+                  onChange={(e) => setNewLabData({...newLabData, totalScore: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="Optional"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Deadline
+                </label>
+                <input
+                  type="datetime-local"
+                  value={newLabData.deadline}
+                  onChange={(e) => setNewLabData({...newLabData, deadline: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="isActive"
+                  checked={newLabData.isActive}
+                  onChange={(e) => setNewLabData({...newLabData, isActive: e.target.checked})}
+                  className="w-4 h-4 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
+                />
+                <label htmlFor="isActive" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Active Lab
+                </label>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowNewLabDialog(false)}
+                  className="flex-1 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingLab}
+                  className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold shadow-lg shadow-indigo-500/30 transition-all disabled:opacity-50"
+                >
+                  {creatingLab ? "Creating..." : "Create Lab"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

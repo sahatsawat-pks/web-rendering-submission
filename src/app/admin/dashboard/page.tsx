@@ -1,6 +1,6 @@
 "use client"
 
-import { Code2, BarChart3, Layers, Terminal, ArrowRight, Shield, Key, Home, BookOpen, Database, Smartphone } from "lucide-react"
+import { Code2, BarChart3, Layers, Terminal, ArrowRight, Shield, Key, Home, BookOpen, Database, Smartphone, ClipboardList } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
 import Link from "next/link"
@@ -369,6 +369,31 @@ export default function AdminHub() {
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-800/50 px-8 py-4 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
                     <span className="text-sm font-bold text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200 transition-colors">Manage Subjects</span>
+                    <ArrowRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1 transition-transform group-hover:text-slate-900 dark:group-hover:text-slate-200" />
+                </div>
+            </Link>
+            )}
+
+            {(role === 'Lecturer' || username === 'kanzaki_aito') && (
+            <Link 
+                href="/admin/quiz-management"
+                className="group relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+            >
+                <div className="h-2 animate-pulse bg-gradient-to-r from-indigo-500 to-purple-500"></div>
+                <div className="p-8 flex items-start gap-6">
+                    <div className="flex-shrink-0 h-16 w-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-lg">
+                        <ClipboardList className="w-8 h-8" />
+                    </div>
+                    <div className="flex-1">
+                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Quiz Management</h3>
+                        <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Enable/Disable Quizzes</h4>
+                        <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                            Manage quiz availability across all subjects.
+                        </p>
+                    </div>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-800/50 px-8 py-4 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
+                    <span className="text-sm font-bold text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200 transition-colors">Manage Quizzes</span>
                     <ArrowRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1 transition-transform group-hover:text-slate-900 dark:group-hover:text-slate-200" />
                 </div>
             </Link>
