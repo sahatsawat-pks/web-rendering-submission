@@ -21,14 +21,25 @@ export default function ITCS223CredentialsPage() {
   // Load existing credentials on mount
   const loadExistingCredentials = async () => {
     try {
+      console.log('📡 Fetching credentials from API...')
       const response = await fetch('/api/credentials?subject=ITCS223')
+      console.log('📥 Response status:', response.status, response.ok)
+      
       if (response.ok) {
         const data = await response.json()
-        if (data.success && data.credentials.length > 0) {
+        console.log('📊 Credentials data:', data)
+        
+        if (data.success && data.credentials && data.credentials.length > 0) {
+          console.log(`✅ Found ${data.credentials.length} credentials`)
+          
           // Fetch student details from sheets to merge
+          console.log('📡 Fetching student details...')
           const scoresResponse = await fetch('/api/scores?subject=ITCS223&action=list_all')
+          
           if (scoresResponse.ok) {
             const scoresData = await scoresResponse.json()
+            console.log('📊 Students data:', scoresData)
+            
             const studentsMap = new Map(scoresData.students.map((s: any) => [s.id || s.studentId, s]))
             
             const enrichedCredentials = data.credentials.map((c: any) => {
@@ -41,12 +52,33 @@ export default function ITCS223CredentialsPage() {
                 credential: c.credential
               }
             })
+            
+            console.log('✅ Enriched credentials:', enrichedCredentials.length)
             setCredentials(enrichedCredentials)
+          } else {
+            console.error('❌ Failed to fetch student details:', scoresResponse.status)
+            // Still set credentials even without student details
+            setCredentials(data.credentials.map((c: any) => ({
+              studentId: c.studentId,
+              name: '',
+              surname: '',
+              section: '',
+              credential: c.credential
+            })))
           }
+        } else {
+          console.warn('⚠️ No credentials found or empty response:', { 
+            success: data.success, 
+            credentialsLength: data.credentials?.length 
+          })
         }
+      } else {
+        console.error('❌ API response not OK:', response.status)
+        const errorText = await response.text()
+        console.error('Error details:', errorText)
       }
     } catch (error) {
-      console.error('Error loading existing credentials:', error)
+      console.error('❌ Error loading existing credentials:', error)
     }
   }
 
