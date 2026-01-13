@@ -147,7 +147,12 @@ function mapRowsToStudents(rows: any[][], subject: string): any[] {
   const headers = rows[0];
   const data = rows.slice(1);
   // ITCS123, ITCS223, ITCS251, ITCS255, and ITDS283 use index 1 (Column B) for ID
-  const idIndex = (subject === 'ITCS123' || subject === 'ITCS223' || subject === 'ITCS251' || subject === 'ITCS255' || subject === 'ITDS283') ? 1 : 0;
+  let idIndex = (subject === 'ITCS123' || subject === 'ITCS223' || subject === 'ITCS251' || subject === 'ITCS255' || subject === 'ITDS283') ? 1 : 0;
+  
+  if (subject === 'ITDS283') {
+      const foundIndex = headers.findIndex((h: string) => String(h).toLowerCase().trim() === 'id');
+      if (foundIndex !== -1) idIndex = foundIndex;
+  }
 
   return data.map((row) => {
     const rawUsername = row[idIndex];
@@ -409,7 +414,12 @@ export async function updateStudentLabScore(
                return [];
            });
            // Map to find user
-           const idIndex = 1;
+           let idIndex = 1;
+           if (sheetName === 'ITDS283' && data.length > 0) {
+               const headers = data[0];
+               const foundIndex = headers.findIndex((h: string) => String(h).toLowerCase().trim() === 'id');
+               if (foundIndex !== -1) idIndex = foundIndex;
+           }
            
            // Robust matching: Try exact, or try stripping first char if 'u'/'U'
            const exists = data.some(row => {
