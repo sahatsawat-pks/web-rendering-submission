@@ -146,8 +146,8 @@ function mapRowsToStudents(rows: any[][], subject: string): any[] {
 
   const headers = rows[0];
   const data = rows.slice(1);
-  // ITCS123, ITCS223, ITCS251, and ITCS255 use index 1 (Column B) for ID
-  const idIndex = (subject === 'ITCS123' || subject === 'ITCS223' || subject === 'ITCS251' || subject === 'ITCS255') ? 1 : 0;
+  // ITCS123, ITCS223, ITCS251, ITCS255, and ITDS283 use index 1 (Column B) for ID
+  const idIndex = (subject === 'ITCS123' || subject === 'ITCS223' || subject === 'ITCS251' || subject === 'ITCS255' || subject === 'ITDS283') ? 1 : 0;
 
   return data.map((row) => {
     const rawUsername = row[idIndex];
@@ -170,6 +170,18 @@ function mapRowsToStudents(rows: any[][], subject: string): any[] {
     } else if (subject === 'ITCS251' || subject === 'ITCS255') {
         // ITCS251/ITCS255 Layout: B=ID(1), header at row 5
         // No additional fields needed for now
+    } else if (subject === 'ITDS283') {
+        // ITDS283 Structure: 
+        // No(0), ID(1), Title(2), Fname(3), Lname(4), Nickname(5), EngName(6), Col3(7), Col4(8), NickEng(9), Email(10), Lab1(11)...
+        // Note: The user said "Name in English" is col 6, "Column3" is 7.
+        // Let's map useful fields.
+        student['title'] = row[2];
+        student['name'] = row[3];
+        student['surname'] = row[4];
+        student['nickname'] = row[5];
+        student['engName'] = row[6]; // Name in English
+        student['nicknameEng'] = row[9]; // Nickname(Eng)
+        student['email'] = row[10]; // MU eMail
     }
     
     headers.slice(1).forEach((header: string, index: number) => {
@@ -299,6 +311,42 @@ export async function getAllScores(subject: string = 'Sheet1') {
       }
   }
 
+  if (subject === 'ITDS283') {
+      try {
+        // Fetch from Section 1 and Section 2
+        // Assuming tab names are "Section 1" and "Section 2" based on user description "section 1 and section 2 sheet"
+        // It might be "Sec1", "Sec2" too. Let's try flexible approach or stick to what user implied.
+        // User said: "- have section 1 and section 2 sheet"
+        // Let's assume standard "Section 1", "Section 2" first.
+        
+        const [sec1, sec2] = await Promise.all([
+            getSheetData(subject, 'Section 1').catch(() => getSheetData(subject, 'Section1').catch(() => [])),
+            getSheetData(subject, 'Section 2').catch(() => getSheetData(subject, 'Section2').catch(() => []))
+        ]);
+
+        let allStudents: any[] = [];
+        const sections = [
+            { data: sec1, id: '1' },
+            { data: sec2, id: '2' }
+        ];
+
+        for (const sec of sections) {
+            if (sec.data && sec.data.length > 0) {
+                 const studs = mapRowsToStudents(sec.data, subject);
+                 // Inject Section ID
+                 studs.forEach(s => s.Section = sec.id);
+                 allStudents = [...allStudents, ...studs];
+            }
+        }
+        
+        return allStudents;
+
+      } catch (e) {
+          console.error("Error fetching ITDS283 sections:", e);
+          return [];
+      }
+  }
+
   // Standard Logic
   const rows = await getSheetData(subject);
   return mapRowsToStudents(rows, subject);
@@ -342,14 +390,15 @@ export async function updateStudentLabScore(
     console.log(`[updateStudentLabScore] ITCS123 formatted column: ${actualLabNumber}`);
   }
   
-  // Handle Multi-Section Subjects (ITCS123, ITCS223)
-  const isMultiSection = sheetName === 'ITCS123' || sheetName === 'ITCS223';
+  // Handle Multi-Section Subjects (ITCS123, ITCS223, ITDS283)
+  const isMultiSection = sheetName === 'ITCS123' || sheetName === 'ITCS223' || sheetName === 'ITDS283';
   if (isMultiSection) {
        // We need to find which section the student is in.
        // We can iterate sections.
-       const sections = sheetName === 'ITCS123' 
-            ? ['Sec1', 'Sec2', 'Sec3'] 
-            : ['Section 1', 'Section 2', 'Section 3'];
+       let sections: string[] = [];
+       if (sheetName === 'ITCS123') sections = ['Sec1', 'Sec2', 'Sec3'];
+       else if (sheetName === 'ITCS223') sections = ['Section 1', 'Section 2', 'Section 3'];
+       else if (sheetName === 'ITDS283') sections = ['Section 1', 'Section 2', 'Section1', 'Section2']; // Flexible check
        
        let foundSection = null;
        console.log(`[updateStudentLabScore] Checking sections: ${sections.join(', ')}`);
@@ -360,7 +409,7 @@ export async function updateStudentLabScore(
                return [];
            });
            // Map to find user
-           const idIndex = (sheetName === 'ITCS123' || sheetName === 'ITCS223' || sheetName === 'ITCS251' || sheetName === 'ITCS255') ? 1 : 0;
+           const idIndex = 1;
            
            // Robust matching: Try exact, or try stripping first char if 'u'/'U'
            const exists = data.some(row => {
@@ -538,7 +587,7 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
   }
 
   // 2. Find row
-  const idIndex = (subject === 'ITCS123' || subject === 'ITCS223' || subject === 'ITCS251' || subject === 'ITCS255') ? 1 : 0;
+  const idIndex = (subject === 'ITCS123' || subject === 'ITCS223' || subject === 'ITCS251' || subject === 'ITCS255' || subject === 'ITDS283') ? 1 : 0;
   let rowIndex = rows.findIndex((row) => {
       const val = row[idIndex];
       return String(val).trim() === String(username).trim();
@@ -639,11 +688,16 @@ export async function fillMissingScores(subject: string, labNumber: string, valu
   const sheets = await getSheetsClient();
   const spreadsheetId = getSpreadsheetId(subject);
 
-  const isMultiSection = subject === 'ITCS123' || subject === 'ITCS223';
+  const isMultiSection = subject === 'ITCS123' || subject === 'ITCS223' || subject === 'ITDS283';
   const isSingleSubjectTab = subject === 'ITCS251' || subject === 'ITCS255' || subject === 'ITCS227';
-  const tabs = isMultiSection 
-        ? (subject === 'ITCS123' ? ['Sec1', 'Sec2', 'Sec3'] : ['Section 1', 'Section 2', 'Section 3'])
-        : (isSingleSubjectTab ? [subject] : [subject]); 
+  let tabs: string[] = [];
+  if (isMultiSection) {
+      if (subject === 'ITCS123') tabs = ['Sec1', 'Sec2', 'Sec3'];
+      else if (subject === 'ITCS223') tabs = ['Section 1', 'Section 2', 'Section 3'];
+      else if (subject === 'ITDS283') tabs = ['Section 1', 'Section 2'];
+  } else {
+      tabs = isSingleSubjectTab ? [subject] : [subject];
+  } 
   
   let totalFilled = 0;
   const errors = [];

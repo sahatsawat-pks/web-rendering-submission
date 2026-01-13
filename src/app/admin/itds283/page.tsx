@@ -1,494 +1,345 @@
 "use client"
 
 import type React from "react"
-import { Smartphone, ArrowLeft, Home, Layers } from "lucide-react"
+import { Smartphone, ArrowLeft, Home, Layers, Save, Search, RefreshCw, FileSpreadsheet } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
 import Link from "next/link"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
+
+interface Student {
+  id: string
+  studentId: string // used for updates
+  username: string // from sheet
+  no?: string
+  title?: string
+  name: string
+  surname: string
+  nickname?: string
+  engName?: string
+  nicknameEng?: string
+  email?: string
+  section?: string
+  [key: string]: any // For lab scores: "Lab 1", "Lab 2" etc.
+}
+
+interface Lab {
+  id: number
+  labNumber: string
+  title: string
+  totalScore?: number
+}
 
 export default function ITDS283AdminPage() {
   const router = useRouter()
-  const [labs, setLabs] = useState<any[]>([])
+  const [labs, setLabs] = useState<Lab[]>([])
+  const [students, setStudents] = useState<Student[]>([])
+  const [filteredStudents, setFilteredStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
   const [role, setRole] = useState<'LA' | 'Lecturer'>('LA')
   const [username, setUsername] = useState('')
   const [hasAccess, setHasAccess] = useState(false)
-  const [studentId, setStudentId] = useState("")
-  const [selectedLab, setSelectedLab] = useState("")
-  const [score, setScore] = useState("0")
-  const [gradingSuccess, setGradingSuccess] = useState(false)
-  const [gradingError, setGradingError] = useState<string | null>(null)
-  const [togglingQuiz, setTogglingQuiz] = useState<number | null>(null)
-  const [quizSectionEnabled, setQuizSectionEnabled] = useState(true)
-  const [togglingQuizSection, setTogglingQuizSection] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  
+  // Edit State
+  const [editingCell, setEditingCell] = useState<{id: string, field: string} | null>(null)
+  const [pendingUpdates, setPendingUpdates] = useState<{[key: string]: any}>({})
+  const [saving, setSaving] = useState(false)
 
-  // New Lab Dialog state
-  const [showNewLabDialog, setShowNewLabDialog] = useState(false)
-  const [newLabData, setNewLabData] = useState({
-    labNumber: "",
-    title: "",
-    fileName: "index.html",
-    isActive: true,
-    deadline: "",
-    totalScore: ""
-  })
-  const [creatingLab, setCreatingLab] = useState(false)
-
-  // Mobile menu state
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-
-  useEffect(() => {
-    async function fetchLabs() {
-      try {
-        const res = await fetch("/api/labs?activeOnly=true&subject=ITDS283")
-        if (res.ok) {
-          const data = await res.json()
-          if (data.success) {
-            setLabs(data.labs.sort((a: any, b: any) => a.labNumber.localeCompare(b.labNumber)))
-          }
-        }
-      } catch (e) {
-        console.error("Failed to fetch labs", e)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchLabs()
-
-    // Fetch quiz section status
-    fetch('/api/subjects?code=ITDS283')
-      .then(res => res.json())
-      .then(data => {
-        if (data.subjects && data.subjects.length > 0) {
-          setQuizSectionEnabled(data.subjects[0].quizSectionEnabled !== false)
-        }
-      })
-      .catch(err => console.error('Failed to fetch subject info:', err))
-
-    // Fetch user role and permissions
-    fetch("/api/auth/me")
-      .then(res => res.json())
-      .then(data => {
-        if (data.role) {
-          setRole(data.role)
-        }
-        if (data.username) {
-          setUsername(data.username)
-        }
-        // Check if user has access to ITDS283 (or is main admin)
-        if (data.username === 'kanzaki_aito' || (data.permissions && data.permissions.itds283)) {
-          setHasAccess(true)
-        } else {
-          // Redirect to admin dashboard if no access
-          router.push('/admin/dashboard')
-        }
-      })
-      .catch(err => {
-        console.error("Failed to fetch user role", err)
-        router.push('/admin/dashboard')
-      })
-  }, [])
-
-  async function toggleQuizSection() {
-    setTogglingQuizSection(true)
+  // Fetch Labs
+  const fetchLabs = useCallback(async () => {
     try {
-      const res = await fetch('/api/subjects/toggle-quiz-section', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subjectCode: 'ITDS283', enabled: !quizSectionEnabled })
-      })
-      
+      const res = await fetch("/api/labs?activeOnly=true&subject=ITDS283")
       if (res.ok) {
         const data = await res.json()
         if (data.success) {
-          setQuizSectionEnabled(data.quizSectionEnabled)
-        }
-      }
-    } catch (error) {
-      console.error('Failed to toggle quiz section:', error)
-    } finally {
-      setTogglingQuizSection(false)
-    }
-  }
-
-  async function handleGradeSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setGradingError(null)
-    setGradingSuccess(false)
-
-    if (!studentId || !selectedLab) {
-      setGradingError("Please fill all fields")
-      return
-    }
-
-    try {
-        const res = await fetch('/api/scores', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'update',
-                username: studentId,
-                labNumber: selectedLab,
-                subject: 'ITDS283',
-                labScore: parseInt(score)
-            })
-        })
-
-        if (res.ok) {
-             setGradingSuccess(true)
-             setStudentId("")
-             setTimeout(() => setGradingSuccess(false), 5000)
-        } else {
-            const data = await res.json()
-            setGradingError(data.error || "Failed to update score")
-        }
-    } catch (err: any) {
-        setGradingError(err.message || "An unexpected error occurred")
-    }
-  }
-
-  async function toggleQuiz(labId: number, currentStatus: boolean) {
-    setTogglingQuiz(labId)
-    try {
-      const res = await fetch('/api/admin/quiz-management', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ labId, enabled: !currentStatus })
-      })
-      const data = await res.json()
-      if (data.success) {
-        // Refresh lab list
-        const labsRes = await fetch("/api/labs?activeOnly=true&subject=ITDS283")
-        if (labsRes.ok) {
-          const labsData = await labsRes.json()
-          if (labsData.success) {
-            setLabs(labsData.labs.sort((a: any, b: any) => a.labNumber.localeCompare(b.labNumber)))
-          }
+          setLabs(data.labs.sort((a: any, b: any) => a.labNumber.localeCompare(b.labNumber)))
         }
       }
     } catch (e) {
-      console.error("Failed to toggle quiz", e)
-    } finally {
-      setTogglingQuiz(null)
+      console.error("Failed to fetch labs", e)
     }
+  }, [])
+
+  // Fetch Students
+  const fetchStudents = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch("/api/scores?subject=ITDS283")
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success && Array.isArray(data.scores)) {
+          // Process students
+          const processed = data.scores.map((s: any, index: number) => ({
+            ...s,
+            id: s.username || `temp-${index}`, // Unique key
+            studentId: s.username
+          }))
+          setStudents(processed)
+          setFilteredStudents(processed)
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch students", e)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    // Check Auth & Initial Fetch
+    const init = async () => {
+       fetchLabs()
+       fetchStudents()
+       
+       try {
+         const res = await fetch("/api/auth/me")
+         const data = await res.json()
+         if (data.username === 'kanzaki_aito' || (data.permissions && data.permissions.itds283)) {
+            setHasAccess(true)
+            setRole(data.role || 'LA')
+            setUsername(data.username)
+         } else {
+            router.push('/admin/dashboard')
+         }
+       } catch (e) {
+         router.push('/admin/dashboard')
+       }
+    }
+    init()
+  }, [router, fetchLabs, fetchStudents])
+
+  // Filter Logic
+  useEffect(() => {
+    if (!searchTerm) {
+      setFilteredStudents(students)
+      return
+    }
+    const lower = searchTerm.toLowerCase()
+    const filtered = students.filter(s => 
+      s.username?.toLowerCase().includes(lower) ||
+      s.name?.toLowerCase().includes(lower) ||
+      s.surname?.toLowerCase().includes(lower) ||
+      s.nickname?.toLowerCase().includes(lower) ||
+      s.engName?.toLowerCase().includes(lower)
+    )
+    setFilteredStudents(filtered)
+  }, [searchTerm, students])
+
+  // Handle Input Change
+  const handleScoreChange = (studentId: string, labNumber: string, value: string) => {
+    setStudents(prev => prev.map(s => {
+      if (s.id === studentId) {
+        return { ...s, [`Lab ${labNumber}`]: value }
+      }
+      return s
+    }))
+    
+    // Track update
+    const key = `${studentId}-Lab${labNumber}`
+    setPendingUpdates(prev => ({
+      ...prev,
+      [key]: {
+        username: studentId, // This is the ID from the sheet
+        labNumber: `Lab ${labNumber}`, // Or just number if API handles it, but let's be explicit "Lab 1"
+        score: parseFloat(value) || 0,
+        subject: 'ITDS283'
+      }
+    }))
   }
 
-  async function handleCreateLab(e: React.FormEvent) {
-    e.preventDefault()
-    setCreatingLab(true)
+  // Save Changes
+  const handleSave = async () => {
+    if (Object.keys(pendingUpdates).length === 0) return
     
+    setSaving(true)
     try {
-      const response = await fetch("/api/labs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const updates = Object.values(pendingUpdates)
+      
+      // Batch update via API
+      const res = await fetch('/api/scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...newLabData,
-          subject: "ITDS283",
-          totalScore: newLabData.totalScore ? parseInt(newLabData.totalScore) : undefined
+          action: 'batch',
+          subject: 'ITDS283',
+          updates: updates.map(u => ({
+             username: u.username,
+             labNumber: u.labNumber,
+             score: u.score,
+             sheetName: 'ITDS283'
+          }))
         })
       })
-      
-      if (response.ok) {
-        setNewLabData({
-          labNumber: "",
-          title: "",
-          fileName: "index.html",
-          isActive: true,
-          deadline: "",
-          totalScore: ""
-        })
-        setShowNewLabDialog(false)
-        
-        const labsRes = await fetch("/api/labs?activeOnly=true&subject=ITDS283")
-        if (labsRes.ok) {
-          const data = await labsRes.json()
-          if (data.success) {
-            setLabs(data.labs.sort((a: any, b: any) => a.labNumber.localeCompare(b.labNumber)))
-          }
-        }
+
+      if (res.ok) {
+        setPendingUpdates({})
+        alert("Scores saved successfully!")
       } else {
-        const data = await response.json()
-        alert(data.error || "Failed to create lab")
+        alert("Failed to save some scores.")
       }
-    } catch (error) {
-      console.error("Failed to create lab:", error)
-      alert("Failed to create lab")
+    } catch (e) {
+      console.error("Save error", e)
+      alert("Error saving scores")
     } finally {
-      setCreatingLab(false)
+      setSaving(false)
     }
   }
 
-  // Show loading screen while checking access
   if (!hasAccess) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-red-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-rose-600 border-r-transparent"></div>
-          <p className="mt-4 text-slate-600 dark:text-slate-400">Checking access...</p>
-        </div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-600"></div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-red-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950 relative overflow-hidden">
-      {/* Animated Background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 -left-4 w-96 h-96 bg-rose-300 rounded-full mix-blend-multiply filter blur-xl opacity-5 animate-float"></div>
-        <div
-          className="absolute bottom-0 -right-4 w-96 h-96 bg-red-300 rounded-full mix-blend-multiply filter blur-xl opacity-5 animate-float"
-          style={{ animationDelay: "3s" }}
-        ></div>
-      </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex flex-col">
+      {/* Navbar */}
+      <nav className="sticky top-0 z-50 w-full bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 shadow-sm">
+        <div className="container mx-auto max-w-[1920px] px-4 h-16 flex items-center justify-between">
+           <div className="flex items-center gap-4">
+             <Link href="/admin/dashboard" className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+               <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+             </Link>
+             <div className="flex items-center gap-2">
+               <div className="bg-rose-100 dark:bg-rose-900/30 p-2 rounded-lg">
+                 <Smartphone className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+               </div>
+               <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100 hidden md:block">ITDS283 Score Sheet</h1>
+             </div>
+           </div>
 
-      <nav className="sticky top-0 z-50 w-full border-b border-white/20 dark:border-slate-800 shadow-sm bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
-        <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-4 md:px-6">
-          <div className="flex items-center gap-2 md:gap-4">
-            <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-rose-500 hover:text-white transition-all shadow-sm hover:shadow-lg" title="Back to Main Page">
-              <Home className="h-5 w-5" />
-            </Link>
-            <Link href="/admin/dashboard" className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-rose-500 hover:text-white transition-all shadow-sm hover:shadow-lg" title="Back to Dashboard">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-red-500 text-white shadow-lg">
-              <Smartphone className="h-5 w-5" />
-            </div>
-            <span className="text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 hidden sm:inline">
-              ITDS283 Dashboard
-            </span>
-          </div>
-          <div className="flex items-center gap-2 md:gap-4">
-            <ModeToggle />
-            <LogoutButton />
-          </div>
+           <div className="flex items-center gap-3">
+             <div className="relative hidden md:block w-64">
+               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+               <input
+                 type="text"
+                 placeholder="Search student..."
+                 value={searchTerm}
+                 onChange={(e) => setSearchTerm(e.target.value)}
+                 className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-slate-800 border-none rounded-lg text-sm focus:ring-2 focus:ring-rose-500"
+               />
+             </div>
+             
+             <button 
+               onClick={fetchStudents}
+               className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg text-gray-600 dark:text-gray-400 transition-colors"
+               title="Refresh Data"
+             >
+               <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+             </button>
+
+             <button
+               onClick={handleSave}
+               disabled={Object.keys(pendingUpdates).length === 0 || saving}
+               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                 Object.keys(pendingUpdates).length > 0
+                   ? "bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-500/20" 
+                   : "bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-slate-800 dark:text-gray-600"
+               }`}
+             >
+               {saving ? (
+                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+               ) : (
+                 <Save className="w-4 h-4" />
+               )}
+               Save {Object.keys(pendingUpdates).length > 0 && `(${Object.keys(pendingUpdates).length})`}
+             </button>
+
+             <ModeToggle />
+             <LogoutButton />
+           </div>
         </div>
       </nav>
 
-      <main className="container mx-auto max-w-6xl px-4 py-8 relative z-10">
-        <div className="mb-8 animate-slide-up">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-              ITDS283 - Mobile Development
-            </h1>
-            <div className="flex gap-2">
-              {role === 'Lecturer' && (
-                <button
-                  onClick={toggleQuizSection}
-                  disabled={togglingQuizSection}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-all disabled:opacity-50 flex items-center gap-2 ${
-                    quizSectionEnabled
-                      ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
-                      : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                  }`}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Check Your Understanding: {quizSectionEnabled ? "ON" : "OFF"}
-                </button>
-              )}
-              {role === 'Lecturer' && (
-                <a href="/admin/itds283/quiz" className="px-4 py-2 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded-lg text-sm font-medium border border-pink-200 dark:border-pink-800 shadow-sm hover:bg-pink-200 dark:hover:bg-pink-900/50 transition-colors">
-                  Manage Quiz
-                </a>
-              )}
-              {role === 'Lecturer' && (
-                <button onClick={() => setShowNewLabDialog(true)} className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1">
-                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                   New Lab
-                </button>
-              )}
-            </div>
-          </div>
-          <p className="text-lg text-slate-600 dark:text-slate-400">
-            Mobile dev labs score management and grading system
-          </p>
-        </div>
+      {/* Main Content - Spreadsheet View */}
+      <main className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-auto">
+          {loading ? (
+             <div className="flex items-center justify-center h-full">
+               <div className="text-center">
+                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-rose-200 border-t-rose-600 mb-4"></div>
+                 <p className="text-gray-500">Loading spreadsheet data...</p>
+               </div>
+             </div>
+          ) : (
+            <table className="w-full border-collapse text-sm">
+              <thead className="sticky top-0 z-20 bg-white dark:bg-slate-900 shadow-sm">
+                <tr>
+                  <th className="p-3 text-left font-semibold text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-slate-800 w-16">No.</th>
+                  <th className="p-3 text-left font-semibold text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-slate-800 w-32">ID</th>
+                  <th className="p-3 text-left font-semibold text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-slate-800 w-20">Title</th>
+                  <th className="p-3 text-left font-semibold text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-slate-800 w-40">Name</th>
+                  <th className="p-3 text-left font-semibold text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-slate-800 w-40">Surname</th>
+                  <th className="p-3 text-left font-semibold text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-slate-800 w-32">English Name</th>
+                  <th className="p-3 text-left font-semibold text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-slate-800 w-24">Nick (Eng)</th>
+                  {/* Lab Columns */}
+                  {labs.length > 0 ? labs.map(lab => (
+                    <th key={lab.id} className="p-3 text-center font-semibold text-rose-600 dark:text-rose-400 border-b border-gray-200 dark:border-slate-800 w-24 bg-rose-50/50 dark:bg-rose-900/10">
+                      Lab {lab.labNumber}
+                    </th>
+                  )) : (
+                     // Fallback if no active labs, show generic Lab 1-3
+                     ['1', '2', '3'].map(num => (
+                        <th key={num} className="p-3 text-center font-semibold text-rose-600 dark:text-rose-400 border-b border-gray-200 dark:border-slate-800 w-24 bg-rose-50/50 dark:bg-rose-900/10">
+                          Lab {num}
+                        </th>
+                     ))
+                  )}
+                  <th className="p-3 text-left font-semibold text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-slate-800">Email</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-100 dark:divide-slate-800">
+                {filteredStudents.map((student, idx) => (
+                  <tr key={student.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <td className="p-3 text-gray-500 dark:text-gray-400">{idx + 1}</td>
+                    <td className="p-3 font-mono text-gray-900 dark:text-gray-200">{student.username}</td>
+                    <td className="p-3 text-gray-600 dark:text-gray-400">{student.title}</td>
+                    <td className="p-3 text-gray-900 dark:text-gray-200">{student.name}</td>
+                    <td className="p-3 text-gray-900 dark:text-gray-200">{student.surname}</td>
+                    <td className="p-3 text-gray-600 dark:text-gray-400">{student.engName}</td>
+                    <td className="p-3 text-gray-600 dark:text-gray-400">{student.nicknameEng}</td>
+                    
+                    {/* Lab Inputs */}
+                    {labs.length > 0 ? labs.map(lab => (
+                      <td key={lab.id} className="p-1 border-l border-gray-100 dark:border-slate-800">
+                         <input
+                           type="number"
+                           className={`w-full h-full p-2 text-center bg-transparent focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-rose-500 rounded outline-none transition-all ${
+                             pendingUpdates[`${student.studentId}-Lab${lab.labNumber}`] ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 font-medium' : 'text-gray-700 dark:text-gray-300'
+                           }`}
+                           value={student[`Lab ${lab.labNumber}`] || ''}
+                           onChange={(e) => handleScoreChange(student.studentId, lab.labNumber, e.target.value)}
+                           placeholder="-"
+                         />
+                      </td>
+                    )) : (
+                       ['1', '2', '3'].map(num => (
+                          <td key={num} className="p-1 border-l border-gray-100 dark:border-slate-800">
+                             <input
+                               type="number"
+                               className={`w-full h-full p-2 text-center bg-transparent focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-rose-500 rounded outline-none transition-all ${
+                                 pendingUpdates[`${student.studentId}-Lab${num}`] ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 font-medium' : 'text-gray-700 dark:text-gray-300'
+                               }`}
+                               value={student[`Lab ${num}`] || ''}
+                               onChange={(e) => handleScoreChange(student.studentId, num, e.target.value)}
+                               placeholder="-"
+                             />
+                          </td>
+                       ))
+                    )}
 
-        <div className="glass-card p-8 rounded-2xl animate-scale-in hover:shadow-2xl hover:shadow-rose-500/5 transition-all duration-300">
-          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-6">Grade Lab Submission</h2>
-          
-          {gradingSuccess && (
-            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 p-4 rounded-xl mb-6 animate-fade-in">
-              ✓ Score updated successfully!
-            </div>
-          )}
-
-          {gradingError && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 p-4 rounded-xl mb-6 animate-fade-in">
-              {gradingError}
-            </div>
-          )}
-
-          <form onSubmit={handleGradeSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Student ID</label>
-              <input
-                type="text"
-                value={studentId}
-                onChange={(e) => setStudentId(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white/90 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500/50"
-                placeholder="Enter student ID"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Lab</label>
-              <select
-                value={selectedLab}
-                onChange={(e) => setSelectedLab(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white/90 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500/50"
-                required
-              >
-                <option value="">Select Lab</option>
-                {labs.map(lab => (
-                  <option key={lab.id} value={lab.labNumber}>Lab {lab.labNumber}: {lab.title}</option>
+                    <td className="p-3 text-gray-500 dark:text-gray-500 text-xs truncate max-w-[200px]">{student.email}</td>
+                  </tr>
                 ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Score</label>
-              <select
-                value={score}
-                onChange={(e) => setScore(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white/90 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500/50"
-              >
-                <option value="0">0 - No Submission</option>
-                <option value="1">1 - Incomplete</option>
-                <option value="2">2 - Complete</option>
-              </select>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-bold py-4 px-6 rounded-xl shadow-xl shadow-rose-500/20 transition-all btn-hover-lift"
-            >
-              Submit Grade
-            </button>
-          </form>
+              </tbody>
+            </table>
+          )}
         </div>
       </main>
-
-      {/* New Lab Dialog */}
-      {showNewLabDialog && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-scale-in">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Create New Lab</h3>
-              <button
-                onClick={() => setShowNewLabDialog(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateLab} className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  Lab Number *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newLabData.labNumber}
-                  onChange={(e) => setNewLabData({...newLabData, labNumber: e.target.value})}
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                  placeholder="e.g., Lab01"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  Title *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newLabData.title}
-                  onChange={(e) => setNewLabData({...newLabData, title: e.target.value})}
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                  placeholder="e.g., Mobile App Basics"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  File Name
-                </label>
-                <input
-                  type="text"
-                  value={newLabData.fileName}
-                  onChange={(e) => setNewLabData({...newLabData, fileName: e.target.value})}
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                  placeholder="index.html"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  Total Score
-                </label>
-                <input
-                  type="number"
-                  value={newLabData.totalScore}
-                  onChange={(e) => setNewLabData({...newLabData, totalScore: e.target.value})}
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                  placeholder="Optional"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  Deadline
-                </label>
-                <input
-                  type="datetime-local"
-                  value={newLabData.deadline}
-                  onChange={(e) => setNewLabData({...newLabData, deadline: e.target.value})}
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="isActive"
-                  checked={newLabData.isActive}
-                  onChange={(e) => setNewLabData({...newLabData, isActive: e.target.checked})}
-                  className="w-4 h-4 text-rose-600 rounded focus:ring-2 focus:ring-rose-500"
-                />
-                <label htmlFor="isActive" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Active Lab
-                </label>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowNewLabDialog(false)}
-                  className="flex-1 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creatingLab}
-                  className="flex-1 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold shadow-lg shadow-rose-500/30 transition-all disabled:opacity-50"
-                >
-                  {creatingLab ? "Creating..." : "Create Lab"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
