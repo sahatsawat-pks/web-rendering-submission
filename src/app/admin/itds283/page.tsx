@@ -33,6 +33,7 @@ interface Lab {
 
 export default function ITDS283AdminPage() {
   const router = useRouter()
+  // Data State
   const [labs, setLabs] = useState<Lab[]>([])
   const [students, setStudents] = useState<Student[]>([])
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([])
@@ -46,6 +47,21 @@ export default function ITDS283AdminPage() {
   const [editingCell, setEditingCell] = useState<{id: string, field: string} | null>(null)
   const [pendingUpdates, setPendingUpdates] = useState<{[key: string]: any}>({})
   const [saving, setSaving] = useState(false)
+
+  // Quiz & Lab Creation State
+  const [togglingQuiz, setTogglingQuiz] = useState<number | null>(null)
+  const [quizSectionEnabled, setQuizSectionEnabled] = useState(true)
+  const [togglingQuizSection, setTogglingQuizSection] = useState(false)
+  const [showNewLabDialog, setShowNewLabDialog] = useState(false)
+  const [newLabData, setNewLabData] = useState({
+    labNumber: "",
+    title: "",
+    fileName: "index.html",
+    isActive: true,
+    deadline: "",
+    totalScore: ""
+  })
+  const [creatingLab, setCreatingLab] = useState(false)
 
   // Fetch Labs
   const fetchLabs = useCallback(async () => {
@@ -108,6 +124,16 @@ export default function ITDS283AdminPage() {
        }
     }
     init()
+    
+    // Fetch Quiz Section Status
+    fetch('/api/subjects?code=ITDS283')
+      .then(res => res.json())
+      .then(data => {
+        if (data.subjects && data.subjects.length > 0) {
+          setQuizSectionEnabled(data.subjects[0].quizSectionEnabled !== false)
+        }
+      })
+      .catch(err => console.error('Failed to fetch subject info:', err))
   }, [router, fetchLabs, fetchStudents])
 
   // Filter Logic
@@ -187,6 +213,67 @@ export default function ITDS283AdminPage() {
     }
   }
 
+  // Action Handlers
+  async function toggleQuizSection() {
+    setTogglingQuizSection(true)
+    try {
+      const res = await fetch('/api/subjects/toggle-quiz-section', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subjectCode: 'ITDS283', enabled: !quizSectionEnabled })
+      })
+      
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) {
+          setQuizSectionEnabled(data.quizSectionEnabled)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to toggle quiz section:', error)
+    } finally {
+      setTogglingQuizSection(false)
+    }
+  }
+
+  async function handleCreateLab(e: React.FormEvent) {
+    e.preventDefault()
+    setCreatingLab(true)
+    
+    try {
+      const response = await fetch("/api/labs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...newLabData,
+          subject: "ITDS283",
+          totalScore: newLabData.totalScore ? parseInt(newLabData.totalScore) : undefined
+        })
+      })
+      
+      if (response.ok) {
+        setNewLabData({
+          labNumber: "",
+          title: "",
+          fileName: "index.html",
+          isActive: true,
+          deadline: "",
+          totalScore: ""
+        })
+        setShowNewLabDialog(false)
+        fetchLabs() // Refresh labs
+      } else {
+        const data = await response.json()
+        alert(data.error || "Failed to create lab")
+      }
+    } catch (error) {
+      console.error("Failed to create lab:", error)
+      alert("Failed to create lab")
+    } finally {
+      setCreatingLab(false)
+    }
+  }
+
   if (!hasAccess) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-red-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950 flex items-center justify-center">
@@ -213,7 +300,27 @@ export default function ITDS283AdminPage() {
            </div>
 
            <div className="flex items-center gap-3">
-             <div className="relative hidden md:block w-64">
+             {role === 'Lecturer' && (
+               <>
+                <button
+                  onClick={toggleQuizSection}
+                  disabled={togglingQuizSection}
+                  className={`hidden lg:flex px-3 py-1.5 text-xs font-medium rounded-lg transition-all items-center gap-2 border ${
+                    quizSectionEnabled
+                      ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800"
+                      : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
+                  }`}
+                >
+                  Quiz: {quizSectionEnabled ? "ON" : "OFF"}
+                </button>
+                <button onClick={() => setShowNewLabDialog(true)} className="hidden lg:flex px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors items-center gap-1">
+                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                   New Lab
+                </button>
+               </>
+             )}
+
+             <div className="relative hidden md:block w-48 lg:w-64">
                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                <input
                  type="text"
@@ -282,7 +389,6 @@ export default function ITDS283AdminPage() {
                       Lab {lab.labNumber}
                     </th>
                   )) : (
-                     // Fallback if no active labs, show generic Lab 1-3
                      ['1', '2', '3'].map(num => (
                         <th key={num} className="p-3 text-center font-semibold text-rose-600 dark:text-rose-400 border-b border-gray-200 dark:border-slate-800 w-24 bg-rose-50/50 dark:bg-rose-900/10">
                           Lab {num}
@@ -340,6 +446,124 @@ export default function ITDS283AdminPage() {
           )}
         </div>
       </main>
+
+       {/* New Lab Dialog */}
+       {showNewLabDialog && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-scale-in">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Create New Lab</h3>
+              <button
+                onClick={() => setShowNewLabDialog(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                title="Close"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateLab} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Lab Number *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newLabData.labNumber}
+                  onChange={(e) => setNewLabData({...newLabData, labNumber: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  placeholder="e.g., Lab01"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newLabData.title}
+                  onChange={(e) => setNewLabData({...newLabData, title: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  placeholder="e.g., Mobile App Basics"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  File Name
+                </label>
+                <input
+                  type="text"
+                  value={newLabData.fileName}
+                  onChange={(e) => setNewLabData({...newLabData, fileName: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  placeholder="index.html"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Total Score
+                </label>
+                <input
+                  type="number"
+                  value={newLabData.totalScore}
+                  onChange={(e) => setNewLabData({...newLabData, totalScore: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  placeholder="Optional"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Deadline
+                </label>
+                <input
+                  type="datetime-local"
+                  value={newLabData.deadline}
+                  onChange={(e) => setNewLabData({...newLabData, deadline: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="isActive"
+                  checked={newLabData.isActive}
+                  onChange={(e) => setNewLabData({...newLabData, isActive: e.target.checked})}
+                  className="w-4 h-4 text-rose-600 rounded focus:ring-2 focus:ring-rose-500"
+                />
+                <label htmlFor="isActive" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Active Lab
+                </label>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowNewLabDialog(false)}
+                  className="flex-1 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingLab}
+                  className="flex-1 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold shadow-lg shadow-rose-500/30 transition-all disabled:opacity-50"
+                >
+                  {creatingLab ? "Creating..." : "Create Lab"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
