@@ -200,8 +200,8 @@ function StatusChecker() {
                                         const val = parseFloat(row.score);
                                         return acc + (isNaN(val) ? 0 : val);
                                     }, 0);
-                                    const maxScore = 26; // Fixed maximum score for ITDS283
-                                    const percentage = (totalScore / maxScore) * 20;
+                                    const maxScore = 30; // Fixed maximum score for ITDS283
+                                    const percentage = (totalScore / maxScore) * 10;
                                     
                                     return (
                                         <tr className="bg-slate-50 dark:bg-slate-900/50 font-bold border-t border-slate-200 dark:border-slate-700">
@@ -211,7 +211,7 @@ function StatusChecker() {
                                             <td className="px-6 py-4 text-right text-rose-600 dark:text-rose-400">
                                                 {totalScore}
                                                 <span className="text-xs text-slate-500 ml-2">
-                                                    ({percentage.toFixed(2)}% / 20%)
+                                                    ({percentage.toFixed(2)}% / 10%)
                                                 </span>
                                             </td>
                                         </tr>
