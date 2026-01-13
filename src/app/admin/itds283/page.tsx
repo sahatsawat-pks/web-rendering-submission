@@ -75,7 +75,7 @@ export default function ITDS283AdminDashboard() {
 
     // Fetch student ID prefixes (Assuming generic logic or reusing one if available, else defaulting)
     // ITDS283 might not have specific prefixes set up in API yet, but we'll try fetch or default.
-    setPrefixes(["6561", "6687", "6787"]) 
+    setPrefixes(["6521", "6687", "6787"]) 
 
     // Fetch user role and permissions
     fetch("/api/auth/me")
