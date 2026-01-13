@@ -21,8 +21,10 @@ export default function AdminDashboard() {
   const [selectedLab, setSelectedLab] = useState("")
   const [score, setScore] = useState("0")
   const [gradingSuccess, setGradingSuccess] = useState(false)
+
   const [gradingError, setGradingError] = useState<string | null>(null)
   const [lastSubmittedStudentId, setLastSubmittedStudentId] = useState("")
+  const [studentDetails, setStudentDetails] = useState<any>(null)
   const [isFilling, setIsFilling] = useState(false)
   const [prefixes, setPrefixes] = useState<string[]>([])
   const [selectedPrefix, setSelectedPrefix] = useState("6688")
@@ -157,11 +159,25 @@ export default function AdminDashboard() {
 
         if (res.ok) {
              setLastSubmittedStudentId(studentId);
+             
+             // Fetch updated student details to show in success dialog
+             try {
+                const detailsRes = await fetch(`/api/scores?username=${studentId}&subject=ITGE162`)
+                if (detailsRes.ok) {
+                    const detailsData = await detailsRes.json()
+                    if (detailsData.success && detailsData.scores) {
+                        setStudentDetails(detailsData.scores)
+                    }
+                }
+             } catch (error) {
+                 console.error("Failed to fetch student details", error)
+             }
+
              setGradingSuccess(true);
              setStudentId("");
              setRemainingDigits("");
              // Keep score value for next student
-             setTimeout(() => setGradingSuccess(false), 5000);
+             // setTimeout(() => setGradingSuccess(false), 5000); // Removed auto-hide
         } else {
             const data = await res.json();
             setGradingError(data.error || "Failed to update score");
@@ -476,21 +492,35 @@ export default function AdminDashboard() {
                      ) : (
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                      )}
-                     Fill Missing (0)
                   </button>
               </div>
 
               {gradingSuccess && (
-                <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 px-4 py-3 rounded-xl text-sm flex items-center gap-3">
-                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <div>
-                    <span className="font-semibold">Success!</span>
-                    <p className="text-xs opacity-90 mt-0.5">
-                       Score updated for Student {lastSubmittedStudentId} in ITGE162 Sheet.
-                    </p>
-                  </div>
+                <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 px-6 py-4 rounded-xl shadow-lg animate-scale-in relative">
+                   <button 
+                      onClick={() => setGradingSuccess(false)}
+                      className="absolute top-2 right-2 p-1 hover:bg-emerald-200 dark:hover:bg-emerald-800 rounded-full transition-colors"
+                   >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                   </button>
+                   
+                   <div className="flex items-start gap-4">
+                      <div className="p-2 bg-emerald-100 dark:bg-emerald-800 rounded-full">
+                        <svg className="w-6 h-6 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                      </div>
+                      <div>
+                         <h4 className="font-bold text-lg mb-1">Score Updated Successfully!</h4>
+                         {studentDetails ? (
+                             <div className="space-y-1 text-sm mt-2">
+                                <p><span className="font-semibold opacity-70">Student ID:</span> {studentDetails.username || lastSubmittedStudentId}</p>
+                                <p><span className="font-semibold opacity-70">Name:</span> {studentDetails.title} {studentDetails.name} {studentDetails.surname}</p>
+                                <p><span className="font-semibold opacity-70">Lab {selectedLab}:</span> <span className="font-bold text-emerald-600 dark:text-emerald-400">{score} points</span></p>
+                             </div>
+                         ) : (
+                             <p className="text-sm">Score updated for Student {lastSubmittedStudentId} in ITGE162 Sheet.</p>
+                         )}
+                      </div>
+                   </div>
                 </div>
               )}
             </form>

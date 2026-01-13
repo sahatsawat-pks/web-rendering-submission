@@ -25,6 +25,8 @@ export default function AdminDashboard() {
   const [gradingSuccess, setGradingSuccess] = useState(false)
   const [gradingError, setGradingError] = useState<string | null>(null)
   const [lastSubmittedStudentId, setLastSubmittedStudentId] = useState("")
+  const [lastScoreType, setLastScoreType] = useState<'lab' | 'challenge' | 'both' | null>(null)
+  const [studentDetails, setStudentDetails] = useState<any>(null)
   const [prefixes, setPrefixes] = useState<string[]>([])
   const [selectedPrefix, setSelectedPrefix] = useState("6888")
   const [remainingDigits, setRemainingDigits] = useState("")
@@ -240,12 +242,27 @@ export default function AdminDashboard() {
 
         if (res.ok) {
              setLastSubmittedStudentId(studentId);
+             
+             // Fetch updated student details to show in success dialog
+             try {
+                const detailsRes = await fetch(`/api/scores?username=${studentId}&subject=ITCS123`)
+                if (detailsRes.ok) {
+                    const detailsData = await detailsRes.json()
+                    if (detailsData.success && detailsData.scores) {
+                        setStudentDetails(detailsData.scores)
+                    }
+                }
+             } catch (error) {
+                 console.error("Failed to fetch student details", error)
+             }
+
              setGradingSuccess(true);
+             setLastScoreType(scoreType);
              // Keep the form visible and attached - only clear student ID for next entry
              setStudentId("");
              // Keep the lab selected, score dialog open, and scores at their values
              // so the grader can quickly enter the next student
-             setTimeout(() => setGradingSuccess(false), 5000);
+             // Removed timeout to allow manual close
         } else {
             const data = await res.json();
             setGradingError(data.error || "Failed to update score");
@@ -560,16 +577,37 @@ export default function AdminDashboard() {
               </div>
 
               {gradingSuccess && (
-                <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 px-4 py-3 rounded-xl text-sm flex items-center gap-3">
-                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <div>
-                    <span className="font-semibold">Success!</span>
-                    <p className="text-xs opacity-90 mt-0.5">
-                       Lab & Challenge scores updated for Student {lastSubmittedStudentId} in ITCS123 Sheet.
-                    </p>
-                  </div>
+                <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 px-6 py-4 rounded-xl shadow-lg animate-scale-in relative">
+                   <button 
+                      onClick={() => setGradingSuccess(false)}
+                      className="absolute top-2 right-2 p-1 hover:bg-emerald-200 dark:hover:bg-emerald-800 rounded-full transition-colors"
+                   >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                   </button>
+
+                   <div className="flex items-start gap-4">
+                      <div className="p-2 bg-emerald-100 dark:bg-emerald-800 rounded-full">
+                         <svg className="w-6 h-6 text-emerald-600 dark:text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                         </svg>
+                      </div>
+                      <div>
+                        <span className="font-bold text-lg mb-1 block">Success!</span>
+                        {studentDetails ? (
+                             <div className="space-y-1 text-sm mt-2">
+                                <p><span className="font-semibold opacity-70">Student ID:</span> {studentDetails.username || lastSubmittedStudentId}</p>
+                                <p><span className="font-semibold opacity-70">Name:</span> {studentDetails.name} {studentDetails.surname}</p>
+                                <p><span className="font-semibold opacity-70">Lab {selectedLab}:</span> <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                                    {lastScoreType === 'lab' ? `Lab: ${labScore}` : lastScoreType === 'challenge' ? `Challenge: ${challengeScore}` : `L: ${labScore} / C: ${challengeScore}`}
+                                </span></p>
+                             </div>
+                         ) : (
+                            <p className="text-sm opacity-90 mt-0.5">
+                               Lab & Challenge scores updated for Student {lastSubmittedStudentId} in ITCS123 Sheet.
+                            </p>
+                         )}
+                      </div>
+                   </div>
                 </div>
               )}
             </form>
