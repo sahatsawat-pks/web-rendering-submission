@@ -412,47 +412,11 @@ export default function AdminDashboard() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 <span className="hidden sm:inline">Open Lab Sheet</span>
-                <span className="sm:hidden">Sheet</span>
               </a>
             </div>
 
             <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Student ID
-                  </label>
-                  <div className="flex gap-2">
-                    <select
-                      value={selectedPrefix}
-                      onChange={(e) => {
-                        setSelectedPrefix(e.target.value)
-                        setStudentId(e.target.value + remainingDigits)
-                      }}
-                      className="w-28 px-3 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 shadow-sm hover:border-orange-300 dark:hover:border-orange-600 transition-all font-mono"
-                    >
-                      <option value="1"></option>
-                      {prefixes.map(prefix => (
-                        <option key={prefix} value={prefix}>{prefix}</option>
-                      ))}
-                    </select>
-                    <input
-                      type="text"
-                      value={remainingDigits}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '')
-                        setRemainingDigits(val)
-                        setStudentId(selectedPrefix + val)
-                      }}
-                      placeholder="xxxxx"
-                      maxLength={5}
-                      required
-                      className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 shadow-sm hover:border-orange-300 dark:hover:border-orange-600 transition-all font-mono"
-                    />
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1">Select prefix, then enter remaining digits</p>
-                </div>
-
+                <div className="flex flex-col gap-6">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     Lab Assignment
@@ -478,7 +442,7 @@ export default function AdminDashboard() {
                 </div>
 
                 {showScoreDialog && selectedLab && (
-                  <div className="col-span-1 md:col-span-3 bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-200 dark:border-orange-800 rounded-xl p-4 space-y-4">
+                  <div className="bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-200 dark:border-orange-800 rounded-xl p-4 space-y-4">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-sm font-bold text-orange-900 dark:text-orange-300 flex items-center gap-2">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -525,6 +489,41 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 )}
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    Student ID
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedPrefix}
+                      onChange={(e) => {
+                        setSelectedPrefix(e.target.value)
+                        setStudentId(e.target.value + remainingDigits)
+                      }}
+                      className="w-28 px-3 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 shadow-sm hover:border-orange-300 dark:hover:border-orange-600 transition-all font-mono"
+                    >
+                      <option value="1"></option>
+                      {prefixes.map(prefix => (
+                        <option key={prefix} value={prefix}>{prefix}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      value={remainingDigits}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '')
+                        setRemainingDigits(val)
+                        setStudentId(selectedPrefix + val)
+                      }}
+                      placeholder="xxxxx"
+                      maxLength={5}
+                      required
+                      className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 shadow-sm hover:border-orange-300 dark:hover:border-orange-600 transition-all font-mono"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Select prefix, then enter remaining digits</p>
+                </div>
               </div>
 
               <div className="flex flex-col gap-3">

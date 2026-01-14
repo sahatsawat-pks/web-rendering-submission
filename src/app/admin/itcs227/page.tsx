@@ -397,41 +397,7 @@ export default function AdminDashboard() {
             </div>
 
             <form onSubmit={handleGradeSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Student ID
-                  </label>
-                  <div className="flex gap-2">
-                    <select
-                      value={selectedPrefix}
-                      onChange={(e) => {
-                        setSelectedPrefix(e.target.value)
-                        setStudentId(e.target.value + remainingDigits)
-                      }}
-                      className="w-28 px-3 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 shadow-sm hover:border-teal-300 dark:hover:border-teal-600 transition-all font-mono"
-                    >
-                      {prefixes.map(prefix => (
-                        <option key={prefix} value={prefix}>{prefix}</option>
-                      ))}
-                    </select>
-                    <input
-                      type="text"
-                      value={remainingDigits}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '')
-                        setRemainingDigits(val)
-                        setStudentId(selectedPrefix + val)
-                      }}
-                      placeholder="xxxxx"
-                      maxLength={5}
-                      required
-                      className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 shadow-sm hover:border-teal-300 dark:hover:border-teal-600 transition-all font-mono"
-                    />
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1">Select prefix, then enter remaining digits</p>
-                </div>
-
+              <div className="flex flex-col gap-6">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     Lab Assignment
@@ -478,6 +444,40 @@ export default function AdminDashboard() {
                     <option value="3">Section 3</option>
                   </select>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Column F in spreadsheet</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    Student ID
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedPrefix}
+                      onChange={(e) => {
+                        setSelectedPrefix(e.target.value)
+                        setStudentId(e.target.value + remainingDigits)
+                      }}
+                      className="w-28 px-3 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 shadow-sm hover:border-teal-300 dark:hover:border-teal-600 transition-all font-mono"
+                    >
+                      {prefixes.map(prefix => (
+                        <option key={prefix} value={prefix}>{prefix}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      value={remainingDigits}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '')
+                        setRemainingDigits(val)
+                        setStudentId(selectedPrefix + val)
+                      }}
+                      placeholder="xxxxx"
+                      maxLength={5}
+                      required
+                      className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 shadow-sm hover:border-teal-300 dark:hover:border-teal-600 transition-all font-mono"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Select prefix, then enter remaining digits</p>
                 </div>
               </div>
 

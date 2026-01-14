@@ -508,7 +508,40 @@ export default function ITCS255AdminDashboard() {
             </div>
 
             <form onSubmit={handleGradeSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex flex-col gap-6">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    Lab Assignment
+                  </label>
+                  <select
+                    value={selectedLab}
+                    onChange={(e) => setSelectedLab(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all"
+                  >
+                    <option value="">Select Lab</option>
+                    {labs.map((lab) => (
+                      <option key={lab.id} value={lab.labNumber}>
+                        Lab {lab.labNumber}: {lab.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Score</label>
+                  <input
+                    type="number"
+                    value={score}
+                    onChange={(e) => setScore(e.target.value)}
+                    placeholder="e.g., 10"
+                    required
+                    min="0"
+                    step="0.5"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all"
+                  />
+                </div>
+
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     Student ID
@@ -541,39 +574,6 @@ export default function ITCS255AdminDashboard() {
                     />
                   </div>
                   <p className="text-xs text-slate-500 mt-1">Select prefix, then enter remaining digits</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Lab Assignment
-                  </label>
-                  <select
-                    value={selectedLab}
-                    onChange={(e) => setSelectedLab(e.target.value)}
-                    required
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all"
-                  >
-                    <option value="">Select Lab</option>
-                    {labs.map((lab) => (
-                      <option key={lab.id} value={lab.labNumber}>
-                        Lab {lab.labNumber}: {lab.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Score</label>
-                  <input
-                    type="number"
-                    value={score}
-                    onChange={(e) => setScore(e.target.value)}
-                    placeholder="e.g., 10"
-                    required
-                    min="0"
-                    step="0.5"
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all"
-                  />
                 </div>
               </div>
 

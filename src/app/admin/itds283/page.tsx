@@ -389,7 +389,54 @@ export default function ITDS283AdminDashboard() {
             </div>
 
             <form onSubmit={handleGradeSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex flex-col gap-6">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    Lab Assignment
+                  </label>
+                  <select
+                    value={selectedLab}
+                    onChange={(e) => setSelectedLab(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/50 focus:border-rose-500 shadow-sm hover:border-rose-300 dark:hover:border-rose-600 transition-all"
+                  >
+                    <option value="">Select Lab</option>
+                    {labs.map((lab) => (
+                      <option key={lab.id} value={lab.labNumber}>
+                        Lab {lab.labNumber}: {lab.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Section (for Fill Missing)</label>
+                  <select
+                    value={selectedSection}
+                    onChange={(e) => setSelectedSection(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/50 focus:border-rose-500 shadow-sm hover:border-rose-300 dark:hover:border-rose-600 transition-all"
+                  >
+                    <option value="">Select Section</option>
+                    <option value="1">Section 1</option>
+                    <option value="2">Section 2</option>
+                  </select>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Section 1/2 in spreadsheet</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Score</label>
+                  <select
+                    value={score}
+                    onChange={(e) => setScore(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/50 focus:border-rose-500 shadow-sm hover:border-rose-300 dark:hover:border-rose-600 transition-all"
+                  >
+                    <option value="0">0 - Not Submitted</option>
+                    <option value="1">1 - Partial</option>
+                    <option value="2">2 - Complete</option>
+                  </select>
+                </div>
+
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     Student ID
@@ -422,53 +469,6 @@ export default function ITDS283AdminDashboard() {
                     />
                   </div>
                   <p className="text-xs text-slate-500 mt-1">Select prefix, then enter remaining digits</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Lab Assignment
-                  </label>
-                  <select
-                    value={selectedLab}
-                    onChange={(e) => setSelectedLab(e.target.value)}
-                    required
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/50 focus:border-rose-500 shadow-sm hover:border-rose-300 dark:hover:border-rose-600 transition-all"
-                  >
-                    <option value="">Select Lab</option>
-                    {labs.map((lab) => (
-                      <option key={lab.id} value={lab.labNumber}>
-                        Lab {lab.labNumber}: {lab.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Score</label>
-                  <select
-                    value={score}
-                    onChange={(e) => setScore(e.target.value)}
-                    required
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/50 focus:border-rose-500 shadow-sm hover:border-rose-300 dark:hover:border-rose-600 transition-all"
-                  >
-                    <option value="0">0 - Not Submitted</option>
-                    <option value="1">1 - Partial</option>
-                    <option value="2">2 - Complete</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Section (for Fill Missing)</label>
-                  <select
-                    value={selectedSection}
-                    onChange={(e) => setSelectedSection(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/50 focus:border-rose-500 shadow-sm hover:border-rose-300 dark:hover:border-rose-600 transition-all"
-                  >
-                    <option value="">Select Section</option>
-                    <option value="1">Section 1</option>
-                    <option value="2">Section 2</option>
-                  </select>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Section 1/2 in spreadsheet</p>
                 </div>
               </div>
 
