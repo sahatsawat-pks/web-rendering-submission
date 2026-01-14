@@ -35,8 +35,8 @@ function StatusChecker() {
     setSearchedId("")
 
     try {
-      // First, validate credential and get student ID
-      const credentialRes = await fetch(`/api/credentials?subject=ITCS223`)
+      // First, validate credential and get student ID (UNIVERSAL - no subject filter)
+      const credentialRes = await fetch(`/api/credentials`)
       if (!credentialRes.ok) {
         setError("Failed to validate credential")
         setLoading(false)
@@ -50,16 +50,22 @@ function StatusChecker() {
         return
       }
 
-      // Find matching credential
+      console.log(`[Frontend] Loaded ${credentialData.credentials.length} universal credentials`)
+
+      // Find matching credential (case-insensitive)
       const matchedCredential = credentialData.credentials.find(
         (cred: any) => cred.credential.toUpperCase() === credential.trim().toUpperCase()
       )
 
       if (!matchedCredential) {
+        console.log(`[Frontend] No match found for: ${credential}`)
+        console.log(`[Frontend] Available credentials:`, credentialData.credentials.map((c: any) => c.credential).join(', '))
         setError("Invalid credential code. Please check your code and try again.")
         setLoading(false)
         return
       }
+
+      console.log(`[Frontend] Matched credential:`, matchedCredential)
 
       const studentId = matchedCredential.studentId
       setSearchedId(studentId)

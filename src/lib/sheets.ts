@@ -140,6 +140,19 @@ export async function getSheetData(subject: string = 'Sheet1', tabName?: string)
   }
 }
 
+// Helper to fix mashed names (e.g., "NatanonKreangarekul" -> "Natanon Kreangarekul")
+function fixMashedName(name: string): string {
+    if (!name || typeof name !== 'string') return '';
+    // If name has no spaces and has CamelCase (lower followed by Upper), split it.
+    // Exclude 'Mc...' cases? Thai names don't have Mc.
+    // Basic heuristic: lowercase char followed by Uppercase char.
+    // This handles "FirstLast" -> "First Last"
+    if (!name.includes(' ') && /[a-z][A-Z]/.test(name)) {
+        return name.replace(/([a-z])([A-Z])/g, '$1 $2');
+    }
+    return name.trim();
+}
+
 // Helper to map raw rows to student objects
 function mapRowsToStudents(rows: any[][], subject: string): any[] {
   if (rows.length === 0) return [];
@@ -162,13 +175,13 @@ function mapRowsToStudents(rows: any[][], subject: string): any[] {
     if (subject === 'ITCS123') {
         // Specific mapping allows for Thai names
         // Index 3: First, 4: Last, 5: Nickname
-        student['name'] = row[3];
-        student['surname'] = row[4];
+        student['name'] = fixMashedName(row[3]);
+        student['surname'] = fixMashedName(row[4]);
         student['nickname'] = row[5];
     } else if (subject === 'ITCS223') {
         // ITCS223 Layout: B=ID(1), C=Name(2), D=Surname(3)
-        student['name'] = row[2];
-        student['surname'] = row[3];
+        student['name'] = fixMashedName(row[2]);
+        student['surname'] = fixMashedName(row[3]);
     } else if (subject === 'ITCS227') {
         // ITCS227 Layout: A=ID(0), B-E=Other columns, F=Section(5)
         student['Section'] = row[5]; // Column F
@@ -181,10 +194,10 @@ function mapRowsToStudents(rows: any[][], subject: string): any[] {
         // Note: The user said "Name in English" is col 6, "Column3" is 7.
         // Let's map useful fields.
         student['title'] = row[2];
-        student['name'] = row[3];
-        student['surname'] = row[4];
+        student['name'] = fixMashedName(row[3]);
+        student['surname'] = fixMashedName(row[4]);
         student['nickname'] = row[5];
-        student['engName'] = row[6]; // Name in English
+        student['engName'] = fixMashedName(row[6]); // Name in English
         student['nicknameEng'] = row[9]; // Nickname(Eng)
         student['email'] = row[10]; // MU eMail
     }
@@ -214,9 +227,9 @@ function mapRowsToStudents(rows: any[][], subject: string): any[] {
         } else if (header.match(/Feedback/i)) {
              student[header] = cellValue;
         } else if (header.match(/^\s*(name|firstname)\s*$/i)) {
-             if (subject !== 'ITCS123' && subject !== 'ITCS223') student['name'] = cellValue;
+             if (subject !== 'ITCS123' && subject !== 'ITCS223' && subject !== 'ITDS283') student['name'] = fixMashedName(cellValue);
         } else if (header.match(/^\s*(surname|lastname)\s*$/i)) {
-             if (subject !== 'ITCS123' && subject !== 'ITCS223') student['surname'] = cellValue;
+             if (subject !== 'ITCS123' && subject !== 'ITCS223' && subject !== 'ITDS283') student['surname'] = fixMashedName(cellValue);
         } else if (header.match(/^\s*(Sum|Total)(?:\s*\((\d+)\))?\s*$/i)) {
              student['total'] = cellValue;
              const match = header.match(/\((\d+)\)/);
@@ -281,16 +294,20 @@ export async function getAllScores(subject: string = 'Sheet1') {
   
   if (subject === 'ITCS223') {
       try {
+        console.log('[Sheets] Fetching ITCS223 sections from Google Sheets...');
+        
         // Fetch from Section 1, Section 2, Section 3 (User confirmed spaces)
         const [sec1, sec2, sec3] = await Promise.all([
             getSheetData(subject, 'Section 1').catch((e) => {
                  // Fallback to "Section1" if "Section 1" fails?
-                 console.log("Failed Section 1, trying valid fallback if needed", e.message);
+                 console.log("[Sheets] Failed Section 1, trying fallback", e.message);
                  return getSheetData(subject, 'Section1').catch(() => []);
             }),
             getSheetData(subject, 'Section 2').catch(() => getSheetData(subject, 'Section2').catch(() => [])), 
             getSheetData(subject, 'Section 3').catch(() => getSheetData(subject, 'Section3').catch(() => []))
         ]);
+
+        console.log(`[Sheets] Raw data fetched - Sec1: ${sec1.length} rows, Sec2: ${sec2.length} rows, Sec3: ${sec3.length} rows`);
 
         let allStudents: any[] = [];
         const sections = [
@@ -302,16 +319,18 @@ export async function getAllScores(subject: string = 'Sheet1') {
         for (const sec of sections) {
             if (sec.data && sec.data.length > 0) {
                  const studs = mapRowsToStudents(sec.data, subject);
+                 console.log(`[Sheets] Section ${sec.id}: Mapped ${studs.length} students`);
                  // Inject Section ID
                  studs.forEach(s => s.Section = sec.id);
                  allStudents = [...allStudents, ...studs];
             }
         }
         
+        console.log(`[Sheets] ITCS223 Total: ${allStudents.length} students loaded`);
         return allStudents;
 
       } catch (e) {
-          console.error("Error fetching ITCS223 sections:", e);
+          console.error("[Sheets] Error fetching ITCS223 sections:", e);
           return [];
       }
   }

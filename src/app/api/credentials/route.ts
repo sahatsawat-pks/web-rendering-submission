@@ -8,21 +8,33 @@ export async function GET(request: NextRequest) {
     const credential = searchParams.get('credential');
     const studentId = searchParams.get('studentId');
 
+    console.log(`[Credentials API] GET request - subject: ${subject}, credential: ${credential}, studentId: ${studentId}`);
+
     const credentials = await getCredentials(
       subject || undefined, 
       credential || undefined,
       studentId || undefined
     );
 
+    console.log(`[Credentials API] Found ${credentials.length} credentials`);
+    
+    // Log credential codes for debugging
+    if (credentials.length > 0) {
+      const credCodes = credentials.map(c => c.credential).join(', ');
+      console.log(`[Credentials API] Credential codes: ${credCodes}`);
+    }
+
     // If looking up by credential code
     if (credential) {
       if (credentials.length > 0) {
+        console.log(`[Credentials API] Credential match found:`, credentials[0]);
         return NextResponse.json({ 
           success: true, 
           studentId: credentials[0].studentId,
           credential: credentials[0]
         });
       } else {
+        console.log(`[Credentials API] No match for credential: ${credential}`);
         return NextResponse.json({ 
           success: false, 
           message: 'Credential not found' 

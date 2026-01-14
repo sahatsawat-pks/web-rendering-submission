@@ -77,8 +77,8 @@ export default function UniversalCredentialsPage() {
     try {
       console.log('📡 Fetching credentials and student list...')
       
-      // 1. Fetch credentials from DB
-      const credRes = await fetch(`/api/credentials?subject=${selectedSubject}`)
+      // 1. Fetch ALL credentials (to match existing students from other subjects)
+      const credRes = await fetch('/api/credentials')
       let dbCredentials: any[] = []
       if (credRes.ok) {
         const credData = await credRes.json()
@@ -112,14 +112,15 @@ export default function UniversalCredentialsPage() {
           name: student.name || existing?.name || '',
           surname: student.surname || existing?.surname || '',
           section: student.section || existing?.section || '',
-          credential: existing?.credential || '', // Empty if not generated yet
+          credential: existing?.credential || '', // Will be rendered as placeholder in UI if empty
           subject: selectedSubject
         })
       })
 
-      // Add remaining from DB (if any)
+      // Add remaining from DB (only if they belong to this subject context roughly, or if we want to show orphans)
+      // To keep it clean, let's only add orphans if their 'subject' matches the current view.
       dbCredentials.forEach((cred: any) => {
-        if (!processedIds.has(cred.studentId)) {
+        if (!processedIds.has(cred.studentId) && cred.subject === selectedSubject) {
           mergedList.push(cred)
         }
       })
@@ -220,9 +221,11 @@ export default function UniversalCredentialsPage() {
       loadExistingCredentials()
       
       const newCount = generatedCredentials.filter((c: any) => !existingMap.has(c.studentId)).length
+      const reusedCount = generatedCredentials.length - newCount
+      
       setMessage({ 
         type: 'success', 
-        text: `Synced ${generatedCredentials.length} students. Generated ${newCount} new credentials.` 
+        text: `Synced ${generatedCredentials.length} students.\n• ${newCount} New credentials generated.\n• ${reusedCount} Existing credentials preserved & reused.` 
       })
       
     } catch (error: any) {

@@ -48,44 +48,82 @@ export async function GET(request: NextRequest) {
         }
     }
 
-    // Special Handling for ITCS223 (Now on Sheets)
-    if (subject === 'ITCS223') {
-        // Check if targetUsername is a credential code (6 letters)
-        if (targetUsername && /^[A-Z0-9]{6}$/.test(targetUsername)) {
-            // Look up credential to get actual student ID
-            const credResponse = await fetch(`${request.url.split('/api')[0]}/api/credentials?credential=${targetUsername}&subject=ITCS223`);
+    // Credential Resolution Logic (Universal)
+    // Check if targetUsername is a credential code (6 alphanumeric chars)
+    if (targetUsername && /^[A-Z0-9]{6}$/.test(targetUsername)) {
+        console.log(`[Scores API] Credential code detected: ${targetUsername}, Subject: ${subject || 'not specified'}`);
+        
+        // Look up credential to get actual student ID
+        // Note: We can pass subject to refine search, or omit to search globally.
+        // If we omit subject, we might find a credential from another subject. 
+        // Is that allowed? YES. Universal credential.
+        const apiUrl = request.url.split('/api')[0];
+        const credResponse = await fetch(`${apiUrl}/api/credentials?credential=${targetUsername}`);
+        
+        console.log(`[Scores API] Credential lookup response status: ${credResponse.status}`);
+        
+        if (credResponse.ok) {
+            const credData = await credResponse.json();
+            console.log(`[Scores API] Credential lookup result:`, credData);
             
-            if (credResponse.ok) {
-                const credData = await credResponse.json();
-                if (credData.success && credData.studentId) {
-                    // Use the actual student ID for lookup
-                    targetUsername = credData.studentId;
-                } else {
-                    // Credential not found
-                    return NextResponse.json({ success: true, scores: null });
-                }
+            if (credData.success && credData.studentId) {
+                // Use the actual student ID for lookup
+                console.log(`[Scores API] Credential found! Mapped to student ID: ${credData.studentId}`);
+                targetUsername = credData.studentId;
+            } else {
+                // Credential verification failed (not found)
+                console.log(`[Scores API] Credential not found in database: ${targetUsername}`);
+                return NextResponse.json({ 
+                    success: false, 
+                    error: "Credential not found in database. Please check your credential code or contact your instructor." 
+                });
             }
+        } else {
+            console.log(`[Scores API] Credential API request failed`);
+            return NextResponse.json({ 
+                success: false, 
+                error: "Failed to validate credential. Please try again." 
+            });
         }
+    }
+
+    // Special Handling for ITCS223 (Now on Sheets)
+    if (subject === 'ITCS223') {        
+        console.log(`[Scores API] Fetching ITCS223 data from Google Sheets...`);
         
         // Use Google Sheets Logic (now updated to handle Sections)
         // If targetUsername is provided, return that student's object
-        // NOTE: targetUsername might be "u64..." or "64...". Sheets usually stored as "64..." in ID column.
+        // NOTE: targetUsername might be "u64...\" or "64...". Sheets usually stored as "64..." in ID column.
         
         // However, standard getStudentAllScores maps row[0] (or ID column) to 'username'.
         // If sheets.ts handles ITCS223 ID col as 1, it will map ID to 'username'.
         // So we just need to pass the target ID.
         
         let allScores = await getAllScores(subject);
+        console.log(`[Scores API] Fetched ${allScores.length} students from ITCS223 sheets`);
         
         if (targetUsername) {
-             const student = allScores.find(s => 
-                s.username === targetUsername || 
-                (targetUsername && s.username === targetUsername.replace(/^u/, ''))
-             );
+             console.log(`[Scores API] Looking for student: ${targetUsername}`);
+             
+             // Flexible matching: Try exact match, or match without 'u' prefix
+             const student = allScores.find(s => {
+                const sheetId = String(s.username || '').trim();
+                const inputId = String(targetUsername).trim();
+                const inputIdNoU = inputId.replace(/^[uU]/, '');
+                const sheetIdNoU = sheetId.replace(/^[uU]/, '');
+                
+                return sheetId === inputId || sheetIdNoU === inputIdNoU;
+             });
              
              if (!student) {
-                 return NextResponse.json({ success: true, scores: null /* or empty object */ });
+                 console.log(`[Scores API] Student not found in ITCS223 sheets. Searched IDs: ${targetUsername}`);
+                 return NextResponse.json({ 
+                     success: false, 
+                     error: `Student ID ${targetUsername} not found in ITCS223 records. Please verify your student ID.` 
+                 });
              }
+             
+             console.log(`[Scores API] Student found:`, { username: student.username, name: student.name, section: student.Section });
              
              // Map to expected frontend structure if needed, or pass as is?
              // Sheets returns { username, Lab 1, Lab 2, ... }
@@ -109,11 +147,14 @@ export async function GET(request: NextRequest) {
              return NextResponse.json({ success: true, scores: student });
         }
         
+        console.log(`[Scores API] Returning all ITCS223 students: ${allScores.length} records`);
         return NextResponse.json({ success: true, scores: allScores });
     }
 
     if (targetUsername) {
+        console.log(`[Scores API] Standard lookup for ${targetUsername} in subject ${subject || 'default'}`);
         const scores = await getStudentAllScores(targetUsername, subject);
+        console.log(`[Scores API] Standard lookup result:`, scores ? 'Found' : 'Not found');
         return NextResponse.json({ success: true, scores });
     }
     
