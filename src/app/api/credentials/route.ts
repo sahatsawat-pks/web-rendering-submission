@@ -6,10 +6,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const subject = searchParams.get('subject');
     const credential = searchParams.get('credential');
+    const studentId = searchParams.get('studentId');
 
     const credentials = await getCredentials(
       subject || undefined, 
-      credential || undefined
+      credential || undefined,
+      studentId || undefined
     );
 
     // If looking up by credential code
@@ -95,16 +97,16 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Import the db connection
-    const db = require('@/lib/db').getDatabase();
+    // Import the deleteAllCredentials function
+    const { deleteAllCredentials } = await import('@/lib/db');
     
     // Delete all credentials for the subject
-    const result = db.prepare('DELETE FROM credentials WHERE subject = ?').run(subject);
+    const count = await deleteAllCredentials(subject);
 
     return NextResponse.json({ 
       success: true, 
-      message: `Removed ${result.changes} credentials for ${subject}`,
-      count: result.changes
+      message: `Removed ${count} credentials for ${subject}`,
+      count
     });
 
   } catch (error: any) {

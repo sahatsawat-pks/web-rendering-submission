@@ -7,7 +7,7 @@ import { useState, useEffect } from "react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Home, Layers } from "lucide-react"
+import { ArrowLeft, Home, Layers, Key } from "lucide-react"
 
 export default function AdminDashboard() {
   const router = useRouter()
@@ -333,6 +333,12 @@ export default function AdminDashboard() {
             </span>
           </div>
           <div className="flex items-center gap-2 md:gap-4">
+            {/* Credential Links */}
+            <Link href="/admin/lookup-credential" className="hidden sm:flex h-9 items-center justify-center px-3 rounded-lg bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 font-medium text-sm hover:bg-teal-200 dark:hover:bg-teal-900/50 transition-colors" title="Lookup Credentials">
+              <Key className="w-4 h-4 mr-2" />
+              Lookup
+            </Link>
+
             <ModeToggle />
             <LogoutButton />
           </div>
@@ -400,12 +406,13 @@ export default function AdminDashboard() {
             </div>
 
             <form onSubmit={handleGradeSubmit} className="space-y-4">
-              <div className="flex flex-col gap-6">
+              <div className="space-y-4">
+                {/* Row 1: Lab Assignment (full width) */}
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     Lab Assignment
                   </label>
-                  <select
+                 <select
                     value={selectedLab}
                     onChange={(e) => setSelectedLab(e.target.value)}
                     required
@@ -420,53 +427,56 @@ export default function AdminDashboard() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Score</label>
-                  <select
-                    value={score}
-                    onChange={(e) => setScore(e.target.value)}
-                    required
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 shadow-sm hover:border-teal-300 dark:hover:border-teal-600 transition-all"
-                  >
-                    <option value="0">0 - Incomplete</option>
-                    <option value="1">1 - Partial</option>
-                    <option value="2">2 - Complete</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Student ID
-                  </label>
-                  <div className="flex gap-2">
-                    <select
-                      value={selectedPrefix}
-                      onChange={(e) => setSelectedPrefix(e.target.value)}
-                      required
-                      className="w-24 px-3 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 shadow-sm hover:border-teal-300 dark:hover:border-teal-600 transition-all font-mono"
-                    >
-                      {prefixes.map((prefix) => (
-                        <option key={prefix} value={prefix}>
-                          {prefix}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="text"
-                      value={remainingDigits}
-                      onChange={(e) => {
-                        const val = e.target.value
-                        if (/^\d{0,3}$/.test(val)) {
-                          setRemainingDigits(val)
-                        }
-                      }}
-                      placeholder="001"
-                      maxLength={3}
-                      required
-                      className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 shadow-sm hover:border-teal-300 dark:hover:border-teal-600 transition-all font-mono"
-                    />
+                {/* Row 2: Student ID + Score (responsive grid) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      Student ID
+                    </label>
+                    <div className="flex gap-2">
+                      <select
+                        value={selectedPrefix}
+                        onChange={(e) => setSelectedPrefix(e.target.value)}
+                        required
+                        className="w-24 px-3 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 shadow-sm hover:border-teal-300 dark:hover:border-teal-600 transition-all font-mono"
+                      >
+                        {prefixes.map((prefix) => (
+                          <option key={prefix} value={prefix}>
+                            {prefix}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        value={remainingDigits}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          if (/^\d{0,3}$/.test(val)) {
+                            setRemainingDigits(val)
+                          }
+                        }}
+                        placeholder="001"
+                        maxLength={3}
+                        required
+                        className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 shadow-sm hover:border-teal-300 dark:hover:border-teal-600 transition-all font-mono"
+                      />
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">Ref: Column A2:A9999</p>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">Ref: Column A2:A9999</p>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Score</label>
+                    <select
+                      value={score}
+                      onChange={(e) => setScore(e.target.value)}
+                      required
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 shadow-sm hover:border-teal-300 dark:hover:border-teal-600 transition-all"
+                    >
+                      <option value="0">0 - Incomplete</option>
+                      <option value="1">1 - Partial</option>
+                      <option value="2">2 - Complete</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 

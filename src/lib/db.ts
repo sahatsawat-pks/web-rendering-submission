@@ -215,16 +215,43 @@ async function ensureTables() {
         
         // Create credentials table
         await client.query(`
-            CREATE TABLE IF NOT EXISTS credentials (
+            CREATE TABLE IF NOT EXISTS credentials (\
                 id SERIAL PRIMARY KEY,
-                student_id VARCHAR(50) NOT NULL,
+                student_id VARCHAR(50) NOT NULL UNIQUE,
                 credential VARCHAR(10) NOT NULL,
-                subject VARCHAR(20) NOT NULL,
+                subject VARCHAR(20),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(student_id, subject)
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
+        
+        // Migrate existing credentials: Drop old constraint and make student_id unique
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                -- Drop old constraint if it exists
+                IF EXISTS (
+                    SELECT 1 FROM pg_constraint 
+                    WHERE conname = 'credentials_student_id_subject_key'
+                ) THEN 
+                    ALTER TABLE credentials DROP CONSTRAINT credentials_student_id_subject_key;
+                END IF;
+                
+                -- Add unique constraint on student_id if not exists
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint 
+                    WHERE conname = 'credentials_student_id_key'
+                ) THEN 
+                    -- First, remove duplicate entries keeping the most recent
+                    DELETE FROM credentials a USING credentials b 
+                    WHERE a.id < b.id AND a.student_id = b.student_id;
+                    
+                    -- Add the new constraint
+                    ALTER TABLE credentials ADD CONSTRAINT credentials_student_id_key UNIQUE (student_id);
+                END IF;
+            END $$;
+        `);
+        
         
         // Seed subjects if table is empty
         const subjectsCount = await client.query('SELECT COUNT(*) FROM subjects');
@@ -919,7 +946,7 @@ export interface Credential {
   updatedAt: string;
 }
 
-export async function getCredentials(subject?: string, credential?: string): Promise<Credential[]> {
+export async function getCredentials(subject?: string, credential?: string, studentId?: string): Promise<Credential[]> {
   await init();
   const pool = getPool();
   const client = await pool.connect();
@@ -929,7 +956,9 @@ export async function getCredentials(subject?: string, credential?: string): Pro
     const params: any[] = [];
     let paramIndex = 1;
     
-    if (subject) {
+    // Subject filter is now optional (for backward compatibility)
+    // When looking up by credential, ignore subject
+    if (subject && !credential && !studentId) {
       query += ` AND subject = $${paramIndex}`;
       params.push(subject);
       paramIndex++;
@@ -938,6 +967,13 @@ export async function getCredentials(subject?: string, credential?: string): Pro
     if (credential) {
       query += ` AND credential = $${paramIndex}`;
       params.push(credential);
+      paramIndex++;
+    }
+
+    if (studentId) {
+      query += ` AND student_id = $${paramIndex}`;
+      params.push(studentId);
+      paramIndex++;
     }
     
     query += ' ORDER BY student_id';
@@ -956,7 +992,7 @@ export async function getCredentials(subject?: string, credential?: string): Pro
   }
 }
 
-export async function saveCredentials(credentials: { studentId: string; credential: string }[], subject: string): Promise<number> {
+export async function saveCredentials(credentials: { studentId: string; credential: string }[], subject?: string): Promise<number> {
   await init();
   const pool = getPool();
   const client = await pool.connect();
@@ -964,17 +1000,15 @@ export async function saveCredentials(credentials: { studentId: string; credenti
   try {
     await client.query('BEGIN');
     
-    // Delete existing credentials for this subject
-    await client.query('DELETE FROM credentials WHERE subject = $1', [subject]);
-    
-    // Insert new credentials
+    // Insert or update credentials (upsert)
+    // Now uses student_id as unique key (universal across subjects)
     for (const cred of credentials) {
       await client.query(
         `INSERT INTO credentials (student_id, credential, subject) 
          VALUES ($1, $2, $3) 
-         ON CONFLICT (student_id, subject) 
-         DO UPDATE SET credential = $2, updated_at = CURRENT_TIMESTAMP`,
-        [cred.studentId, cred.credential, subject]
+         ON CONFLICT (student_id) 
+         DO UPDATE SET credential = $2, subject = $3, updated_at = CURRENT_TIMESTAMP`,
+        [cred.studentId, cred.credential, subject || null]
       );
     }
     
@@ -983,6 +1017,25 @@ export async function saveCredentials(credentials: { studentId: string; credenti
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Delete all credentials for a specific subject
+ */
+export async function deleteAllCredentials(subject: string): Promise<number> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+  
+  try {
+    const result = await client.query(
+      'DELETE FROM credentials WHERE subject = $1',
+      [subject]
+    );
+    return result.rowCount || 0;
   } finally {
     client.release();
   }

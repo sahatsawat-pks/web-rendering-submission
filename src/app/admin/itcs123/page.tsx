@@ -7,7 +7,7 @@ import { useState, useEffect } from "react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Home, Layers } from "lucide-react"
+import { ArrowLeft, Home, Layers, Key } from "lucide-react"
 
 export default function AdminDashboard() {
   const router = useRouter()
@@ -349,6 +349,12 @@ export default function AdminDashboard() {
             </span>
           </div>
           <div className="flex items-center gap-2 md:gap-4">
+            {/* Credential Links */}
+            <Link href="/admin/lookup-credential" className="hidden sm:flex h-9 items-center justify-center px-3 rounded-lg bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 font-medium text-sm hover:bg-teal-200 dark:hover:bg-teal-900/50 transition-colors" title="Lookup Credentials">
+              <Key className="w-4 h-4 mr-2" />
+              Lookup
+            </Link>
+
             <ModeToggle />
             <LogoutButton
             />
@@ -416,7 +422,8 @@ export default function AdminDashboard() {
             </div>
 
             <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-                <div className="flex flex-col gap-6">
+              <div className="space-y-4">
+                {/* Row 1: Lab Assignment (full width) */}
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     Lab Assignment
@@ -441,6 +448,7 @@ export default function AdminDashboard() {
                   </select>
                 </div>
 
+                {/* Score Dialog */}
                 {showScoreDialog && selectedLab && (
                   <div className="bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-200 dark:border-orange-800 rounded-xl p-4 space-y-4">
                     <div className="flex items-center justify-between mb-3">
@@ -490,6 +498,7 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
+                {/* Row 2: Student ID (full width since scores are in dialog above) */}
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     Student ID
