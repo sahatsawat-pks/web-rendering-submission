@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const action = searchParams.get('action');
 
     // Special action: list_all - returns all students for credential generation
-    if (action === 'list_all' && subject === 'ITCS223') {
+    if (action === 'list_all' && subject) {
         if (!user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
@@ -34,12 +34,12 @@ export async function GET(request: NextRequest) {
             const allScores = await getAllScores(subject);
             // Transform to student list format
             const students = allScores.map((student: any) => ({
-                id: student.username || student.ID || '',
-                studentId: student.username || student.ID || '',
+                id: student.username || student.ID || student.studentId || '',
+                studentId: student.username || student.ID || student.studentId || '',
                 name: student.name || student.Name || '',
                 surname: student.surname || student.Surname || '',
                 section: student.Section || student.section || ''
-            }));
+            })).filter((s: any) => s.id); // Filter out empty IDs
             
             return NextResponse.json({ success: true, students });
         } catch (error: any) {
