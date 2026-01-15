@@ -260,6 +260,7 @@ export default function AdminDashboard() {
              setLastScoreType(scoreType);
              // Keep the form visible and attached - only clear student ID for next entry
              setStudentId("");
+             setRemainingDigits("");
              // Keep the lab selected, score dialog open, and scores at their values
              // so the grader can quickly enter the next student
              // Removed timeout to allow manual close

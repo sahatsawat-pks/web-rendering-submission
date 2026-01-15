@@ -79,14 +79,44 @@ export default function QuizTakingPage() {
       setStudentId(storedStudentId)
       setCredential(storedCredential)
       
-      // Load saved answers from localStorage
-      const savedAnswers = localStorage.getItem(`quiz_answers_${labNumber}_${storedStudentId}`)
-      if (savedAnswers) {
+      // Load saved answers from DATABASE via API
+      // Check localStorage first for backward compatibility (migration)
+      const localStorageAnswers = localStorage.getItem(`quiz_answers_${labNumber}_${storedStudentId}`)
+      if (localStorageAnswers) {
         try {
-          setAnswers(JSON.parse(savedAnswers))
+          console.log('[Quiz] Migrating answers from localStorage to database...')
+          const parsedAnswers = JSON.parse(localStorageAnswers)
+          setAnswers(parsedAnswers)
+          
+          // Auto-migrate to database
+          fetch('/api/quiz/progress', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              studentId: storedStudentId,
+              subject: 'ITCS223',
+              labNumber,
+              answers: parsedAnswers
+            })
+          }).then(() => {
+            console.log('[Quiz] Migration complete, clearing localStorage')
+            localStorage.removeItem(`quiz_answers_${labNumber}_${storedStudentId}`)
+          })
         } catch (e) {
-          // Invalid saved data
+          console.error('[Quiz] Failed to migrate from localStorage:', e)
         }
+      } else {
+        // Load from database
+        console.log('[Quiz] Loading answers from database...')
+        fetch(`/api/quiz/progress?studentId=${storedStudentId}&subject=ITCS223&labNumber=${labNumber}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.success && data.answers) {
+              console.log(`[Quiz] Loaded ${Object.keys(data.answers).length} saved answers from database`)
+              setAnswers(data.answers)
+            }
+          })
+          .catch(e => console.error('[Quiz] Failed to load progress:', e))
       }
     } else {
       // Redirect to verification page
@@ -100,10 +130,21 @@ export default function QuizTakingPage() {
     }
   }, [labNumber, isVerified])
 
-  // Autosave answers when they change
+  // Auto-save answers to DATABASE when they change
   useEffect(() => {
     if (isVerified && studentId && Object.keys(answers).length > 0) {
-      localStorage.setItem(`quiz_answers_${labNumber}_${studentId}`, JSON.stringify(answers))
+      console.log(`[Quiz] Auto-saving ${Object.keys(answers).length} answers to database...`)
+      
+      fetch('/api/quiz/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId,
+          subject: 'ITCS223',
+          labNumber,
+          answers
+        })
+      }).catch(e => console.error('[Quiz] Failed to save progress:', e))
     }
   }, [answers, isVerified, studentId, labNumber])
 
@@ -191,7 +232,12 @@ export default function QuizTakingPage() {
           })
         })
         
-        // Clear saved answers from localStorage after submission
+        // Clear saved answers from DATABASE after submission
+        fetch(`/api/quiz/progress?studentId=${studentId}&subject=ITCS223&labNumber=${labNumber}`, {
+          method: 'DELETE'
+        }).catch(e => console.error('[Quiz] Failed to delete progress:', e))
+        
+        // Also clear localStorage (for backward compatibility)
         localStorage.removeItem(`quiz_answers_${labNumber}_${studentId}`)
         
         // Keep auth data but clear current session
@@ -481,8 +527,12 @@ export default function QuizTakingPage() {
                   setTimeRemaining(timeLimit * 60)
                 }
                 
-                // Clear saved answers from localStorage
+                // Clear saved answers from DATABASE and localStorage
                 if (studentId) {
+                  fetch(`/api/quiz/progress?studentId=${studentId}&subject=ITCS223&labNumber=${labNumber}`, {
+                    method: 'DELETE'
+                  }).catch(e => console.error('[Quiz] Failed to delete progress:', e))
+                  
                   localStorage.removeItem(`quiz_answers_${labNumber}_${studentId}`)
                 }
                 

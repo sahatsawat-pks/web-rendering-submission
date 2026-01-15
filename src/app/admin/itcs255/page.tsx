@@ -176,6 +176,7 @@ export default function ITCS255AdminDashboard() {
              
              setGradingSuccess(true);
              setStudentId("");
+             setRemainingDigits("");
              // setTimeout(() => setGradingSuccess(false), 5000); // Removed auto-hide
         } else {
             const data = await res.json();

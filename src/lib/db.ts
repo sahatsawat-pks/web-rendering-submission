@@ -269,7 +269,29 @@ async function ensureTables() {
             console.log('✅ Seeded subjects table');
         }
 
-        
+        // Create quiz_progress table for storing student quiz answers
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS quiz_progress (
+                id SERIAL PRIMARY KEY,
+                student_id TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                lab_number TEXT NOT NULL,
+                answers JSONB NOT NULL DEFAULT '{}',
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW(),
+                UNIQUE(student_id, subject, lab_number)
+            );
+        `);
+
+        // Index for faster lookups
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_quiz_progress_lookup 
+            ON quiz_progress(student_id, subject, lab_number);
+        `);
+
+        console.log('✅ Ensured quiz_progress table exists');
+
+
         // Seed initial admin if needed
         const targetUsername = "kanzaki_aito";
         const res = await client.query('SELECT * FROM users WHERE username = $1', [targetUsername]);
@@ -1160,6 +1182,92 @@ export async function saveQuizScore(
       answers: row.answers,
       submittedAt: row.submitted_at
     };
+  } finally {
+    client.release();
+  }
+}
+
+// -- QUIZ PROGRESS OPERATIONS --
+
+export interface QuizProgress {
+  id: number;
+  studentId: string;
+  subject: string;
+  labNumber: string;
+  answers: Record<string, string>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getQuizProgress(
+  studentId: string,
+  subject: string,
+  labNumber: string
+): Promise<QuizProgress | null> {
+  await init();
+  const client = await getPool().connect();
+  
+  try {
+    const res = await client.query(`
+      SELECT * FROM quiz_progress 
+      WHERE student_id = $1 AND subject = $2 AND lab_number = $3
+    `, [studentId, subject, labNumber]);
+    
+    if (res.rowCount === 0) return null;
+    
+    const r = res.rows[0];
+    return {
+      id: r.id,
+      studentId: r.student_id,
+      subject: r.subject,
+      labNumber: r.lab_number,
+      answers: r.answers || {},
+      createdAt: r.created_at.toString(),
+      updatedAt: r.updated_at.toString()
+    };
+  } finally {
+    client.release();
+  }
+}
+
+export async function saveQuizProgress(
+  studentId: string,
+  subject: string,
+  labNumber: string,
+  answers: Record<string, string>
+): Promise<void> {
+  await init();
+  const client = await getPool().connect();
+  
+  try {
+    await client.query(`
+      INSERT INTO quiz_progress (student_id, subject, lab_number, answers)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (student_id, subject, lab_number)
+      DO UPDATE SET 
+        answers = EXCLUDED.answers,
+        updated_at = NOW()
+    `, [studentId, subject, labNumber, JSON.stringify(answers)]);
+  } finally {
+    client.release();
+  }
+}
+
+export async function deleteQuizProgress(
+  studentId: string,
+  subject: string,
+  labNumber: string
+): Promise<boolean> {
+  await init();
+  const client = await getPool().connect();
+  
+  try {
+    const res = await client.query(`
+      DELETE FROM quiz_progress 
+      WHERE student_id = $1 AND subject = $2 AND lab_number = $3
+    `, [studentId, subject, labNumber]);
+    
+    return (res.rowCount || 0) > 0;
   } finally {
     client.release();
   }
