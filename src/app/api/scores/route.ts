@@ -198,8 +198,9 @@ export async function POST(request: NextRequest) {
         // For ITCS123 and ITDS283, handle lab and/or challenge scores independently
         if (subject === 'ITCS123' || subject === 'ITDS283') {
             // Update lab score if provided
-            if (labScore !== undefined) {
-                await updateStudentLabScore(username, labNumber, labScore, undefined, subject, 'lab');
+            const effectiveLabScore = labScore !== undefined ? labScore : score;
+            if (effectiveLabScore !== undefined) {
+                await updateStudentLabScore(username, labNumber, effectiveLabScore, undefined, subject, 'lab');
             }
             // Update challenge score if provided
             if (challengeScore !== undefined) {
