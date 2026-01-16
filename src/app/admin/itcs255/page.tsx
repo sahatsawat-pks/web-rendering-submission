@@ -696,6 +696,11 @@ export default function ITCS255AdminDashboard() {
                     Manage Quiz
                   </a>
                 )}
+                {(role === 'Lecturer' || username === 'kanzaki_aito') && (
+                  <a href="/admin/labs?subject=ITCS255" className="px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-medium border border-indigo-200 dark:border-indigo-800 shadow-sm hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors">
+                    Lab Management
+                  </a>
+                )}
                 {role === 'Lecturer' && (
                   <button onClick={() => setShowNewLabDialog(true)} className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1">
                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>

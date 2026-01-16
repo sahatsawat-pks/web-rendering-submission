@@ -71,14 +71,17 @@ function parseGiftQuestion(text: string, defaultCategory?: string): ParsedGiftQu
     text = text.replace(/^\$CATEGORY:.*$/m, '').trim()
   }
   
-  // Match question pattern: text { answer }
-  const questionMatch = text.match(/^([\s\S]*?)\s*\{([\s\S]*)\}\s*$/)
-  if (!questionMatch) {
+  // Find the LAST { } pair which should be the answer block
+  // This allows HTML tags with { } in the question text
+  const lastOpenBrace = text.lastIndexOf('{')
+  const lastCloseBrace = text.lastIndexOf('}')
+  
+  if (lastOpenBrace === -1 || lastCloseBrace === -1 || lastOpenBrace >= lastCloseBrace) {
     return null
   }
   
-  let questionText = questionMatch[1].trim()
-  const answerPart = questionMatch[2].trim()
+  let questionText = text.substring(0, lastOpenBrace).trim()
+  const answerPart = text.substring(lastOpenBrace + 1, lastCloseBrace).trim()
   
   // Remove question name if present (::name::)
   questionText = questionText.replace(/^::.*?::\s*/, '')

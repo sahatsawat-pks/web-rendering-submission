@@ -650,8 +650,14 @@ export default function AdminDashboard() {
                     Manage Test Cases
                   </a>
                 )}
-                {role === 'Lecturer' && (                  <a href="/admin/itcs123/quiz" className="px-3 py-1.5 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded-lg text-xs font-medium border border-pink-200 dark:border-pink-800 shadow-sm hover:bg-pink-200 dark:hover:bg-pink-900/50 transition-colors">
+                {role === 'Lecturer' && (
+                  <a href="/admin/itcs123/quiz" className="px-3 py-1.5 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded-lg text-xs font-medium border border-pink-200 dark:border-pink-800 shadow-sm hover:bg-pink-200 dark:hover:bg-pink-900/50 transition-colors">
                     Manage Quiz
+                  </a>
+                )}
+                {(role === 'Lecturer' || username === 'kanzaki_aito') && (
+                  <a href="/admin/labs?subject=ITCS123" className="px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-medium border border-indigo-200 dark:border-indigo-800 shadow-sm hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors">
+                    Lab Management
                   </a>
                 )}
                 {role === 'Lecturer' && (                  <button onClick={() => setShowNewLabDialog(true)} className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1">
@@ -743,14 +749,6 @@ export default function AdminDashboard() {
                         >
                           {lab.quizEnabled ? "Quiz: ON" : "Quiz: OFF"}
                         </button>
-                      )}
-                      {(role === 'Lecturer' || username === 'kanzaki_aito') && (
-                        <a
-                          href="/admin/labs"
-                          className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 rounded-lg shadow-md shadow-orange-500/30 transition-all btn-hover-lift"
-                        >
-                          Manage
-                        </a>
                       )}
                     </div>
                   </div>
