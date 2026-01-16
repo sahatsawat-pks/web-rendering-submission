@@ -412,6 +412,11 @@ export async function updateStudentLabScore(
       ? `Lab${labNumPadded} (2)` 
       : `Ch${labNumPadded} (2)`;
     console.log(`[updateStudentLabScore] ITCS123 formatted column: ${actualLabNumber}`);
+  } else if (sheetName === 'ITDS283' && scoreType === 'challenge') {
+    // ITDS283 Challenge format: "Ch" + number (e.g. "Ch2")
+    const labInt = parseInt(labNumber.toString().replace(/[^\d]/g, '')).toString();
+    actualLabNumber = `Ch${labInt}`;
+    console.log(`[updateStudentLabScore] ITDS283 Challenge column: ${actualLabNumber}`);
   }
   
   // Handle Multi-Section Subjects (ITCS123, ITCS223, ITDS283)

@@ -20,7 +20,9 @@ export default function ITDS283AdminDashboard() {
   const [studentId, setStudentId] = useState("")
   const [selectedLab, setSelectedLab] = useState("")
   const [selectedSection, setSelectedSection] = useState("")
-  const [score, setScore] = useState("0")
+  const [score, setScore] = useState("2")
+  const [challengeScore, setChallengeScore] = useState("2")
+  const [showChallengeDialog, setShowChallengeDialog] = useState(false)
   const [gradingSuccess, setGradingSuccess] = useState(false)
   const [gradingError, setGradingError] = useState<string | null>(null)
   const [lastSubmittedStudentId, setLastSubmittedStudentId] = useState("")
@@ -165,6 +167,53 @@ export default function ITDS283AdminDashboard() {
         } else {
             const data = await res.json();
             setGradingError(data.error || "Failed to update score");
+        }
+    } catch (err: any) {
+        setGradingError(err.message || "An unexpected error occurred");
+    }
+  }
+
+  async function handleChallengeSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setGradingError(null)
+    setGradingSuccess(false)
+
+    try {
+        const res = await fetch('/api/scores', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'update',
+                username: studentId,
+                labNumber: selectedLab,
+                challengeScore: parseInt(challengeScore),
+                subject: 'ITDS283'
+            })
+        });
+
+        if (res.ok) {
+             setLastSubmittedStudentId(studentId);
+             
+             // Fetch updated student details
+             try {
+                const detailsRes = await fetch(`/api/scores?username=${studentId}&subject=ITDS283`)
+                if (detailsRes.ok) {
+                    const detailsData = await detailsRes.json()
+                    if (detailsData.success && detailsData.scores) {
+                        setStudentDetails(detailsData.scores)
+                    }
+                }
+             } catch (error) {
+                 console.error("Failed to fetch student details", error)
+             }
+
+             setGradingSuccess(true);
+             setStudentId(""); // Clear ID for next student
+             setRemainingDigits(""); 
+             setShowChallengeDialog(false); // Close dialog
+        } else {
+            const data = await res.json();
+            setGradingError(data.error || "Failed to update challenge score");
         }
     } catch (err: any) {
         setGradingError(err.message || "An unexpected error occurred");
@@ -434,7 +483,7 @@ export default function ITDS283AdminDashboard() {
 
                 {/* Row 2: Student ID + Score (responsive grid) */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
+                  <div className="order-2 md:order-1">
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                       Student ID
                     </label>
@@ -468,7 +517,7 @@ export default function ITDS283AdminDashboard() {
                     <p className="text-xs text-slate-500 mt-1">Select prefix, then enter remaining digits</p>
                   </div>
 
-                  <div>
+                  <div className="order-1 md:order-2">
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Score</label>
                     <select
                       value={score}
@@ -490,6 +539,17 @@ export default function ITDS283AdminDashboard() {
                     className="flex-1 px-6 py-3 text-sm font-medium text-white bg-gradient-to-r from-rose-600 to-orange-600 hover:from-rose-700 hover:to-orange-700 rounded-xl shadow-md shadow-rose-500/30 transition-all btn-hover-lift flex items-center justify-center gap-2"
                   >
                     Update Score to Spreadsheet
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                        if (selectedLab) setShowChallengeDialog(true);
+                        else alert("Please select a lab first");
+                    }}
+                    className="flex-1 px-6 py-3 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-xl shadow-md shadow-purple-500/30 transition-all btn-hover-lift flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    Add Challenge Score
                   </button>
                   <button
                     type="button"
@@ -782,6 +842,50 @@ export default function ITDS283AdminDashboard() {
                   {creatingLab ? "Creating..." : "Create Lab"}
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Challenge Score Dialog */}
+      {showChallengeDialog && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-scale-in">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                  Add Challenge Score (Lab {selectedLab})
+              </h3>
+              <button
+                onClick={() => setShowChallengeDialog(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleChallengeSubmit} className="space-y-4">
+                <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Challenge Score
+                    </label>
+                    <select
+                        value={challengeScore}
+                        onChange={(e) => setChallengeScore(e.target.value)}
+                        required
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 shadow-sm transition-all"
+                    >
+                        <option value="0">0 - Not Submitted</option>
+                        <option value="1">1 - Partial</option>
+                        <option value="2">2 - Complete</option>
+                    </select>
+                </div>
+                
+                <button
+                    type="submit"
+                    className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold shadow-lg shadow-purple-500/30 transition-all"
+                >
+                    Save Challenge Score
+                </button>
             </form>
           </div>
         </div>

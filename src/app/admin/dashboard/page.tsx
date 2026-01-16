@@ -286,7 +286,7 @@ export default function AdminHub() {
             ))}
         </div>
 
-        {!loading && (role === 'Lecturer' || username === 'kanzaki_aito') && (
+        {!loading && (role === 'Lecturer' || role === 'LA' || username === 'kanzaki_aito') && (
           <>
             <div className="mt-16 mb-8 text-center animate-slide-up" style={{ animationDelay: '0.2s' }}>
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
@@ -399,6 +399,7 @@ export default function AdminHub() {
             </Link>
             )}
 
+            {(role === 'Lecturer' || username === 'kanzaki_aito') && (
             <Link 
                 href="/admin/credentials"
                 className="group relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
@@ -421,6 +422,7 @@ export default function AdminHub() {
                     <ArrowRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1 transition-transform group-hover:text-slate-900 dark:group-hover:text-slate-200" />
                 </div>
             </Link>
+            )}
 
             <a 
                 href="https://academic.ict.mahidol.ac.th/Admin/TeachingAttendance/Default.aspx"
