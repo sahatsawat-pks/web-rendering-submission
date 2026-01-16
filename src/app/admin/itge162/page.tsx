@@ -19,7 +19,7 @@ export default function AdminDashboard() {
 
   const [studentId, setStudentId] = useState("")
   const [selectedLab, setSelectedLab] = useState("")
-  const [score, setScore] = useState("0")
+  const [score, setScore] = useState("2")
   const [gradingSuccess, setGradingSuccess] = useState(false)
 
   const [gradingError, setGradingError] = useState<string | null>(null)
@@ -429,7 +429,7 @@ export default function AdminDashboard() {
 
                 {/* Row 2: Student ID + Score (responsive grid) */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
+                  <div className="order-2 md:order-1">
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                       Student ID
                     </label>
@@ -464,7 +464,7 @@ export default function AdminDashboard() {
                     <p className="text-xs text-slate-500 mt-1">Ref: Column A2:A9999</p>
                   </div>
 
-                  <div>
+                  <div className="order-1 md:order-2">
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Score</label>
                     <select
                       value={score}

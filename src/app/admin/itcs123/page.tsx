@@ -19,8 +19,8 @@ export default function AdminDashboard() {
 
   const [studentId, setStudentId] = useState("")
   const [selectedLab, setSelectedLab] = useState("")
-  const [labScore, setLabScore] = useState("0")
-  const [challengeScore, setChallengeScore] = useState("0")
+  const [labScore, setLabScore] = useState("2")
+  const [challengeScore, setChallengeScore] = useState("2")
   const [showScoreDialog, setShowScoreDialog] = useState(false)
   const [gradingSuccess, setGradingSuccess] = useState(false)
   const [gradingError, setGradingError] = useState<string | null>(null)
