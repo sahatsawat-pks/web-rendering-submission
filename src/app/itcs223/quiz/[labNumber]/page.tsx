@@ -200,13 +200,15 @@ export default function QuizTakingPage() {
   }
 
   const handleLogout = () => {
-    // Clear only sessionStorage but keep localStorage (for persistent login and answers)
+    // Clear both sessionStorage and localStorage to fully logout
     sessionStorage.removeItem('quiz_verified')
     sessionStorage.removeItem('quiz_student_id')
     sessionStorage.removeItem('quiz_credential')
     sessionStorage.removeItem('quiz_lab')
     
-    // Note: We keep localStorage data so user can log back in and continue
+    // Remove persistent login
+    localStorage.removeItem(`quiz_auth_${labNumber}`)
+    
     // Redirect to verify page
     router.push(`/itcs223/quiz/${labNumber}/verify`)
   }
