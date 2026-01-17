@@ -115,7 +115,9 @@ function parseGiftQuestion(text: string, defaultCategory?: string): ParsedGiftQu
     }
   } else if (answerPart.includes('~') || answerPart.startsWith('=')) {
     // Multiple choice
-    const choices = answerPart.split(/(?=~)|(?==)/)
+    // Split by ~ or = BUT NOT if preceded by \ (escaped)
+    // Using lookahead to keep the delimiter (= or ~) at the start of the next chunk
+    const choices = answerPart.split(/(?<!\\)(?=[~=])/)
     const options: string[] = []
     let correctAnswer = ''
     let explanation: string | undefined
@@ -168,7 +170,8 @@ function parseGiftQuestion(text: string, defaultCategory?: string): ParsedGiftQu
 }
 
 function splitFeedback(text: string): [string, string | undefined] {
-  const feedbackMatch = text.match(/^(.*?)#(.*)$/)
+  // Match # only if not preceded by \
+  const feedbackMatch = text.match(/^(.*?)(?<!\\)#(.*)$/)
   if (feedbackMatch) {
     return [feedbackMatch[1].trim(), feedbackMatch[2].trim()]
   }

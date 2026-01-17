@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Play, Code2, AlertCircle, CheckCircle2, XCircle, ArrowLeft, ChevronDown, ChevronUp, Database } from "lucide-react"
+import { Play, Database, AlertCircle, CheckCircle2, XCircle, ArrowLeft, ChevronDown, ChevronUp } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 
 interface TestCase {
@@ -13,21 +13,55 @@ interface TestCase {
   status: 'pending' | 'running' | 'pass' | 'fail'
   errorMessage?: string
   matchMode?: 'trim' | 'exact'
+  // SQL-specific fields
+  setupSql?: string
+  verificationSql?: string
+  testType?: 'query_result' | 'structure_check' | 'data_check'
+  shouldFail?: boolean
+  cleanupSql?: string
 }
 
 export default function SQLTestRunner() {
-  const [code, setCode] = useState(`SELECT * FROM items;`)
+  const [query, setQuery] = useState(`-- Write your SQL query here
+-- Example: Select all records from a table
+
+SELECT * FROM students;`)
   const [labNumber, setLabNumber] = useState("")
   const [labs, setLabs] = useState<any[]>([])
   const [isRunning, setIsRunning] = useState(false)
   const [testCases, setTestCases] = useState<TestCase[]>([])
-  const [selectedTask, setSelectedTask] = useState<string>("all")
-  const [runningTestId, setRunningTestId] = useState<string | null>(null)
   const [expandedTestId, setExpandedTestId] = useState<string | null>(null)
-  const [customInput, setCustomInput] = useState("");
-  const [customOutput, setCustomOutput] = useState<string | null>(null);
+  const [customInput, setCustomInput] = useState("")
+  const [customOutput, setCustomOutput] = useState<string | null>(null)
 
-  // Load labs on mount
+  const runCustomTest = async () => {
+      setIsRunning(true)
+      setCustomOutput(null)
+      
+      try {
+        // Get current lab's database starter for context
+        const currentLab = labs.find(l => l.labNumber === labNumber)
+        const databaseStarter = currentLab?.databaseStarter
+        
+        const response = await fetch('/api/run-sql', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                query: query,
+                databaseStarter: databaseStarter, // Use lab database context
+                testType: 'query_result',
+                matchMode: 'trim'
+            })
+        })
+        const result = await response.json()
+        setCustomOutput((result.output || "") + (result.error ? `\nError:\n${result.error}` : ""))
+      } catch (e) {
+          setCustomOutput("Execution failed: Server Error")
+      } finally {
+          setIsRunning(false)
+      }
+  }
+
   useEffect(() => {
     async function loadLabs() {
       try {
@@ -35,8 +69,7 @@ export default function SQLTestRunner() {
         if (res.ok) {
           const data = await res.json()
           if (data.success) {
-            const sortedLabs = data.labs
-              .sort((a: any, b: any) => a.labNumber.localeCompare(b.labNumber))
+            const sortedLabs = data.labs.sort((a: any, b: any) => a.labNumber.localeCompare(b.labNumber))
             setLabs(sortedLabs)
             if (sortedLabs.length > 0) {
               setLabNumber(sortedLabs[0].labNumber)
@@ -50,34 +83,39 @@ export default function SQLTestRunner() {
     loadLabs()
   }, [])
 
-  // Update test cases when lab changes
   useEffect(() => {
     if (labNumber && labs.length > 0) {
       const currentLab = labs.find(l => l.labNumber === labNumber)
       if (currentLab && currentLab.testCases) {
         try {
             const parsed = JSON.parse(currentLab.testCases)
-            let tasksData: any[] = []
+            // Parse sub-questions if available
+            let subQuestionsData: any[] = []
             if (currentLab.subQuestions) {
               try {
-                tasksData = JSON.parse(currentLab.subQuestions)
+                subQuestionsData = JSON.parse(currentLab.subQuestions)
               } catch (e) {
-                console.error("Error parsing tasks", e)
+                console.error("Error parsing sub-questions", e)
               }
             }
+            // Map test cases with sub-question info and SQL fields
             const mappedTests = parsed.map((t: any) => {
-              const task = tasksData.find(sq => sq.id === t.subQuestionId)
+              const subQ = subQuestionsData.find(sq => sq.id === t.subQuestionId)
               return {
                 ...t,
                 status: 'pending',
                 actualOutput: undefined,
-                taskName: task?.name || null
+                subQuestionName: subQ?.name || null,
+                // Preserve SQL-specific fields
+                setupSql: t.setupSql,
+                verificationSql: t.verificationSql,
+                testType: t.testType || 'query_result',
+                shouldFail: t.shouldFail || false,
+                cleanupSql: t.cleanupSql
               }
             })
             setTestCases(mappedTests)
-            setSelectedTask("all")
         } catch (e) {
-            console.error("Error parsing test cases", e)
             setTestCases([])
         }
       } else {
@@ -86,174 +124,140 @@ export default function SQLTestRunner() {
     }
   }, [labNumber, labs])
 
-  const runCustomTest = async () => {
-      setIsRunning(true);
-      setCustomOutput(null);
+  // Parse task-based queries from code
+  const parseTaskQueries = (code: string): { taskNumber: number; query: string }[] => {
+    const tasks: { taskNumber: number; query: string }[] = []
+    
+    // Match pattern: -- Task XX: ... followed by SQL until next task or end
+    const taskPattern = /--\s*Task\s+(\d+):\s*.*?\n([\s\S]*?)(?=--\s*Task\s+\d+:|$)/gi
+    let match
+    
+    while ((match = taskPattern.exec(code)) !== null) {
+      const taskNumber = parseInt(match[1])
+      let query = match[2].trim()
       
-      try {
-        const response = await fetch('/api/run-sql', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                code,
-                input: customInput
-            })
-        });
-        const result = await response.json();
-        setCustomOutput((result.output || "") + (result.error ? `\nError:\n${result.error}` : ""));
-      } catch (e) {
-          setCustomOutput("Execution failed: SQL Runner API not implemented yet.");
-      } finally {
-          setIsRunning(false);
+      // Remove trailing semicolon and whitespace
+      query = query.replace(/;\s*$/, '').trim()
+      
+      if (query) {
+        tasks.push({ taskNumber, query })
       }
-  };
-
-  const runSingleTest = async (testId: string) => {
-    setRunningTestId(testId)
-    
-    const testIndex = testCases.findIndex(t => t.id === testId)
-    if (testIndex === -1) return
-    
-    const test = testCases[testIndex]
-    
-    setTestCases(prev => prev.map(t => 
-      t.id === testId ? { ...t, status: 'running' as const, actualOutput: undefined, errorMessage: undefined } : t
-    ))
-    
-    try {
-      const response = await fetch('/api/run-sql', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code,
-          input: test.input
-        })
-      })
-      
-      const result = await response.json()
-      
-      setTestCases(prev => {
-        const current = [...prev]
-        const activeTest = current[testIndex]
-        
-        if (result.error && !result.output) {
-          activeTest.status = 'fail'
-          activeTest.actualOutput = result.output || ''
-          activeTest.errorMessage = result.error
-        } else {
-          const rawActual = result.output || ''
-          const rawExpected = activeTest.expectedOutput
-          
-          const actualNorm = rawActual.replace(/\r\n/g, '\n')
-          const expectedNorm = rawExpected.replace(/\r\n/g, '\n')
-          
-          const mode = activeTest.matchMode || 'trim'
-          let passed = false
-          
-          if (mode === 'trim') {
-            passed = actualNorm.trim() === expectedNorm.trim()
-          } else {
-            passed = actualNorm === expectedNorm
-          }
-          
-          activeTest.status = passed ? 'pass' : 'fail'
-          activeTest.actualOutput = (result.output || '') + (result.error ? `\n\nError Stream:\n${result.error}` : '')
-        }
-        
-        return current
-      })
-    } catch (e: any) {
-      console.error("Test execution failed", e)
-      setTestCases(prev => {
-        const current = [...prev]
-        current[testIndex].status = 'fail'
-        current[testIndex].errorMessage = "SQL Runner API not available"
-        return current
-      })
-    } finally {
-      setRunningTestId(null)
     }
+    
+    return tasks
   }
+
 
   const runTests = async () => {
     setIsRunning(true)
-    setCustomOutput(null);
-    
-    const testsToRun = selectedTask === "all" 
-      ? testCases 
-      : testCases.filter(t => (t as any).taskName === selectedTask)
-    
-    setTestCases(prev => prev.map(t => ({ 
-      ...t, 
-      status: 'pending', 
-      actualOutput: undefined, 
-      errorMessage: undefined 
-    })))
-    
-    setTestCases(prev => prev.map(t => {
-      const shouldRun = selectedTask === "all" || (t as any).taskName === selectedTask
-      return shouldRun ? { ...t, status: 'running' } : t
-    }))
+    setTestCases(prev => prev.map(t => ({ ...t, status: 'running', actualOutput: undefined, errorMessage: undefined })))
 
-    for (let i = 0; i < testsToRun.length; i++) {
-        const test = testsToRun[i];
-        const originalIndex = testCases.findIndex(tc => tc.id === test.id);
+    const newCases = [...testCases]
+    const currentLab = labs.find(l => l.labNumber === labNumber)
+    const databaseStarter = currentLab?.databaseStarter
+    
+    // Generate session ID for database persistence
+    const sessionId = `student_${Date.now()}_${labNumber}`
+    
+    // Detect mode: batch (task comments) vs individual (single query)
+    const parsedTasks = parseTaskQueries(query)
+    const isBatchMode = parsedTasks.length > 0
+    
+    for (let i = 0; i < newCases.length; i++) {
+        const test = newCases[i]
+        const isLastTest = i === newCases.length - 1
+        
+        // Determine which query to use
+        let testQuery = query // Default: individual mode (use full query for all tests)
+        
+        if (isBatchMode) {
+          // Batch mode: match query by task number (i+1) or by order
+          const matchedTask = parsedTasks.find(t => t.taskNumber === (i + 1))
+          if (matchedTask) {
+            testQuery = matchedTask.query
+          } else {
+            // If no matching task number, skip this test
+            setTestCases(prev => {
+              const current = [...prev]
+              current[i].status = 'fail'
+              current[i].errorMessage = `No query found for Task ${i + 1}`
+              return current
+            })
+            continue
+          }
+        }
         
         try {
             const response = await fetch('/api/run-sql', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    code,
-                    input: test.input
+                    query: testQuery,
+                    input: test.input,
+                    setupSql: test.setupSql,
+                    verificationSql: test.verificationSql,
+                    cleanupSql: test.cleanupSql,
+                    databaseStarter: i === 0 ? databaseStarter : undefined, // Only pass database starter on first test
+                    testType: test.testType || 'query_result',
+                    expectedOutput: test.expectedOutput,
+                    matchMode: test.matchMode || 'trim',
+                    sessionId: sessionId, // Track session across tests
+                    isLastTest: isLastTest // Flag to cleanup database on last test
                 })
-            });
+            })
             
-            const result = await response.json();
+            const result = await response.json()
             
             setTestCases(prev => {
-                const current = [...prev];
-                const activeTest = current[originalIndex];
+                const current = [...prev]
+                const activeTest = current[i]
                 
-                if (result.error && !result.output) {
-                     activeTest.status = 'fail';
-                     activeTest.actualOutput = result.output || '';
-                     activeTest.errorMessage = result.error;
+                // For shouldFail tests, check if error occurred as expected
+                if (test.shouldFail) {
+                    if (result.error) {
+                        activeTest.status = 'pass'
+                        activeTest.actualOutput = `Expected error occurred: ${result.error}`
+                    } else {
+                        activeTest.status = 'fail'
+                        activeTest.actualOutput = `Expected error but query succeeded: ${result.output || ''}`
+                    }
+                } else if (result.error && !result.output) {
+                    activeTest.status = 'fail'
+                    activeTest.actualOutput = result.output || ''
+                    activeTest.errorMessage = result.error
                 } else {
-                    const rawActual = result.output || '';
-                    const rawExpected = activeTest.expectedOutput;
-                    
-                    const actualNorm = rawActual.replace(/\r\n/g, '\n');
-                    const expectedNorm = rawExpected.replace(/\r\n/g, '\n');
-                    
-                    const mode = activeTest.matchMode || 'trim';
-                    let passed = false;
-                    
-                    if (mode === 'trim') {
-                        passed = actualNorm.trim() === expectedNorm.trim();
+                    // Use the passed flag from the API if available
+                    if (result.passed !== undefined) {
+                        activeTest.status = result.passed ? 'pass' : 'fail'
+                        activeTest.actualOutput = (result.output || '') + (result.error ? `\n\nError:\n${result.error}` : '')
                     } else {
-                        passed = actualNorm === expectedNorm;
+                        // Fallback to manual comparison
+                        const rawActual = result.output || ''
+                        const rawExpected = activeTest.expectedOutput
+                        
+                        const actualNorm = rawActual.replace(/\r\n/g, '\n')
+                        const expectedNorm = rawExpected.replace(/\r\n/g, '\n')
+                        
+                        const mode = activeTest.matchMode || 'trim'
+                        const passed = mode === 'trim' 
+                            ? actualNorm.trim() === expectedNorm.trim()
+                            : actualNorm === expectedNorm
+                        
+                        activeTest.status = passed ? 'pass' : 'fail'
+                        activeTest.actualOutput = (result.output || '') + (result.error ? `\n\nError:\n${result.error}` : '')
                     }
-                    
-                    if (passed) {
-                        activeTest.status = 'pass';
-                    } else {
-                        activeTest.status = 'fail';
-                    }
-                    activeTest.actualOutput = (result.output || '') + (result.error ? `\n\nError Stream:\n${result.error}` : '');
                 }
                 
-                return current;
-            });
+                return current
+            })
 
         } catch (e: any) {
-            console.error("Test execution failed", e);
              setTestCases(prev => {
-                const current = [...prev];
-                current[originalIndex].status = 'fail';
-                current[originalIndex].errorMessage = "SQL Runner API not available";
-                return current;
-            });
+                const current = [...prev]
+                current[i].status = 'fail'
+                current[i].errorMessage = "Network or Server Error"
+                return current
+            })
         }
     }
     
@@ -262,37 +266,26 @@ export default function SQLTestRunner() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-mono animate-fade-in">
-       {/* Navigation */}
        <nav className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md">
         <div className="container mx-auto max-w-7xl flex h-14 items-center justify-between px-4">
           <div className="flex items-center gap-3">
-             <a
-              href="/itcs255"
-              className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-800 transition-colors text-slate-400 hover:text-slate-100"
-              title="Back"
-            >
+             <a href="/itcs255" className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-800 transition-colors text-slate-400 hover:text-slate-100">
               <ArrowLeft className="w-4 h-4" />
             </a>
              <div className="flex h-8 w-8 items-center justify-center rounded bg-purple-600 text-white font-bold">
-              <Database className="w-4 h-4" />
+              <span className="text-xs">SQL</span>
             </div>
-            <span className="font-bold text-slate-100">
-              ITCS255 SQL Test Runner
-            </span>
+            <span className="font-bold text-slate-100">ITCS255 Structured Query Language Essentials</span>
           </div>
-          <div className="flex items-center gap-4">
-            <ModeToggle />
-          </div>
+          <ModeToggle />
         </div>
       </nav>
 
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Left Panel - Code Editor */}
         <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Lab Selection */}
-            <div className="bg-slate-900 px-4 py-3 border-b border-slate-800 space-y-2 md:space-y-3">
+            <div className="bg-slate-900 px-4 py-3 border-b border-slate-800">
                 <div className="flex items-center gap-4">
-                    <label className="text-xs text-slate-400 font-bold">LAB:</label>
+                    <label className="text-xs text-slate-400 font-bold">SELECT:</label>
                     <select
                         value={labNumber}
                         onChange={e => setLabNumber(e.target.value)}
@@ -300,271 +293,224 @@ export default function SQLTestRunner() {
                     >
                         <option value="">Choose Lab</option>
                         {labs.map(lab => (
-                            <option key={lab.id} value={lab.labNumber}>
-                                Lab {lab.labNumber}: {lab.title}
-                            </option>
+                            <option key={lab.id} value={lab.labNumber}>Lab {lab.labNumber}: {lab.title}</option>
                         ))}
                     </select>
                 </div>
-                {labNumber && testCases.length > 0 && (() => {
-                  const tasks = Array.from(new Set(testCases.map(t => (t as any).taskName).filter(Boolean)))
-                  if (tasks.length > 0) {
-                    return (
-                      <div className="flex items-center gap-4">
-                        <label className="text-xs text-slate-400 font-bold">TASK:</label>
-                        <select
-                          value={selectedTask}
-                          onChange={e => setSelectedTask(e.target.value)}
-                          className="flex-1 bg-slate-800 text-slate-200 px-3 py-1.5 rounded text-xs border border-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        >
-                          <option value="all">All Tasks</option>
-                          {tasks.map(task => (
-                            <option key={task} value={task}>{task}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )
-                  }
-                  return null
-                })()}
             </div>
 
-            {/* Editor Header */}
             <div className="bg-slate-900 px-4 py-2 border-b border-slate-800 flex justify-between items-center">
                 <span className="text-xs text-slate-400 flex items-center gap-2">
-                    <Code2 className="w-4 h-4" />
+                    <Database className="w-4 h-4" />
                     query.sql
                 </span>
             </div>
             
             <textarea
-                value={code}
-                onChange={e => setCode(e.target.value)}
+                value={query}
+                onChange={e => setQuery(e.target.value)}
                 className="flex-1 bg-slate-950 p-4 font-mono text-sm resize-none focus:outline-none text-slate-300 leading-relaxed"
                 spellCheck={false}
                 placeholder="Write your SQL query here..."
             />
         </div>
 
-        {/* Right Panel - Test Runner */}
         <div className="w-full lg:w-96 flex flex-col bg-slate-900/50 border-t lg:border-t-0 lg:border-l border-slate-800 max-h-[50vh] lg:max-h-none">
-             <div className="bg-slate-900 px-4 py-4 border-b border-slate-800 flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-bold text-slate-100">Test Cases</h2>
-                </div>
+             <div className="bg-slate-900 px-4 py-4 border-b border-slate-800">
+                <h2 className="text-sm font-bold text-slate-100">Query Tests</h2>
             </div>
 
-            {/* Custom Test runner */}
             <div className="p-3 md:p-4 border-b border-slate-800 bg-slate-900/30 space-y-2 md:space-y-3">
-                 <div className="flex gap-2">
-                    <button 
-                        onClick={runTests}
-                        disabled={isRunning || !labNumber || testCases.length === 0}
-                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-900/20 transition-all text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-700"
-                    >
-                        {isRunning ? <div className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full"></div> : <Play className="w-4 h-4 fill-current" />}
-                        {testCases.length === 0 ? "No Tests Configured" : "Run All Tests"}
-                    </button>
-                </div>
+                 <button 
+                    onClick={runTests}
+                    disabled={isRunning || !labNumber || testCases.length === 0}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white shadow-lg transition-all text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {isRunning ? <div className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full"></div> : <Play className="w-4 h-4 fill-current" />}
+                    {testCases.length === 0 ? "No Tests" : "Run Tests"}
+                </button>
+                
+                {/* Mode Indicator */}
+                {labNumber && testCases.length > 0 && (() => {
+                  const parsedTasks = parseTaskQueries(query)
+                  const isBatchMode = parsedTasks.length > 0
+                  
+                  return (
+                    <div className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded flex items-center gap-1.5 ${
+                      isBatchMode 
+                        ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30' 
+                        : 'bg-slate-800 text-slate-400 border border-slate-700'
+                    }`}>
+                      {isBatchMode ? '📋' : '🔍'}
+                      <span>{isBatchMode ? `Batch Mode: ${parsedTasks.length} tasks detected` : 'Individual Mode'}</span>
+                    </div>
+ )
+                })()}
                 
                 <div className="pt-2 border-t border-white/5">
-                    <label className="text-[10px] uppercase font-bold text-slate-500 mb-1.5 block">Custom SQL Test</label>
-                    <div className="space-y-2">
-                         <textarea 
-                            value={customInput} 
-                            onChange={(e) => setCustomInput(e.target.value)}
-                            className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1.5 text-xs font-mono text-slate-300 focus:outline-none focus:border-purple-500 resize-none" 
-                            placeholder="Enter test data or parameters"
-                            rows={4}
-                         />
-                         <button
-                            onClick={runCustomTest}
-                            disabled={isRunning}
-                            className="w-full px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                         >
-                            {isRunning ? <div className="animate-spin w-3 h-3 border-2 border-white/30 border-t-white rounded-full"></div> : <Play className="w-3 h-3" />}
-                            Run Custom Query
-                         </button>
-                    </div>
+                    <label className="text-[10px] uppercase font-bold text-slate-500 mb-1.5 block">Custom Test</label>
+                    <button
+                        onClick={runCustomTest}
+                        disabled={isRunning}
+                        className="w-full px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                        {isRunning ? <div className="animate-spin w-3 h-3 border-2 border-white/30 border-t-white rounded-full"></div> : <Play className="w-3 h-3" />}
+                        Execute Query
+                    </button>
                     {customOutput && (
                         <div className="mt-2 bg-slate-950 p-2 rounded border border-slate-800 animate-fade-in">
-                            <span className="text-[10px] text-slate-500 block mb-1">Output:</span>
+                            <span className="text-[10px] text-slate-500 block mb-1">Result:</span>
                             <div className="font-mono text-xs text-slate-300 whitespace-pre-wrap">{customOutput}</div>
                         </div>
                     )}
                 </div>
 
-                {/* Test Results Summary */}
-                {(() => {
-                    const filteredTests = selectedTask === "all" 
-                      ? testCases 
-                      : testCases.filter(t => (t as any).taskName === selectedTask)
-                    const hasResults = filteredTests.some(t => t.status === 'pass' || t.status === 'fail')
-                    
-                    if (!hasResults || isRunning || filteredTests.length === 0) return null
-                    
-                    return (
+                {testCases.length > 0 && !isRunning && testCases.some(t => t.status === 'pass' || t.status === 'fail') && (
                     <div className="pt-2 border-t border-white/5">
                         {(() => {
-                            const totalTests = filteredTests.length;
-                            const passedTests = filteredTests.filter(t => t.status === 'pass').length;
-                            const failedTests = filteredTests.filter(t => t.status === 'fail').length;
-                            const percentage = totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0;
+                            const totalTests = testCases.length
+                            const passedTests = testCases.filter(t => t.status === 'pass').length
+                            const percentage = totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0
                             
-                            let bgColor, borderColor, textColor, icon, message;
-                            
-                            if (passedTests === totalTests) {
-                                bgColor = 'bg-green-950/30';
-                                borderColor = 'border-green-500/50';
-                                textColor = 'text-green-400';
-                                icon = <CheckCircle2 className="w-5 h-5" />;
-                                message = '🎉 Congratulations! All tests passed!';
-                            } else if (passedTests === 0) {
-                                bgColor = 'bg-red-950/30';
-                                borderColor = 'border-red-500/50';
-                                textColor = 'text-red-400';
-                                icon = <XCircle className="w-5 h-5" />;
-                                message = 'Keep trying! Review the test results below.';
-                            } else {
-                                bgColor = 'bg-amber-950/30';
-                                borderColor = 'border-amber-500/50';
-                                textColor = 'text-amber-400';
-                                icon = <AlertCircle className="w-5 h-5" />;
-                                message = 'Almost there! Try again to pass all tests.';
-                            }
-                            
-                            return (
-                                <div className={`${bgColor} border ${borderColor} rounded-lg p-3 space-y-2 animate-fade-in`}>
+                            return passedTests === totalTests ? (
+                                <div className="bg-green-950/30 border border-green-500/50 rounded-lg p-3 animate-fade-in">
                                     <div className="flex items-start gap-2">
-                                        <div className={textColor}>{icon}</div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className={`font-bold text-sm ${textColor}`}>{message}</div>
+                                        <CheckCircle2 className="w-5 h-5 text-green-400" />
+                                        <div>
+                                            <div className="font-bold text-sm text-green-400">All tests passed! 🎉</div>
                                             <div className="text-slate-400 text-xs mt-1">
-                                                Passed: <span className={`font-bold ${textColor}`}>{passedTests}/{totalTests}</span> 
-                                                <span className="text-slate-600 mx-1">•</span> 
-                                                {percentage}%
+                                                {passedTests}/{totalTests} • {percentage}%
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                            );
+                            ) : (
+                                <div className="bg-amber-950/30 border border-amber-500/50 rounded-lg p-3 animate-fade-in">
+                                    <div className="flex items-start gap-2">
+                                        <AlertCircle className="w-5 h-5 text-amber-400" />
+                                        <div>
+                                            <div className="font-bold text-sm text-amber-400">Review results</div>
+                                            <div className="text-slate-400 text-xs mt-1">
+                                                {passedTests}/{totalTests} • {percentage}%
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )
                         })()}
                     </div>
-                    )
-                })()}
+                )}
             </div>
             
             <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-950/50">
                 {!labNumber && (
                     <div className="text-amber-400 italic flex items-center gap-2 text-xs p-2">
                         <AlertCircle className="w-4 h-4" />
-                        Please select a lab first.
+                        Select a lab first
                     </div>
                 )}
                 
                 {(() => {
-                  const filteredTests = selectedTask === "all" 
-                    ? testCases 
-                    : testCases.filter(t => (t as any).taskName === selectedTask)
-                  
+                  // Group tests by sub-question
                   const grouped: { [key: string]: typeof testCases } = {}
-                  filteredTests.forEach(test => {
-                    const key = (test as any).taskName || '__no_task__'
+                  testCases.forEach(test => {
+                    const key = (test as any).subQuestionName || '__no_sub__'
                     if (!grouped[key]) grouped[key] = []
                     grouped[key].push(test)
                   })
                   
-                  return Object.entries(grouped).map(([taskName, tests]) => (
-                    <div key={taskName}>
-                      {taskName !== '__no_task__' && (
+                  return Object.entries(grouped).map(([subQName, tests]) => (
+                    <div key={subQName}>
+                      {subQName !== '__no_sub__' && (
                         <div className="mb-2 px-2">
-                          <div className="text-xs font-bold text-purple-400 uppercase tracking-wide">{taskName}</div>
+                          <div className="text-xs font-bold text-purple-400 uppercase tracking-wide">{subQName}</div>
                           <div className="h-px bg-purple-500/30 mt-1"></div>
                         </div>
                       )}
                       {tests.map((test) => (
-                    <div key={test.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm hover:border-slate-700 transition-colors">
-                        <div className="p-3 flex items-start justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                                <h3 className="text-sm font-semibold text-slate-200 truncate pr-2">{test.name}</h3>
-                                <div className="flex items-center gap-2 mt-2">
-                                    {test.status === 'pending' && <span className="text-xs text-slate-500 flex items-center gap-1">Not run</span>}
-                                    {test.status === 'running' && <span className="text-xs text-blue-400 flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div> Running...</span>}
-                                    {test.status === 'pass' && <span className="text-xs text-green-400 flex items-center gap-1 font-bold"><CheckCircle2 className="w-3 h-3" /> Passed</span>}
-                                    {test.status === 'fail' && <span className="text-xs text-red-400 flex items-center gap-1 font-bold"><XCircle className="w-3 h-3" /> Failed</span>}
-                                </div>
+                    <div key={test.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+                        <div className="p-3">
+                            <h3 className="text-sm font-semibold text-slate-200">{test.name}</h3>
+                            <div className="flex items-center gap-2 mt-2">
+                                {test.status === 'pending' && <span className="text-xs text-slate-500">Not run</span>}
+                                {test.status === 'running' && <span className="text-xs text-purple-400 flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></div> Running...</span>}
+                                {test.status === 'pass' && <span className="text-xs text-green-400 flex items-center gap-1 font-bold"><CheckCircle2 className="w-3 h-3" /> Passed</span>}
+                                {test.status === 'fail' && <span className="text-xs text-red-400 flex items-center gap-1 font-bold"><XCircle className="w-3 h-3" /> Failed</span>}
                             </div>
                         </div>
                         
-                        <div className="px-3 pb-3 flex items-center justify-between gap-2">
-                            <button 
-                                onClick={() => runSingleTest(test.id)}
-                                disabled={runningTestId === test.id || isRunning}
-                                className="text-[10px] font-bold uppercase tracking-wider text-white bg-green-600 hover:bg-green-500 disabled:bg-slate-700 disabled:text-slate-500 px-3 py-1.5 rounded flex items-center gap-1.5 transition-colors disabled:cursor-not-allowed"
-                            >
-                                {runningTestId === test.id ? (
-                                  <div className="animate-spin w-3 h-3 border-2 border-white/30 border-t-white rounded-full"></div>
-                                ) : (
-                                  <Play className="w-3 h-3" />
-                                )}
-                                {runningTestId === test.id ? 'Running' : 'Run Test'}
-                            </button>
+                        <div className="px-3 pb-3 flex justify-end">
                             <button 
                                 onClick={() => setExpandedTestId(expandedTestId === test.id ? null : test.id)}
-                                className="text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-300 bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded flex items-center gap-1 transition-colors"
+                                className="text-[10px] font-bold uppercase text-slate-500 hover:text-slate-300 bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded flex items-center gap-1 transition-colors"
                             >
-                                {expandedTestId === test.id ? 'Hide' : 'Details'}
+                                {expandedTestId === test.id ? 'Hide' : 'Show'}
                                 {expandedTestId === test.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                             </button>
                         </div>
 
-                        {/* Expanded Details */}
                         {expandedTestId === test.id && (
-                            <div className="bg-slate-950/50 border-t border-slate-800 p-3 text-xs font-mono space-y-2 animate-slide-up">
+                            <div className="bg-slate-950/50 border-t border-slate-800 p-3 text-xs font-mono space-y-2">
+                                {test.testType && (
+                                    <div>
+                                        <span className="text-slate-500 block mb-0.5">Test Type:</span>
+                                        <div className="inline-block bg-purple-600/20 border border-purple-500/30 rounded px-2 py-0.5 text-purple-300 text-[10px] font-bold uppercase">
+                                            {test.testType.replace('_', ' ')}
+                                        </div>
+                                        {test.shouldFail && (
+                                            <span className="ml-2 inline-block bg-orange-600/20 border border-orange-500/30 rounded px-2 py-0.5 text-orange-300 text-[10px] font-bold uppercase">
+                                                Should Fail
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+                                {test.setupSql && (
+                                    <div>
+                                        <span className="text-slate-500 block mb-0.5">Setup SQL:</span>
+                                        <div className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-400 whitespace-pre-wrap">{test.setupSql}</div>
+                                    </div>
+                                )}
+                                {test.verificationSql && (
+                                    <div>
+                                        <span className="text-slate-500 block mb-0.5">Verification SQL:</span>
+                                        <div className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-400 whitespace-pre-wrap">{test.verificationSql}</div>
+                                    </div>
+                                )}
                                 <div>
-                                    <span className="text-slate-500 block mb-0.5">Input:</span>
-                                    <div className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-300 whitespace-pre-wrap">{test.input || <span className="text-slate-600 italic">None</span>}</div>
-                                </div>
-                                <div>
-                                    <span className="text-slate-500 block mb-0.5">Expected Output:</span>
+                                    <span className="text-slate-500 block mb-0.5">Expected:</span>
                                     <div className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-300 whitespace-pre-wrap">{test.expectedOutput}</div>
                                 </div>
                                 {test.actualOutput && (
-                                    <>
-                                        <div>
-                                            <span className="text-slate-500 block mb-0.5">Actual Output:</span>
-                                            <div className={`bg-slate-900 border border-slate-800 rounded px-2 py-1 whitespace-pre-wrap ${test.status === 'pass' ? 'text-green-400' : 'text-red-400'}`}>
-                                                {test.actualOutput}
-                                            </div>
+                                    <div>
+                                        <span className="text-slate-500 block mb-0.5">Actual:</span>
+                                        <div className={`bg-slate-900 border border-slate-800 rounded px-2 py-1 whitespace-pre-wrap ${test.status === 'pass' ? 'text-green-400' : 'text-red-400'}`}>
+                                            {test.actualOutput}
                                         </div>
-                                    </>
+                                    </div>
                                 )}
-                                {test.errorMessage && (
-                                    <div className="bg-red-950/30 border border-red-900/50 rounded p-2">
-                                        <span className="text-red-400 font-bold text-[10px] uppercase tracking-wider block">Error:</span>
-                                        <div className="text-red-300 text-xs mt-1">{test.errorMessage}</div>
+                                {test.cleanupSql && (
+                                    <div>
+                                        <span className="text-slate-500 block mb-0.5">Cleanup SQL:</span>
+                                        <div className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-400 whitespace-pre-wrap">{test.cleanupSql}</div>
                                     </div>
                                 )}
                             </div>
                         )}
                     </div>
-                ))}                    </div>
+                ))}
+                    </div>
                   ))
                 })()}
+
                 {testCases.length === 0 && (
-                   <div className="text-center py-10 px-4">
-                       <div className="bg-slate-900/50 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-800 text-slate-600">
-                           <Code2 className="w-8 h-8" />
-                       </div>
-                       <h3 className="text-slate-400 font-semibold text-sm">No tests created</h3>
-                       <p className="text-slate-600 text-xs mt-1">Admin needs to create test cases for this lab.</p>
+                   <div className="text-center py-10">
+                       <Database className="w-8 h-8 mx-auto text-slate-600 mb-2" />
+                       <h3 className="text-slate-400 text-sm">No tests configured</h3>
                    </div>
                 )}
             </div>
         </div>
       </div>
-
-
     </div>
   )
 }

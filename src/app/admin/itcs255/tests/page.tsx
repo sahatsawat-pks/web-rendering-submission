@@ -14,10 +14,12 @@ interface Lab {
   fileName?: string;
   testCases?: string; // JSON string
   labType?: 'Lab' | 'Challenge';
-  Tasks?: string; // JSON string
+  subTasks?: string; // JSON string
+  totalScore?: number; // Total possible score for gradient display
+  databaseStarter?: string; // SQL to initialize database for this lab
 }
 
-interface Task {
+interface subTask {
   id: string;
   name: string;
   order: number;
@@ -26,10 +28,16 @@ interface Task {
 interface TestCase {
   id: string;
   name: string;
-  input: string;
+  input: string; // Main SQL query to test
   expectedOutput: string;
   matchMode?: 'trim' | 'exact';
-  TaskId?: string; // Optional: which task this test belongs to
+  subTaskId?: string; // Optional: which task this test belongs to
+  // SQL-specific fields
+  setupSql?: string; // SQL to run before test (e.g., CREATE TABLE, INSERT data)
+  verificationSql?: string; // SQL to verify the result (e.g., SELECT to check data)
+  testType?: 'query_result' | 'structure_check' | 'data_check'; // Type of test
+  shouldFail?: boolean; // Test should produce an error
+  cleanupSql?: string; // SQL to run after test
 }
 
 export default function ManageTestCasesPage() {
@@ -37,12 +45,12 @@ export default function ManageTestCasesPage() {
   const [labs, setLabs] = useState<Lab[]>([]);
   const [selectedLab, setSelectedLab] = useState<Lab | null>(null);
   const [testCases, setTestCases] = useState<TestCase[]>([]);
-  const [Tasks, setTasks] = useState<Task[]>([]);
+  const [subTasks, setSubTasks] = useState<subTask[]>([]);
+  const [totalScore, setTotalScore] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [labTypeFilter, setLabTypeFilter] = useState<'Lab' | 'Challenge'>('Lab');
   const [role, setRole] = useState<'LA' | 'Lecturer' | null>(null);
   const [hasAccess, setHasAccess] = useState(false);
 
@@ -53,12 +61,19 @@ export default function ManageTestCasesPage() {
   const [testInput, setTestInput] = useState("");
   const [testOutput, setTestOutput] = useState("");
   const [testMatchMode, setTestMatchMode] = useState<'trim' | 'exact'>('trim');
-  const [selectedTaskId, setSelectedTaskId] = useState<string | undefined>(undefined);
+  const [selectedsubTaskId, setSelectedsubTaskId] = useState<string | undefined>(undefined);
+  // SQL-specific state
+  const [setupSql, setSetupSql] = useState("");
+  const [verificationSql, setVerificationSql] = useState("");
+  const [testType, setTestType] = useState<'query_result' | 'structure_check' | 'data_check'>('query_result');
+  const [shouldFail, setShouldFail] = useState(false);
+  const [cleanupSql, setCleanupSql] = useState("");
+  const [databaseStarter, setDatabaseStarter] = useState("");
 
   // task Modal State
-  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const [currentTask, setCurrentTask] = useState<Task | null>(null);
-  const [TaskName, setTaskName] = useState("");
+  const [issubTaskModalOpen, setIssubTaskModalOpen] = useState(false);
+  const [currentsubTask, setCurrentsubTask] = useState<subTask | null>(null);
+  const [subTaskName, setsubTaskName] = useState("");
 
   useEffect(() => {
     // Check role and permissions first
@@ -100,6 +115,8 @@ export default function ManageTestCasesPage() {
   const handleSelectLab = (lab: Lab) => {
     setSelectedLab(lab);
     setSuccess(null);
+    setTotalScore(lab.totalScore);
+    setDatabaseStarter(lab.databaseStarter || "");
     if (lab.testCases) {
       try {
         setTestCases(JSON.parse(lab.testCases));
@@ -110,48 +127,69 @@ export default function ManageTestCasesPage() {
     } else {
       setTestCases([]);
     }
-    if (lab.Tasks) {
+    if (lab.subTasks) {
       try {
-        setTasks(JSON.parse(lab.Tasks));
+        setSubTasks(JSON.parse(lab.subTasks));
       } catch (e) {
         console.error("Failed to parse tasks", e);
-        setTasks([]);
+        setSubTasks([]);
       }
     } else {
-      setTasks([]);
+      setSubTasks([]);
     }
   };
 
-  const handleOpenModal = (test?: TestCase, TaskId?: string) => {
+  const handleOpenModal = (test?: TestCase, subTaskId?: string) => {
     if (test) {
       setCurrentTest(test);
       setTestName(test.name);
       setTestInput(test.input);
       setTestOutput(test.expectedOutput);
       setTestMatchMode(test.matchMode || 'trim');
-      setSelectedTaskId(test.TaskId);
+      setSelectedsubTaskId(test.subTaskId);
+      setSetupSql(test.setupSql || "");
+      setVerificationSql(test.verificationSql || "");
+      setTestType(test.testType || 'query_result');
+      setShouldFail(test.shouldFail || false);
+      setCleanupSql(test.cleanupSql || "");
     } else {
       setCurrentTest(null);
       setTestName("");
       setTestInput("");
       setTestOutput("");
       setTestMatchMode('trim');
-      setSelectedTaskId(TaskId);
+      setSelectedsubTaskId(subTaskId);
+      setSetupSql("");
+      setVerificationSql("");
+      setTestType('query_result');
+      setShouldFail(false);
+      setCleanupSql("");
     }
     setIsModalOpen(true);
   };
 
-  const handleSaveTest = async () => {
-    if (!testName || !selectedLab) return;
+  const handleSaveTest = () => {
+    if (!testName) return;
 
-    let updatedTestCases: TestCase[];
     if (currentTest) {
       // Edit
-      updatedTestCases = testCases.map(t => 
+      setTestCases(prev => prev.map(t => 
         t.id === currentTest.id 
-          ? { ...t, name: testName, input: testInput, expectedOutput: testOutput, matchMode: testMatchMode, TaskId: selectedTaskId }
+          ? { 
+              ...t, 
+              name: testName, 
+              input: testInput, 
+              expectedOutput: testOutput, 
+              matchMode: testMatchMode, 
+              subTaskId: selectedsubTaskId,
+              setupSql,
+              verificationSql,
+              testType,
+              shouldFail,
+              cleanupSql
+            }
           : t
-      );
+      ));
     } else {
       // Create
       const newTest: TestCase = {
@@ -160,115 +198,57 @@ export default function ManageTestCasesPage() {
         input: testInput,
         expectedOutput: testOutput,
         matchMode: testMatchMode,
-        TaskId: selectedTaskId
+        subTaskId: selectedsubTaskId,
+        setupSql,
+        verificationSql,
+        testType,
+        shouldFail,
+        cleanupSql
       };
-      updatedTestCases = [...testCases, newTest];
+      setTestCases(prev => [...prev, newTest]);
     }
-    
-    setTestCases(updatedTestCases);
     setIsModalOpen(false);
-
-    // Auto-save
-    setSaving(true);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      const res = await fetch("/api/labs", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: selectedLab.id,
-          testCases: JSON.stringify(updatedTestCases),
-          Tasks: JSON.stringify(Tasks)
-        })
-      });
-      
-      const data = await res.json();
-      if (data.success) {
-        setSuccess("Test case saved successfully!");
-        setLabs(prev => prev.map(l => l.id === selectedLab.id ? { ...l, testCases: JSON.stringify(updatedTestCases), Tasks: JSON.stringify(Tasks) } : l));
-      } else {
-        setError(data.error || "Failed to save changes");
-      }
-    } catch (err) {
-      setError("An error occurred while saving");
-    } finally {
-      setSaving(false);
-    }
   };
 
-  const handleOpenTaskModal = (Task?: Task) => {
-    if (Task) {
-      setCurrentTask(Task);
-      setTaskName(Task.name);
+  const handleOpensubTaskModal = (subTask?: subTask) => {
+    if (subTask) {
+      setCurrentsubTask(subTask);
+      setsubTaskName(subTask.name);
     } else {
-      setCurrentTask(null);
-      setTaskName("");
+      setCurrentsubTask(null);
+      setsubTaskName("");
     }
-    setIsTaskModalOpen(true);
+    setIssubTaskModalOpen(true);
   };
 
-  const handleSaveTask = async () => {
-    if (!TaskName || !selectedLab) return;
+  const handleSavesubTask = () => {
+    if (!subTaskName) return;
 
-    let updatedTasks: Task[];
-    if (currentTask) {
+    if (currentsubTask) {
       // Edit
-      updatedTasks = Tasks.map(sq => 
-        sq.id === currentTask.id 
-          ? { ...sq, name: TaskName }
+      setSubTasks(prev => prev.map(sq => 
+        sq.id === currentsubTask.id 
+          ? { ...sq, name: subTaskName }
           : sq
-      );
+      ));
     } else {
       // Create
-      const newTask: Task = {
+      const newsubTask: subTask = {
         id: crypto.randomUUID(),
-        name: TaskName,
-        order: Tasks.length
+        name: subTaskName,
+        order: subTasks.length
       };
-      updatedTasks = [...Tasks, newTask];
+      setSubTasks(prev => [...prev, newsubTask]);
     }
-    
-    setTasks(updatedTasks);
-    setIsTaskModalOpen(false);
-
-    // Auto-save
-    setSaving(true);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      const res = await fetch("/api/labs", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: selectedLab.id,
-          testCases: JSON.stringify(testCases),
-          Tasks: JSON.stringify(updatedTasks)
-        })
-      });
-      
-      const data = await res.json();
-      if (data.success) {
-        setSuccess("Task saved successfully!");
-        setLabs(prev => prev.map(l => l.id === selectedLab.id ? { ...l, testCases: JSON.stringify(testCases), Tasks: JSON.stringify(updatedTasks) } : l));
-      } else {
-        setError(data.error || "Failed to save changes");
-      }
-    } catch (err) {
-      setError("An error occurred while saving");
-    } finally {
-      setSaving(false);
-    }
+    setIssubTaskModalOpen(false);
   };
 
-  const handleDeleteTask = (id: string) => {
+  const handleDeletesubTask = (id: string) => {
     if (confirm("Are you sure? All test cases in this task will be moved to 'No task'.")) {
-      setTasks(prev => prev.filter(sq => sq.id !== id));
+      setSubTasks(prev => prev.filter(sq => sq.id !== id));
       // Move all test cases from this task to no task
       setTestCases(prev => prev.map(tc => 
-        tc.TaskId === id ? { ...tc, TaskId: undefined } : tc
+        tc.subTaskId === id ? { ...tc, subTaskId: undefined } : tc
       ));
     }
   };
@@ -292,7 +272,9 @@ export default function ManageTestCasesPage() {
         body: JSON.stringify({
           id: selectedLab.id,
           testCases: JSON.stringify(testCases),
-          Tasks: JSON.stringify(Tasks)
+          subTasks: JSON.stringify(subTasks),
+          totalScore: totalScore,
+          databaseStarter: databaseStarter
         })
       });
       
@@ -300,7 +282,7 @@ export default function ManageTestCasesPage() {
       if (data.success) {
         setSuccess("Test cases saved successfully!");
         // Update local labs state
-        setLabs(prev => prev.map(l => l.id === selectedLab.id ? { ...l, testCases: JSON.stringify(testCases), Tasks: JSON.stringify(Tasks) } : l));
+        setLabs(prev => prev.map(l => l.id === selectedLab.id ? { ...l, testCases: JSON.stringify(testCases), subTasks: JSON.stringify(subTasks), totalScore: totalScore } : l));
       } else {
         setError(data.error || "Failed to save changes");
       }
@@ -316,7 +298,7 @@ export default function ManageTestCasesPage() {
     return (
       <div className="min-h-screen bg-white dark:bg-[#161b22] text-slate-200 flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-200 dark:border-blue-800 border-t-blue-600 dark:border-t-blue-400"></div>
+          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-purple-200 dark:border-purple-800 border-t-purple-600 dark:border-t-purple-400"></div>
           <p className="text-slate-400 mt-4">Checking permissions...</p>
         </div>
       </div>
@@ -324,109 +306,74 @@ export default function ManageTestCasesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 relative overflow-hidden">
-      {/* Animated Background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 -left-4 w-96 h-96 bg-purple-300 dark:bg-purple-900 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-20 dark:opacity-10 animate-float"></div>
-        <div className="absolute top-0 -right-4 w-96 h-96 bg-pink-300 dark:bg-pink-900 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-20 dark:opacity-10 animate-float" style={{ animationDelay: '2s' }}></div>
-        <div className="absolute -bottom-8 left-20 w-96 h-96 bg-indigo-300 dark:bg-indigo-900 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-20 dark:opacity-10 animate-float" style={{ animationDelay: '4s' }}></div>
-      </div>
-
-      {/* Header */}
-      <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50">
-        <div className="container mx-auto px-6 py-6">
+    <div className="min-h-screen bg-white dark:bg-[#161b22] text-slate-200 p-8 font-['Inter'] animate-fade-in">
+      <div className="max-w-6xl mx-auto space-y-8">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href="/admin/itcs255" className="p-2 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl transition-all duration-200 text-slate-600 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400">
-              <ArrowLeft size={24} />
-            </Link>
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
-                Manage Test Cases
-              </h1>
-              <p className="text-slate-600 dark:text-slate-400 mt-1">ITCS255 - Structured Query Language Essentials</p>
-            </div>
+             <Link href="/admin/dashboard" className="p-2 hover:bg-white/5 rounded-full transition-colors text-slate-400 hover:text-white">
+               <ArrowLeft size={24} />
+             </Link>
+             <div>
+               <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-purple-400 bg-clip-text text-transparent">
+                 Manage Test Cases
+               </h1>
+               <p className="text-slate-400 mt-1">ITCS255 - Structured Query Language Essentials</p>
+             </div>
           </div>
         </div>
-      </div>
 
-      <div className="container mx-auto px-6 py-8 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
             
             {/* Lab List Sidebar */}
-            <div className="lg:col-span-1 animate-fade-in">
-                <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Select Lab</h2>
-                </div>
-                
-                {/* Filter Tabs */}
-                <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-700 mb-4">
-                    <button
-                        onClick={() => setLabTypeFilter('Lab')}
-                        className={`flex-1 px-3 py-1.5 rounded text-xs font-semibold transition-all ${
-                            labTypeFilter === 'Lab'
-                            ? 'bg-purple-600 dark:bg-purple-500 text-white'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                        }`}
-                    >
-                        Labs
-                    </button>
-                    <button
-                        onClick={() => setLabTypeFilter('Challenge')}
-                        className={`flex-1 px-3 py-1.5 rounded text-xs font-semibold transition-all ${
-                            labTypeFilter === 'Challenge'
-                            ? 'bg-pink-600 dark:bg-pink-500 text-white'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                        }`}
-                    >
-                        Challenges
-                    </button>
+            <div className="bg-white dark:bg-[#161b22] p-6 rounded-2xl border border-slate-200 dark:border-white/5 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-semibold text-white">Select Lab</h2>
                 </div>
                 
                 <div className="space-y-2">
                     {loading ? (
-                        <div className="text-slate-500 dark:text-slate-400 animate-pulse">Loading labs...</div>
+                        <div className="text-slate-500 animate-pulse">Loading labs...</div>
                     ) : (
-                        labs
-                            .filter(lab => (lab.labType || 'Lab') === labTypeFilter)
-                            .map(lab => (
+                        labs.map(lab => (
                             <button
                                 key={lab.id}
                                 onClick={() => handleSelectLab(lab)}
                                 className={`w-full text-left p-4 rounded-xl transition-all border ${
                                     selectedLab?.id === lab.id 
-                                    ? "bg-purple-50 dark:bg-purple-500/20 border-purple-200 dark:border-purple-500/50 text-slate-900 dark:text-white"
-                                    : "bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600"
+                                    ? "bg-purple-500/20 border-purple-500/50 text-white"
+                                    : "bg-[#161b22] border-white/5 text-slate-400 hover:bg-[#1c2128] hover:border-white/10"
                                 }`}
                             >
                                 <div className="font-medium">{lab.title}</div>
                                 <div className="text-xs opacity-70 mt-1">
-                                    {labTypeFilter === 'Lab' ? 'Lab' : 'Challenge'} {lab.labNumber}
+                                    Lab {lab.labNumber}
                                 </div>
                             </button>
                         ))
                     )}
                 </div>
-                </div>
             </div>
 
             {/* Editor Area */}
-            <div className="lg:col-span-2 space-y-6 animate-fade-in" style={{ animationDelay: '0.1s' }}>
+            <div className="lg:col-span-3 space-y-6">
                 {selectedLab ? (
                     <>
-                        <div className="flex items-center justify-between bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl">
+                        <div className="flex items-center justify-between bg-[#161b22] p-6 rounded-2xl border border-white/5">
                             <div>
-                                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{selectedLab.title}</h2>
-                                <p className="text-slate-600 dark:text-slate-400 text-sm mt-1">
+                                <h2 className="text-2xl font-bold text-white">{selectedLab.title}</h2>
+                                <p className="text-slate-400 text-sm mt-1">
                                     {testCases.length} Test Case{testCases.length !== 1 && 's'} Defined
-                                    {Tasks.length > 0 && <span className="mx-2">•</span>}
-                                    {Tasks.length > 0 && `${Tasks.length} task${Tasks.length !== 1 ? 's' : ''}`}
+                                    {subTasks.length > 0 && <span className="mx-2">•</span>}
+                                    {subTasks.length > 0 && `${subTasks.length} task${subTasks.length !== 1 ? 's' : ''}`}
                                 </p>
                             </div>
                             <div className="flex items-center gap-3">
                                 <button 
-                                    onClick={() => handleOpenTaskModal()}
-                                    className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 text-indigo-400 rounded-lg hover:bg-indigo-500/20 transition-all border border-indigo-500/20"
+                                    onClick={() => handleOpensubTaskModal()}
+                                    className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 text-purple-400 rounded-lg hover:bg-purple-500/20 transition-all border border-purple-500/20"
                                 >
                                     <Plus size={18} />
                                     Add task
@@ -441,7 +388,7 @@ export default function ManageTestCasesPage() {
                                 <button 
                                     onClick={handleSaveChanges}
                                     disabled={saving}
-                                    className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-500 transition-all shadow-lg shadow-purple-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {saving ? (
                                         <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
@@ -453,15 +400,50 @@ export default function ManageTestCasesPage() {
                             </div>
                         </div>
 
+                        {/* Configuration Section */}
+                        <div className="bg-[#161b22] p-6 rounded-2xl border border-white/5 space-y-6">
+                            <div>
+                                <label className="text-sm font-medium text-slate-300 block mb-2">
+                                    Total Score (Max Points)
+                                </label>
+                                <input 
+                                    type="number" 
+                                    value={totalScore ?? ''}
+                                    onChange={(e) => setTotalScore(e.target.value ? parseInt(e.target.value) : undefined)}
+                                    placeholder="e.g. 100"
+                                    className="w-full max-w-xs bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors"
+                                    min="0"
+                                />
+                                <p className="text-xs text-slate-500 mt-2">
+                                    Used for gradient color display (red → yellow → green)
+                                </p>
+                            </div>
+                            
+                            <div>
+                                <label className="text-sm font-medium text-slate-300 block mb-2">
+                                    Database Starter SQL (Optional)
+                                </label>
+                                <textarea 
+                                    value={databaseStarter}
+                                    onChange={(e) => setDatabaseStarter(e.target.value)}
+                                    placeholder="CREATE DATABASE lab01_pokemon_db;&#10;USE lab01_pokemon_db;&#10;CREATE TABLE Trainer (...);"
+                                    className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors font-mono text-sm min-h-[120px]"
+                                />
+                                <p className="text-xs text-slate-500 mt-2">
+                                    SQL to initialize the database environment for this lab (runs before all tests)
+                                </p>
+                            </div>
+                        </div>
+
                         {error && (
-                            <div className="p-4 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-xl text-red-600 dark:text-red-400 flex items-center gap-3 animate-slide-down">
+                            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 flex items-center gap-3">
                                 <AlertCircle size={20} />
                                 {error}
                             </div>
                         )}
                         
                         {success && (
-                            <div className="p-4 bg-green-50 dark:bg-emerald-500/10 border border-green-200 dark:border-emerald-500/20 rounded-xl text-green-600 dark:text-emerald-400 flex items-center gap-3 animate-slide-down">
+                            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 flex items-center gap-3">
                                 <CheckCircle size={20} />
                                 {success}
                             </div>
@@ -470,17 +452,17 @@ export default function ManageTestCasesPage() {
                         {/* Test Cases List */}
                         <div className="space-y-6">
                             {/* No task Section (if there are any) */}
-                            {testCases.some(tc => !tc.TaskId) && (
+                            {testCases.some(tc => !tc.subTaskId) && (
                                 <div className="space-y-3">
-                                    {Tasks.length > 0 && (
-                                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                                            <span className="text-slate-500 dark:text-slate-400">No task</span>
+                                    {subTasks.length > 0 && (
+                                        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                                            <span className="text-slate-500">No task</span>
                                         </h3>
                                     )}
                                     <div className="grid gap-3 md:gap-4">
                                         {testCases
                                             .map((test, idx) => ({ test, originalIndex: idx }))
-                                            .filter(({ test }) => !test.TaskId)
+                                            .filter(({ test }) => !test.subTaskId)
                                             .map(({ test, originalIndex }) => (
                                             <div key={test.id} className="bg-[#161b22] p-4 md:p-6 rounded-2xl border border-white/5 group hover:border-white/10 transition-all">
                                                 <div className="flex items-start justify-between mb-4">
@@ -496,7 +478,7 @@ export default function ManageTestCasesPage() {
                                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                         <button 
                                                             onClick={() => handleOpenModal(test)}
-                                                            className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-blue-400 transition-colors"
+                                                            className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-purple-400 transition-colors"
                                                         >
                                                             <Edit2 size={18} />
                                                         </button>
@@ -511,14 +493,14 @@ export default function ManageTestCasesPage() {
                                                 
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                                                     <div className="space-y-2">
-                                                        <label className="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">Input</label>
-                                                        <div className="bg-slate-50 dark:bg-slate-900/80 p-3 rounded-lg border border-slate-200 dark:border-slate-700 font-mono text-sm text-slate-700 dark:text-slate-300 min-h-[60px] whitespace-pre-wrap">
-                                                            {test.input || <span className="text-slate-400 dark:text-slate-600 italic">No input</span>}
+                                                        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Input</label>
+                                                        <div className="bg-[#0d1117] p-3 rounded-lg border border-white/5 font-mono text-sm text-slate-300 min-h-[60px] whitespace-pre-wrap">
+                                                            {test.input || <span className="text-slate-600 italic">No input</span>}
                                                         </div>
                                                     </div>
                                                     <div className="space-y-2">
-                                                        <label className="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">Expected Output</label>
-                                                        <div className="bg-slate-50 dark:bg-slate-900/80 p-3 rounded-lg border border-slate-200 dark:border-slate-700 font-mono text-sm text-green-600 dark:text-emerald-400/90 min-h-[60px] whitespace-pre-wrap">
+                                                        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Expected Output</label>
+                                                        <div className="bg-[#0d1117] p-3 rounded-lg border border-white/5 font-mono text-sm text-emerald-400/90 min-h-[60px] whitespace-pre-wrap">
                                                             {test.expectedOutput}
                                                         </div>
                                                     </div>
@@ -530,36 +512,36 @@ export default function ManageTestCasesPage() {
                             )}
 
                             {/* tasks Sections */}
-                            {Tasks.sort((a, b) => a.order - b.order).map((Task) => {
-                                const TaskTests = testCases
+                            {subTasks.sort((a, b) => a.order - b.order).map((subTask) => {
+                                const subTaskTests = testCases
                                     .map((test, idx) => ({ test, originalIndex: idx }))
-                                    .filter(({ test }) => test.TaskId === Task.id);
+                                    .filter(({ test }) => test.subTaskId === subTask.id);
                                 
                                 return (
-                                    <div key={Task.id} className="space-y-3">
+                                    <div key={subTask.id} className="space-y-3">
                                         <div className="flex items-center justify-between">
-                                            <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                                                <span className="text-purple-600 dark:text-purple-400">{Task.name}</span>
-                                                <span className="text-sm text-slate-500 dark:text-slate-400">({TaskTests.length} test{TaskTests.length !== 1 ? 's' : ''})</span>
+                                            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                                                <span className="text-purple-400">{subTask.name}</span>
+                                                <span className="text-sm text-slate-500">({subTaskTests.length} test{subTaskTests.length !== 1 ? 's' : ''})</span>
                                             </h3>
                                             <div className="flex items-center gap-2">
                                                 <button 
-                                                    onClick={() => handleOpenModal(undefined, Task.id)}
-                                                    className="px-3 py-1.5 text-xs bg-green-50 dark:bg-emerald-500/10 text-green-600 dark:text-emerald-400 rounded-lg hover:bg-green-100 dark:hover:bg-emerald-500/20 transition-all border border-green-200 dark:border-emerald-500/20 flex items-center gap-1.5"
+                                                    onClick={() => handleOpenModal(undefined, subTask.id)}
+                                                    className="px-3 py-1.5 text-xs bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition-all border border-emerald-500/20 flex items-center gap-1.5"
                                                 >
                                                     <Plus size={14} />
                                                     Add Test
                                                 </button>
                                                 <button 
-                                                    onClick={() => handleOpenTaskModal(Task)}
-                                                    className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg text-slate-600 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                                                    onClick={() => handleOpensubTaskModal(subTask)}
+                                                    className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-purple-400 transition-colors"
                                                     title="Edit task"
                                                 >
                                                     <Edit2 size={16} />
                                                 </button>
                                                 <button 
-                                                    onClick={() => handleDeleteTask(Task.id)}
-                                                    className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                                    onClick={() => handleDeletesubTask(subTask.id)}
+                                                    className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
                                                     title="Delete task"
                                                 >
                                                     <Trash2 size={16} />
@@ -567,14 +549,14 @@ export default function ManageTestCasesPage() {
                                             </div>
                                         </div>
                                         <div className="grid gap-3 md:gap-4">
-                                            {TaskTests.map(({ test, originalIndex }) => (
-                                                <div key={test.id} className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm p-4 md:p-6 rounded-2xl border border-slate-200 dark:border-purple-500/20 group hover:border-purple-300 dark:hover:border-purple-500/40 transition-all shadow-sm">
+                                            {subTaskTests.map(({ test, originalIndex }) => (
+                                                <div key={test.id} className="bg-[#161b22] p-4 md:p-6 rounded-2xl border border-purple-500/20 group hover:border-purple-500/40 transition-all">
                                                     <div className="flex items-start justify-between mb-4">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 font-mono text-sm border border-slate-200 dark:border-slate-600">
+                                                            <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 font-mono text-sm border border-white/5">
                                                                 {originalIndex + 1}
                                                             </div>
-                                                            <h3 className="font-semibold text-slate-900 dark:text-white text-lg">{test.name}</h3>
+                                                            <h3 className="font-semibold text-white text-lg">{test.name}</h3>
                                                             {test.matchMode === 'exact' && (
                                                                 <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] font-bold border border-purple-500/30">EXACT</span>
                                                             )}
@@ -582,7 +564,7 @@ export default function ManageTestCasesPage() {
                                                         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                             <button 
                                                                 onClick={() => handleOpenModal(test)}
-                                                                className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-blue-400 transition-colors"
+                                                                className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-purple-400 transition-colors"
                                                             >
                                                                 <Edit2 size={18} />
                                                             </button>
@@ -597,14 +579,14 @@ export default function ManageTestCasesPage() {
                                                     
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                                                         <div className="space-y-2">
-                                                            <label className="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">Input</label>
-                                                            <div className="bg-slate-50 dark:bg-slate-900/80 p-3 rounded-lg border border-slate-200 dark:border-slate-700 font-mono text-sm text-slate-700 dark:text-slate-300 min-h-[60px] whitespace-pre-wrap">
-                                                                {test.input || <span className="text-slate-400 dark:text-slate-600 italic">No input</span>}
+                                                            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Input</label>
+                                                            <div className="bg-[#0d1117] p-3 rounded-lg border border-white/5 font-mono text-sm text-slate-300 min-h-[60px] whitespace-pre-wrap">
+                                                                {test.input || <span className="text-slate-600 italic">No input</span>}
                                                             </div>
                                                         </div>
                                                         <div className="space-y-2">
-                                                            <label className="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">Expected Output</label>
-                                                            <div className="bg-slate-50 dark:bg-slate-900/80 p-3 rounded-lg border border-slate-200 dark:border-slate-700 font-mono text-sm text-green-600 dark:text-emerald-400/90 min-h-[60px] whitespace-pre-wrap">
+                                                            <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Expected Output</label>
+                                                            <div className="bg-[#0d1117] p-3 rounded-lg border border-white/5 font-mono text-sm text-emerald-400/90 min-h-[60px] whitespace-pre-wrap">
                                                                 {test.expectedOutput}
                                                             </div>
                                                         </div>
@@ -627,7 +609,7 @@ export default function ManageTestCasesPage() {
                                     <p className="text-sm mt-1">Create a new test case to get started</p>
                                     <button 
                                         onClick={() => handleOpenModal()}
-                                        className="mt-6 px-6 py-2 bg-blue-600/10 text-blue-400 rounded-lg hover:bg-blue-600/20 transition-all font-medium"
+                                        className="mt-6 px-6 py-2 bg-purple-600/10 text-purple-400 rounded-lg hover:bg-purple-600/20 transition-all font-medium"
                                     >
                                         Create First Test Case
                                     </button>
@@ -649,38 +631,53 @@ export default function ManageTestCasesPage() {
 
         {/* Modal */}
         {isModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                <div className="bg-[#161b22] w-full max-w-lg rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+                <div className="bg-[#161b22] w-full max-w-4xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden my-8">
                     <div className="p-6 border-b border-white/5 flex items-center justify-between">
                         <h3 className="text-xl font-bold text-white">
-                            {currentTest ? "Edit Test Case" : "New Test Case"}
+                            {currentTest ? "Edit SQL Test Case" : "New SQL Test Case"}
                         </h3>
                         <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white">
                             <XCircle size={24} />
                         </button>
                     </div>
-                    <div className="p-6 space-y-4">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-300">Test Name</label>
-                            <input 
-                                type="text" 
-                                value={testName}
-                                onChange={(e) => setTestName(e.target.value)}
-                                placeholder="e.g. Basic Query"
-                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
-                            />
+                    <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">Test Name *</label>
+                                <input 
+                                    type="text" 
+                                    value={testName}
+                                    onChange={(e) => setTestName(e.target.value)}
+                                    placeholder="e.g. Create Database Test"
+                                    className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors"
+                                />
+                            </div>
+                            
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">Test Type</label>
+                                <select
+                                    value={testType}
+                                    onChange={(e) => setTestType(e.target.value as any)}
+                                    className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors"
+                                >
+                                    <option value="query_result">Query Result</option>
+                                    <option value="structure_check">Structure Check</option>
+                                    <option value="data_check">Data Check</option>
+                                </select>
+                            </div>
                         </div>
                         
-                        {Tasks.length > 0 && (
+                        {subTasks.length > 0 && (
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-300">task (Optional)</label>
                                 <select
-                                    value={selectedTaskId || ''}
-                                    onChange={(e) => setSelectedTaskId(e.target.value || undefined)}
-                                    className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                                    value={selectedsubTaskId || ''}
+                                    onChange={(e) => setSelectedsubTaskId(e.target.value || undefined)}
+                                    className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors"
                                 >
                                     <option value="">No task</option>
-                                    {Tasks.sort((a, b) => a.order - b.order).map(sq => (
+                                    {subTasks.sort((a, b) => a.order - b.order).map(sq => (
                                         <option key={sq.id} value={sq.id}>{sq.name}</option>
                                     ))}
                                 </select>
@@ -688,34 +685,84 @@ export default function ManageTestCasesPage() {
                         )}
                         
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-300">Input (standard in)</label>
+                            <label className="text-sm font-medium text-slate-300">Setup SQL (Optional)</label>
+                            <p className="text-xs text-slate-500">SQL to run before the test (e.g., CREATE TABLE, INSERT data)</p>
+                            <textarea 
+                                value={setupSql}
+                                onChange={(e) => setSetupSql(e.target.value)}
+                                placeholder="INSERT INTO Trainer VALUES (1, 'Ash', 'Pallet Town');"
+                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors font-mono text-sm min-h-[100px]"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-300">Test SQL Query *</label>
+                            <p className="text-xs text-slate-500">The SQL query to test (student's code)</p>
                             <textarea 
                                 value={testInput}
                                 onChange={(e) => setTestInput(e.target.value)}
-                                placeholder="The input for the test (if applicable)"
-                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors font-mono min-h-[120px]"
+                                placeholder="SELECT * FROM Trainer WHERE trainerID = 1;"
+                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors font-mono text-sm min-h-[120px]"
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-300">Expected output</label>
+                            <label className="text-sm font-medium text-slate-300">Verification SQL (Optional)</label>
+                            <p className="text-xs text-slate-500">SQL to verify the result (if different from test query)</p>
+                            <textarea 
+                                value={verificationSql}
+                                onChange={(e) => setVerificationSql(e.target.value)}
+                                placeholder="SELECT COUNT(*) FROM Trainer;"
+                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors font-mono text-sm min-h-[100px]"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-300">Expected Output *</label>
+                            <p className="text-xs text-slate-500">Expected result (table data, count, error message, etc.)</p>
                             <textarea 
                                 value={testOutput}
                                 onChange={(e) => setTestOutput(e.target.value)}
-                                placeholder="The expected output for the test"
-                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors font-mono min-h-[120px]"
+                                placeholder="1|Ash|Pallet Town"
+                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors font-mono text-sm min-h-[120px]"
                             />
                         </div>
 
                         <div className="space-y-2">
-                             <select
-                                value={testMatchMode}
-                                onChange={(e) => setTestMatchMode(e.target.value as 'trim' | 'exact')}
-                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-slate-300 focus:outline-none focus:border-blue-500 transition-colors"
-                             >
-                                <option value="trim">Match (Trim Whitespace)</option>
-                                <option value="exact">Match (Exact)</option>
-                             </select>
+                            <label className="text-sm font-medium text-slate-300">Cleanup SQL (Optional)</label>
+                            <p className="text-xs text-slate-500">SQL to run after the test (cleanup)</p>
+                            <textarea 
+                                value={cleanupSql}
+                                onChange={(e) => setCleanupSql(e.target.value)}
+                                placeholder="DROP TABLE IF EXISTS Trainer;"
+                                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors font-mono text-sm min-h-[100px]"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">Match Mode</label>
+                                <select
+                                    value={testMatchMode}
+                                    onChange={(e) => setTestMatchMode(e.target.value as 'trim' | 'exact')}
+                                    className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-slate-300 focus:outline-none focus:border-purple-500 transition-colors"
+                                >
+                                    <option value="trim">Trim Whitespace</option>
+                                    <option value="exact">Exact Match</option>
+                                </select>
+                            </div>
+                            
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">Should Fail?</label>
+                                <select
+                                    value={shouldFail ? 'true' : 'false'}
+                                    onChange={(e) => setShouldFail(e.target.value === 'true')}
+                                    className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-slate-300 focus:outline-none focus:border-purple-500 transition-colors"
+                                >
+                                    <option value="false">No (Success Expected)</option>
+                                    <option value="true">Yes (Error Expected)</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                     <div className="p-6 border-t border-white/5 flex justify-end gap-3 bg-[#0d1117]/50">
@@ -727,7 +774,7 @@ export default function ManageTestCasesPage() {
                         </button>
                         <button 
                             onClick={handleSaveTest}
-                            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors font-medium"
+                            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-500 transition-colors font-medium"
                         >
                             {currentTest ? "Update Test Case" : "Create Test Case"}
                         </button>
@@ -737,14 +784,14 @@ export default function ManageTestCasesPage() {
         )}
 
         {/* task Modal */}
-        {isTaskModalOpen && (
+        {issubTaskModalOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
                 <div className="bg-[#161b22] w-full max-w-md rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
                     <div className="p-6 border-b border-white/5 flex items-center justify-between">
                         <h3 className="text-xl font-bold text-white">
-                            {currentTask ? "Edit task" : "New task"}
+                            {currentsubTask ? "Edit task" : "New task"}
                         </h3>
-                        <button onClick={() => setIsTaskModalOpen(false)} className="text-slate-400 hover:text-white">
+                        <button onClick={() => setIssubTaskModalOpen(false)} className="text-slate-400 hover:text-white">
                             <XCircle size={24} />
                         </button>
                     </div>
@@ -753,8 +800,8 @@ export default function ManageTestCasesPage() {
                             <label className="text-sm font-medium text-slate-300">task Name</label>
                             <input 
                                 type="text" 
-                                value={TaskName}
-                                onChange={(e) => setTaskName(e.target.value)}
+                                value={subTaskName}
+                                onChange={(e) => setsubTaskName(e.target.value)}
                                 placeholder="e.g. Question 1, Part A"
                                 className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 transition-colors"
                             />
@@ -762,16 +809,16 @@ export default function ManageTestCasesPage() {
                     </div>
                     <div className="p-6 border-t border-white/5 flex justify-end gap-3 bg-[#0d1117]/50">
                         <button 
-                            onClick={() => setIsTaskModalOpen(false)}
+                            onClick={() => setIssubTaskModalOpen(false)}
                             className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
                         >
                             Cancel
                         </button>
                         <button 
-                            onClick={handleSaveTask}
+                            onClick={handleSavesubTask}
                             className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-500 transition-colors font-medium"
                         >
-                            {currentTask ? "Update task" : "Create task"}
+                            {currentsubTask ? "Update task" : "Create task"}
                         </button>
                     </div>
                 </div>
