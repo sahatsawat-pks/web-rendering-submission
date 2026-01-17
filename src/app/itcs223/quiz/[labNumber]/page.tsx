@@ -744,6 +744,16 @@ export default function QuizTakingPage() {
                 </span>
               </div>
             )}
+            
+            {studentId && (
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 rounded-lg border border-teal-100 dark:border-teal-800 text-sm font-medium">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                {studentId}
+              </div>
+            )}
+
             <button
               onClick={handleLogout}
               className="px-4 py-2 bg-slate-200/80 hover:bg-slate-300/80 dark:bg-slate-700/50 dark:hover:bg-slate-600/50 text-slate-700 dark:text-slate-300 rounded-xl transition-all transform hover:scale-105 hover:shadow-lg text-sm font-medium border border-slate-300 dark:border-slate-600"

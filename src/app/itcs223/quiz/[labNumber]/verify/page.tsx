@@ -16,6 +16,37 @@ export default function QuizVerificationPage() {
   const [error, setError] = useState("")
   const [verifying, setVerifying] = useState(false)
 
+  // Check for existing session on mount
+  useState(() => {
+    // Check sessionStorage first
+    const verified = sessionStorage.getItem('quiz_verified') === 'true'
+    const storedLab = sessionStorage.getItem('quiz_lab')
+    
+    if (verified && storedLab === labNumber) {
+      router.replace(`/itcs223/quiz/${labNumber}`)
+      return
+    }
+
+    // Check localStorage for persistent login
+    const persistentAuth = localStorage.getItem(`quiz_auth_${labNumber}`)
+    if (persistentAuth) {
+      try {
+        const authData = JSON.parse(persistentAuth)
+        if (authData.studentId && authData.credential && authData.labNumber === labNumber) {
+          // Restore session
+          sessionStorage.setItem('quiz_verified', 'true')
+          sessionStorage.setItem('quiz_student_id', authData.studentId)
+          sessionStorage.setItem('quiz_credential', authData.credential)
+          sessionStorage.setItem('quiz_lab', labNumber)
+          
+          router.replace(`/itcs223/quiz/${labNumber}`)
+        }
+      } catch (e) {
+        // Invalid data, ignore
+      }
+    }
+  })
+
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
