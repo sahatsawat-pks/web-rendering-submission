@@ -122,12 +122,27 @@ export default function ITCS255ScorePage() {
           const plainNum = parseInt(lab.labNumber).toString()
           const exactKey = `Lab ${lab.labNumber}`
           const normalizedKey = `Lab ${plainNum}`
+          const inClassKey = `In-Class ${lab.labNumber}`
+          const inClassKeyNormalized = `In-Class ${plainNum}`
           
           let validKey = null
           if (scores[exactKey] !== undefined) validKey = exactKey
           else if (scores[normalizedKey] !== undefined) validKey = normalizedKey
 
-          const scoreValue = validKey ? scores[validKey] : undefined
+          // Check for In-Class status
+          let inClassStatus = false
+          if (scores[inClassKey] && String(scores[inClassKey]).toUpperCase() === 'TRUE') inClassStatus = true
+          else if (scores[inClassKeyNormalized] && String(scores[inClassKeyNormalized]).toUpperCase() === 'TRUE') inClassStatus = true
+
+          let scoreValue = validKey ? scores[validKey] : undefined
+
+          // Automatic full score logic if In-Class is checked
+          if (inClassStatus && (scoreValue === undefined || scoreValue === null || scoreValue === '' || scoreValue === '0')) {
+              if (lab.totalScore) {
+                  scoreValue = lab.totalScore.toString()
+              }
+          }
+
           labRows.push({
               lab: lab.labNumber.padStart(2, '0'),
               title: lab.title, 
@@ -203,7 +218,7 @@ export default function ITCS255ScorePage() {
         </div>
 
         <div className="mx-auto max-w-3xl mb-16 animate-slide-up">
-             <div className="border-t border-b border-slate-200 dark:border-slate-800 py-8 text input mb-8">
+             <div className="border-t border-b border-slate-200 dark:border-slate-800 py-6 sm:py-8 text-center mb-6 sm:mb-8">
                  <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Check Your Lab Scores</h2>
                  <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Enter your credential code to view your progress</p>
              </div>

@@ -202,6 +202,8 @@ function mapRowsToStudents(rows: any[][], subject: string): any[] {
         student['email'] = row[10]; // MU eMail
     }
     
+    let lastLabNumber: string | null = null;
+
     headers.slice(1).forEach((header: string, index: number) => {
         // Safe access to row data
          const cellValue = row[index + 1];
@@ -216,14 +218,19 @@ function mapRowsToStudents(rows: any[][], subject: string): any[] {
             // It's a W column for ITCS251/ITCS255, e.g. "W 1" -> "Lab 1"
             const labNum = parseInt(wMatch[1]).toString();
             student[`Lab ${labNum}`] = cellValue;
+            lastLabNumber = labNum;
         } else if (match) {
             // It's a lab column, e.g. "L01 (2)" -> "1"
             const labNum = parseInt(match[1]).toString(); 
             student[`Lab ${labNum}`] = cellValue;
+            lastLabNumber = labNum;
         } else if (chMatch) {
             // It's a challenge column, e.g. "Ch01 (2)" -> "1"
             const chNum = parseInt(chMatch[1]).toString();
             student[`Challenge ${chNum}`] = cellValue;
+            // Challenge implies new context? Maybe not resetting lastLabNumber for now unless needed.
+            // Resetting for safety if strictly Lab -> In-Class
+            lastLabNumber = null; 
         } else if (header.match(/Feedback/i)) {
              student[header] = cellValue;
         } else if (header.match(/^\s*(name|firstname)\s*$/i)) {
@@ -236,6 +243,12 @@ function mapRowsToStudents(rows: any[][], subject: string): any[] {
              if (match) {
                  student['max_score'] = match[1];
              }
+        } else if (String(header).toLowerCase().trim() === 'in-class') {
+             // Handle In-Class column
+             if (lastLabNumber) {
+                 student[`In-Class ${lastLabNumber}`] = cellValue;
+             }
+             student[header] = cellValue; // Keep original just in case
         } else {
              // Keep original for other cols
              student[header] = cellValue;
