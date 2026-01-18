@@ -13,7 +13,7 @@ export default function AdminDashboard() {
   const router = useRouter()
   const [labs, setLabs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [role, setRole] = useState<'LA' | 'Lecturer'>('LA')
+  const [role, setRole] = useState<'LA' | 'Lecturer' | 'Main Admin'>('LA')
   const [username, setUsername] = useState('')
   const [hasAccess, setHasAccess] = useState(false)
 
@@ -352,7 +352,7 @@ export default function AdminDashboard() {
           <div className="animate-slide-up">
             <div className="flex items-center justify-between mb-2">
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100">ITGE162 Dashboard</h1>
-              {role === 'Lecturer' && (
+              {['Lecturer', 'Main Admin'].includes(role) && (
                 <button
                   onClick={toggleQuizSection}
                   disabled={togglingQuizSection}
@@ -490,6 +490,7 @@ export default function AdminDashboard() {
                     </svg>
                     Write to Spreadsheet
                   </button>
+                  {['Lecturer', 'Main Admin'].includes(role) && (
                   <button
                     type="button"
                     onClick={handleFillMissing}
@@ -502,7 +503,9 @@ export default function AdminDashboard() {
                      ) : (
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                      )}
+                     Fill Missing (0)
                   </button>
+                  )}
               </div>
 
               {gradingSuccess && (
@@ -559,17 +562,17 @@ export default function AdminDashboard() {
                 <span className="px-3 py-1.5 bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-400 rounded-lg text-xs font-medium border border-teal-200 dark:border-teal-700 shadow-sm">
                   {labs.length} Active
                 </span>
-                {role === 'Lecturer' && (
+                {['Lecturer', 'Main Admin'].includes(role) && (
                   <a href="/admin/itge162/quiz" className="px-3 py-1.5 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded-lg text-xs font-medium border border-pink-200 dark:border-pink-800 shadow-sm hover:bg-pink-200 dark:hover:bg-pink-900/50 transition-colors">
                     Manage Quiz
                   </a>
                 )}
-                {(role === 'Lecturer' || username === 'kanzaki_aito') && (
+                {(['Lecturer', 'Main Admin'].includes(role) || username === 'kanzaki_aito') && (
                   <a href="/admin/labs?subject=ITGE162" className="px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-medium border border-indigo-200 dark:border-indigo-800 shadow-sm hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors">
                     Lab Management
                   </a>
                 )}
-                {(role=== 'Lecturer' || username === 'kanzaki_aito') && (
+                {(['Lecturer', 'Main Admin'].includes(role) || username === 'kanzaki_aito') && (
                   <button onClick={() => setShowNewLabDialog(true)} className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1">
                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                      New Lab
@@ -637,7 +640,7 @@ export default function AdminDashboard() {
                       )}
                     </div>
                     <div className="flex gap-2">
-                      {role === 'Lecturer' && lab.quizQuestions && (
+                      {['Lecturer', 'Main Admin'].includes(role) && lab.quizQuestions && (
                         <button
                           onClick={() => toggleQuiz(lab.id, lab.quizEnabled)}
                           disabled={togglingQuiz === lab.id}
@@ -650,7 +653,7 @@ export default function AdminDashboard() {
                           {lab.quizEnabled ? "Quiz: ON" : "Quiz: OFF"}
                         </button>
                       )}
-                      {(role === 'Lecturer' || username === 'kanzaki_aito') && (
+                      {(['Lecturer', 'Main Admin'].includes(role) || username === 'kanzaki_aito') && (
                         <a
                           href="/admin/labs"
                           className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 rounded-lg shadow-md shadow-teal-500/30 transition-all btn-hover-lift"

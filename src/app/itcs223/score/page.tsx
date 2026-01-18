@@ -17,10 +17,21 @@ interface ActiveLab {
     title: string;
 }
 
+interface QuizScore {
+    id: string
+    labNumber: string
+    score: number
+    totalQuestions: number
+    correctAnswers: number
+    submittedAt: string
+}
+
 function StatusChecker() {
   const [credential, setCredential] = useState("")
   const [scores, setScores] = useState<any | null>(null)
+  const [labs, setLabs] = useState<ActiveLab[]>([])
   const [activeLabs, setActiveLabs] = useState<ActiveLab[]>([])
+  const [quizScores, setQuizScores] = useState<QuizScore[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchedId, setSearchedId] = useState("")
@@ -32,6 +43,7 @@ function StatusChecker() {
     setLoading(true)
     setError(null)
     setScores(null)
+    setQuizScores([])
     setSearchedId("")
 
     try {
@@ -76,9 +88,19 @@ function StatusChecker() {
       // Fetch Active Labs
       const labsRes = await fetch(`/api/labs?subject=ITCS223&activeOnly=true`)
 
+      // Fetch Quiz Scores
+      const quizRes = await fetch(`/api/quiz/scores?subject=ITCS223&studentId=${studentId}`)
+
       if (scoreRes.ok && labsRes.ok) {
         const scoreData = await scoreRes.json()
         const labsData = await labsRes.json()
+
+        if (quizRes.ok) {
+            const quizData = await quizRes.json()
+            if (quizData.scores) {
+                setQuizScores(quizData.scores)
+            }
+        }
 
         if (scoreData.scores) {
             setScores(scoreData.scores)
@@ -248,6 +270,58 @@ function StatusChecker() {
                         </tbody>
                     </table>
                 </div>
+
+                {quizScores && quizScores.length > 0 && (
+                    <div className="border-t border-slate-200 dark:border-slate-800">
+                        <div className="bg-slate-50 dark:bg-slate-900/50 px-6 py-3 border-b border-slate-200 dark:border-slate-800">
+                            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                <svg className="w-4 h-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                Quiz Scores
+                            </h3>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                                    <tr>
+                                        <th className="px-6 py-3 font-semibold text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider">Lab</th>
+                                        <th className="px-6 py-3 font-semibold text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider">Score</th>
+                                        <th className="px-6 py-3 font-semibold text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider text-right">Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {quizScores.map((quiz) => (
+                                        <tr key={quiz.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                            <td className="px-6 py-3 text-slate-900 dark:text-slate-200 font-mono">
+                                                <span className="inline-block bg-teal-50 dark:bg-teal-900/30 px-2 py-1 rounded text-xs font-bold text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-800">
+                                                    Lab {quiz.labNumber}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold
+                                                        ${quiz.score >= 80 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 
+                                                          quiz.score >= 50 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                                          'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                                        {quiz.score}%
+                                                    </span>
+                                                    <span className="text-xs text-slate-500 dark:text-slate-500">
+                                                        ({quiz.correctAnswers}/{quiz.totalQuestions})
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-3 text-right text-xs text-slate-500 font-mono">
+                                                {new Date(quiz.submittedAt).toLocaleDateString()}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
                  <div className="bg-slate-50 dark:bg-slate-900/50 p-4 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 flex flex-col sm:flex-row gap-4 justify-between items-center bg-opacity-50">
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-1.5">

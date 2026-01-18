@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "migrate:quiz": "node scripts/run_quiz_migration.js"
   },
   "dependencies": {
     "@azure/identity": "^4.13.0",

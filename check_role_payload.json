@@ -1,0 +1,4 @@
+{
+  "query": "SELECT username, role FROM users WHERE username = 'kanzaki_aito'",
+  "testType": "query_result"
+}

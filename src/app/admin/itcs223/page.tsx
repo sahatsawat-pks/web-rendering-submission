@@ -13,7 +13,7 @@ export default function AdminDashboard() {
   const router = useRouter()
   const [labs, setLabs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [role, setRole] = useState<'LA' | 'Lecturer'>('LA')
+  const [role, setRole] = useState<'LA' | 'Lecturer' | 'Main Admin'>('LA')
   const [username, setUsername] = useState('')
   const [hasAccess, setHasAccess] = useState(false)
 
@@ -344,7 +344,7 @@ export default function AdminDashboard() {
           <div className="animate-slide-up">
             <div className="flex items-center justify-between mb-2">
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100">ITCS223 Dashboard</h1>
-              {role === 'Lecturer' && (
+              {['Lecturer', 'Main Admin'].includes(role) && (
                 <button
                   onClick={toggleQuizSection}
                   disabled={togglingQuizSection}
@@ -478,6 +478,7 @@ export default function AdminDashboard() {
                   >
                     Update Score to Spreadsheet
                   </button>
+                  {['Lecturer', 'Main Admin'].includes(role) && (
                   <button
                     type="button"
                     onClick={handleFillMissing}
@@ -492,6 +493,7 @@ export default function AdminDashboard() {
                      )}
                      Fill Missing (0)
                   </button>
+                  )}
               </div>
 
               {gradingSuccess && (
@@ -548,22 +550,22 @@ export default function AdminDashboard() {
                 <span className="px-3 py-1.5 bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-400 rounded-lg text-xs font-medium border border-teal-200 dark:border-teal-700 shadow-sm">
                   {labs.length} Active
                 </span>
-                {role === 'Lecturer' && (
+                {['Lecturer', 'Main Admin'].includes(role) && (
                   <a href="/admin/itcs223/tests" className="px-3 py-1.5 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-lg text-xs font-medium border border-teal-200 dark:border-teal-800 shadow-sm hover:bg-teal-200 dark:hover:bg-teal-900/50 transition-colors">
                     Manage Test Cases
                   </a>
                 )}
-                {role === 'Lecturer' && (
+                {['Lecturer', 'Main Admin'].includes(role) && (
                   <a href="/admin/itcs223/quiz" className="px-3 py-1.5 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded-lg text-xs font-medium border border-pink-200 dark:border-pink-800 shadow-sm hover:bg-pink-200 dark:hover:bg-pink-900/50 transition-colors">
                     Manage Quiz
                   </a>
                 )}
-                {(role === 'Lecturer' || username === 'kanzaki_aito') && (
+                {(['Lecturer', 'Main Admin'].includes(role) || username === 'kanzaki_aito') && (
                   <a href="/admin/labs?subject=ITCS223" className="px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-medium border border-indigo-200 dark:border-indigo-800 shadow-sm hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors">
                     Lab Management
                   </a>
                 )}
-                {(role === 'Lecturer' || username === 'kanzaki_aito') && (
+                {(['Lecturer', 'Main Admin'].includes(role) || username === 'kanzaki_aito') && (
                 <button onClick={() => setShowNewLabDialog(true)} className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1">
                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                    New Lab
@@ -771,6 +773,241 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* Quiz Scores Section (Lecturer/Admin Only) */}
+      {(['Lecturer', 'Main Admin'].includes(role) || username === 'kanzaki_aito') && (
+        <QuizScoreViewer labs={labs} role={role} />
+      )}
+    </div>
+  )
+}
+
+
+function QuizScoreViewer({ labs, role }: { labs: any[], role?: string }) {
+  const [scores, setScores] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [selectedLab, setSelectedLab] = useState("")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  useEffect(() => {
+    fetchScores()
+  }, [refreshKey])
+
+  async function fetchScores() {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/quiz/scores?subject=ITCS223`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success && data.scores) {
+          setScores(data.scores)
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch quiz scores", e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDownloadCSV = () => {
+    // 1. Convert data to CSV format
+    const headers = ['Student ID', 'Lab Number', 'Score', 'Correct Answers', 'Total Questions', 'Submitted At (GMT+7)'];
+    const csvRows = [headers.join(',')];
+
+    filteredScores.forEach(score => {
+      const date = new Date(score.submittedAt).toLocaleString("en-US", { timeZone: "Asia/Bangkok" });
+      const row = [
+        score.studentId,
+        score.labNumber,
+        score.score,
+        score.correctAnswers,
+        score.totalQuestions,
+        `"${date}"` // Quote date to handle commas
+      ];
+      csvRows.push(row.join(','));
+    });
+
+    const csvString = csvRows.join('\n');
+    
+    // 2. Trigger download
+    const blob = new Blob([csvString], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `quiz_scores_itcs223_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleClearScores = async () => {
+    if (!selectedLab) {
+      alert("Please select a lab first to clear scores.");
+      return;
+    }
+    
+    const confirmMessage = `WARNING: This will PERMANENTLY DELETE ALL quiz scores for Lab ${selectedLab}.\n\nAre you sure you want to reset the quiz system for this lab?`;
+    if (!confirm(confirmMessage)) return;
+    
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/quiz/scores?subject=ITCS223&labNumber=${selectedLab}`, {
+        method: 'DELETE'
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message);
+        setRefreshKey(k => k + 1); // Refresh list
+      } else {
+        alert("Failed to clear scores: " + data.error);
+      }
+    } catch (e) {
+      console.error("Error clearing scores:", e);
+      alert("An error occurred while clearing scores.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter scores
+  const filteredScores = scores.filter(score => {
+    // Filter by Lab
+    if (selectedLab && score.labNumber !== selectedLab) return false
+    
+    // Filter by Search (Student ID)
+    if (searchQuery) {
+      return score.studentId.includes(searchQuery)
+    }
+    
+    return true
+  }).sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
+
+  return (
+    <div className="container mx-auto max-w-7xl px-4 pb-16">
+        <div className="glass-card p-8 animate-scale-in border-white/40">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <div>
+                    <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                        <svg className="w-5 h-5 text-pink-600 dark:text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                        </svg>
+                        Quiz Score Viewer
+                    </h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">View student quiz submissions</p>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <button 
+                        onClick={() => setRefreshKey(k => k + 1)}
+                        className="p-2 text-slate-500 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-400 transition-colors"
+                        title="Refresh Scores"
+                    >
+                        <svg className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
+
+                    <select 
+                        value={selectedLab}
+                        onChange={(e) => setSelectedLab(e.target.value)}
+                        className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                    >
+                        <option value="">All Labs</option>
+                        {labs.map(lab => (
+                            <option key={lab.labNumber} value={lab.labNumber}>Lab {lab.labNumber}</option>
+                        ))}
+                    </select>
+
+                    <input 
+                        type="text" 
+                        placeholder="Search Student ID..." 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm focus:ring-2 focus:ring-teal-500 outline-none font-mono"
+                    />
+
+                    <button 
+                        onClick={handleDownloadCSV}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors text-sm font-medium border border-green-200 dark:border-green-800"
+                        title="Download CSV"
+                        disabled={loading || filteredScores.length === 0}
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                        <span className="hidden sm:inline">CSV</span>
+                    </button>
+
+                    <button 
+                         onClick={handleClearScores}
+                         disabled={loading || !selectedLab}
+                         className="flex items-center gap-2 px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors text-sm font-medium border border-red-200 dark:border-red-800 disabled:opacity-50"
+                         title="Clear scores for selected lab"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        <span className="hidden sm:inline">Clear</span>
+                    </button>
+                </div>
+            </div>
+
+            <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                            <tr>
+                                <th className="px-6 py-3 font-semibold text-slate-700 dark:text-slate-300">Student ID</th>
+                                <th className="px-6 py-3 font-semibold text-slate-700 dark:text-slate-300">Lab</th>
+                                <th className="px-6 py-3 font-semibold text-slate-700 dark:text-slate-300">Score</th>
+                                <th className="px-6 py-3 font-semibold text-slate-700 dark:text-slate-300">Correct</th>
+                                <th className="px-6 py-3 font-semibold text-slate-700 dark:text-slate-300 text-right">Submitted</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white/50 dark:bg-slate-900/20">
+                            {loading && scores.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
+                                        Loading scores...
+                                    </td>
+                                </tr>
+                            ) : filteredScores.length > 0 ? (
+                                filteredScores.map((score) => (
+                                    <tr key={score.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                        <td className="px-6 py-3 font-mono text-slate-900 dark:text-slate-200">
+                                            {score.studentId}
+                                        </td>
+                                        <td className="px-6 py-3">
+                                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                                Lab {score.labNumber}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-3">
+                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold
+                                                ${score.score >= 80 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 
+                                                  score.score >= 50 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                                  'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                                {score.score}%
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-3 text-slate-600 dark:text-slate-400">
+                                            {score.correctAnswers} / {score.totalQuestions}
+                                        </td>
+                                        <td className="px-6 py-3 text-right text-slate-500 text-xs font-mono">
+                                            {new Date(score.submittedAt).toLocaleString("en-US", { timeZone: "Asia/Bangkok" })}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
+                                        No quiz scores found matching your filters.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
   )
 }

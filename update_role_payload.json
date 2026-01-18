@@ -1,0 +1,4 @@
+{
+  "query": "UPDATE users SET role = 'Main Admin' WHERE username = 'kanzaki_aito'",
+  "testType": "structure_check"
+}

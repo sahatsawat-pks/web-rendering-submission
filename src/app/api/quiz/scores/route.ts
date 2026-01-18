@@ -66,3 +66,35 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+// DELETE - Clear quiz scores for a lab
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const subject = searchParams.get('subject')
+    const labNumber = searchParams.get('labNumber')
+
+    if (!subject || !labNumber) {
+      return NextResponse.json(
+        { success: false, error: 'Subject and Lab Number are required' },
+        { status: 400 }
+      )
+    }
+
+    // Dynamic import to avoid circular dependency issues if any
+    const { deleteQuizScores } = await import('@/lib/db')
+    const count = await deleteQuizScores(subject, labNumber)
+
+    return NextResponse.json({ 
+      success: true, 
+      message: `Cleared ${count} quiz scores`,
+      count 
+    })
+  } catch (error) {
+    console.error('Error clearing quiz scores:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to clear quiz scores' },
+      { status: 500 }
+    )
+  }
+}

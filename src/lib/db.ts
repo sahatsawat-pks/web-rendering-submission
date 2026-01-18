@@ -1272,3 +1272,23 @@ export async function deleteQuizProgress(
     client.release();
   }
 }
+
+// Delete quiz scores (for resetting)
+export async function deleteQuizScores(
+  subject: string,
+  labNumber: string
+): Promise<number> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    const result = await client.query(
+      'DELETE FROM quiz_scores WHERE subject = $1 AND lab_number = $2',
+      [subject, labNumber]
+    );
+    return result.rowCount || 0;
+  } finally {
+    client.release();
+  }
+}

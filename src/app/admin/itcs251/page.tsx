@@ -12,7 +12,7 @@ export default function ITCS251AdminDashboard() {
   const router = useRouter()
   const [labs, setLabs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [role, setRole] = useState<'LA' | 'Lecturer'>('LA')
+  const [role, setRole] = useState<'LA' | 'Lecturer' | 'Main Admin'>('LA')
   const [username, setUsername] = useState('')
   const [hasAccess, setHasAccess] = useState(false)
 
@@ -461,7 +461,7 @@ export default function ITCS251AdminDashboard() {
           <div className="animate-slide-up">
             <div className="flex items-center justify-between mb-2">
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100">ITCS251 Dashboard</h1>
-              {role === 'Lecturer' && (
+              {['Lecturer', 'Main Admin'].includes(role) && (
                 <button
                   onClick={toggleQuizSection}
                   disabled={togglingQuizSection}
@@ -605,6 +605,7 @@ export default function ITCS251AdminDashboard() {
                   >
                     Update Score to Spreadsheet
                   </button>
+                  {['Lecturer', 'Main Admin'].includes(role) && (
                   <button
                     type="button"
                     onClick={handleFillMissing}
@@ -619,6 +620,7 @@ export default function ITCS251AdminDashboard() {
                      )}
                      Fill Missing (0)
                   </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setShowCsvModal(true)}
@@ -696,22 +698,22 @@ export default function ITCS251AdminDashboard() {
                 <span className="px-3 py-1.5 bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 rounded-lg text-xs font-medium border border-blue-200 dark:border-blue-700 shadow-sm">
                   {labs.length} Active
                 </span>
-                {role === 'Lecturer' && (
+                {['Lecturer', 'Main Admin'].includes(role) && (
                   <a href="/admin/itcs251/tests" className="px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-medium border border-blue-200 dark:border-blue-800 shadow-sm hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors">
                     Manage Test Cases
                   </a>
                 )}
-                {role === 'Lecturer' && (
+                {['Lecturer', 'Main Admin'].includes(role) && (
                   <a href="/admin/itcs251/quiz" className="px-3 py-1.5 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded-lg text-xs font-medium border border-pink-200 dark:border-pink-800 shadow-sm hover:bg-pink-200 dark:hover:bg-pink-900/50 transition-colors">
                     Manage Quiz
                   </a>
                 )}
-                {(role === 'Lecturer' || username === 'kanzaki_aito') && (
+                {(['Lecturer', 'Main Admin'].includes(role) || username === 'kanzaki_aito') && (
                   <a href="/admin/labs?subject=ITCS251" className="px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-medium border border-indigo-200 dark:border-indigo-800 shadow-sm hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors">
                     Lab Management
                   </a>
                 )}
-                {role === 'Lecturer' && (
+                {['Lecturer', 'Main Admin'].includes(role) && (
                   <button onClick={() => setShowNewLabDialog(true)} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1">
                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                      New Lab
@@ -779,7 +781,7 @@ export default function ITCS251AdminDashboard() {
                       )}
                     </div>
                     <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-                      {role === 'Lecturer' && lab.quizQuestions && (
+                      {['Lecturer', 'Main Admin'].includes(role) && lab.quizQuestions && (
                         <button
                           onClick={() => toggleQuiz(lab.id, lab.quizEnabled)}
                           disabled={togglingQuiz === lab.id}
