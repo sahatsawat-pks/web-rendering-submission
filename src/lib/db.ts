@@ -283,6 +283,8 @@ async function ensureTables() {
             );
         `);
 
+
+
         // Index for faster lookups
         await client.query(`
             CREATE INDEX IF NOT EXISTS idx_quiz_progress_lookup 

@@ -139,7 +139,6 @@ interface LabRow {
   lab: string;
   title: string;
   score: string;
-  feedback?: string;
 }
 
 interface ActiveLab {
@@ -236,7 +235,6 @@ function StatusChecker() {
           const plainNum = parseInt(lab.labNumber).toString()
           const exactKey = `Lab ${lab.labNumber}`
           const normalizedKey = `Lab ${plainNum}`
-          const feedbackKey = `Lab ${lab.labNumber} Feedback`
           
           let validKey = null
           if (scores[exactKey] !== undefined) validKey = exactKey
@@ -247,7 +245,6 @@ function StatusChecker() {
               lab: lab.labNumber.padStart(2, '0'),
               title: lab.title, 
               score: (scoreValue === undefined || scoreValue === null || scoreValue === '') ? '0' : scoreValue,
-              feedback: scores[feedbackKey] || "-"
           })
       })
       
@@ -315,7 +312,6 @@ function StatusChecker() {
                                 <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300">Lab</th>
                                 <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300">Title</th>
                                 <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300 text-right">Score</th>
-                                <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300 text-right">Feedback</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -340,9 +336,6 @@ function StatusChecker() {
                                                 {row.score === '-' ? 'Not Graded' : row.score}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-right text-slate-500 dark:text-slate-400">
-                                            {row.feedback}
-                                        </td>
                                     </tr>
                                 ))}
                                 {/* ITGE162 Summary: Full Score = 30 */}
@@ -366,14 +359,13 @@ function StatusChecker() {
                                                     ({percentage.toFixed(2)}% / 20%)
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4"></td>
                                         </tr>
                                     );
                                 })()}
                                 </>
                             ) : (
                                 <tr>
-                                    <td colSpan={4} className="px-6 py-12 text-center text-slate-400">
+                                    <td colSpan={3} className="px-6 py-12 text-center text-slate-400">
                                         No active labs found or student has no scores for active labs.
                                     </td>
                                 </tr>

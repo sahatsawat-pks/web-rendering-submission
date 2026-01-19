@@ -30,6 +30,7 @@ export default function ITCS251AdminDashboard() {
   const [togglingQuiz, setTogglingQuiz] = useState<number | null>(null)
   const [quizSectionEnabled, setQuizSectionEnabled] = useState(true)
   const [togglingQuizSection, setTogglingQuizSection] = useState(false)
+
   
   // New Lab Dialog state
   const [showNewLabDialog, setShowNewLabDialog] = useState(false)
@@ -166,7 +167,8 @@ export default function ITCS251AdminDashboard() {
                 username: studentId,
                 labNumber: selectedLab,
                 score: parseInt(score),
-                subject: 'ITCS251'
+                subject: 'ITCS251',
+
             })
         });
 
@@ -189,6 +191,8 @@ export default function ITCS251AdminDashboard() {
              setGradingSuccess(true);
              setStudentId("");
              setRemainingDigits("");
+             setStudentId("");
+             setRemainingDigits("");
              // setTimeout(() => setGradingSuccess(false), 5000); // Removed auto-hide
         } else {
             const data = await res.json();
@@ -198,6 +202,8 @@ export default function ITCS251AdminDashboard() {
         setGradingError(err.message || "An unexpected error occurred");
     }
   }
+
+
 
   async function handleFillMissing() {
       if (!selectedLab) {
@@ -254,7 +260,10 @@ export default function ITCS251AdminDashboard() {
           obj[header] = values[i]
         })
         return obj
-      }).filter(row => row.studentId || row.StudentId || row.student_id)
+      }).filter(row => row.studentId || row.StudentId || row.student_id || row.studentID)
+
+      console.log('Parsed CSV rows:', parsed.length)
+      console.log('Sample row:', parsed[0])
 
       // Fetch current sheet data
       const res = await fetch(`/api/scores?subject=ITCS251&action=list_all`)
@@ -268,26 +277,50 @@ export default function ITCS251AdminDashboard() {
       const scores: {[key: string]: 'sheet' | 'csv'} = {}
 
       parsed.forEach((csvRow: any) => {
-        const studentId = csvRow.studentId || csvRow.StudentId || csvRow.student_id
-        const csvScore = csvRow.score || csvRow.Score || csvRow[csvSelectedLab] || '0'
+        const studentId = csvRow.studentId || csvRow.StudentId || csvRow.student_id || csvRow.studentID
+        const csvScore = csvRow.score || csvRow.Score || csvRow.scores || csvRow[csvSelectedLab] || '0'
+
+        
+        console.log(`Processing: ${studentId}, Score: ${csvScore}`)
         
         const sheetStudent = currentSheetData.find((s: any) => 
           (s.id || s.studentId) === studentId
         )
         
-        const sheetScore = sheetStudent ? (sheetStudent[`lab${csvSelectedLab}`] || '0') : '0'
+        if (sheetStudent) {
+          console.log(`Sheet student data for ${studentId}:`, sheetStudent)
+          console.log(`Available fields:`, Object.keys(sheetStudent))
+        }
         
+        // Try both with and without leading zero (e.g., "Lab 01" or "Lab 1")
+        const labNumberWithoutZero = parseInt(csvSelectedLab).toString()
+        const exactKey = `Lab ${csvSelectedLab}`
+        const normalizedKey = `Lab ${labNumberWithoutZero}`
+        
+        let sheetScore = '0'
+        if (sheetStudent) {
+          if (sheetStudent[exactKey] !== undefined) {
+            sheetScore = sheetStudent[exactKey] || '0'
+          } else if (sheetStudent[normalizedKey] !== undefined) {
+            sheetScore = sheetStudent[normalizedKey] || '0'
+          }
+        }
+        console.log(`Sheet score for ${studentId}: ${sheetScore} (tried: ${exactKey}, ${normalizedKey})`)
+        
+        // Include row if score is different
         if (csvScore !== sheetScore) {
           diffs.push({
             studentId,
             name: sheetStudent?.name || csvRow.name || '',
             sheetScore,
             csvScore,
-            isDifferent: true
+            isDifferent: csvScore !== sheetScore
           })
           scores[studentId] = 'csv' // Default to CSV value
         }
       })
+
+      console.log('Differences found:', diffs.length)
 
       setCsvData(parsed)
       setSheetData(currentSheetData)
@@ -316,6 +349,7 @@ export default function ITCS251AdminDashboard() {
       }))
 
       for (const update of updates) {
+        const diff = diffData.find(d => d.studentId === update.username)
         await fetch('/api/scores', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -324,7 +358,8 @@ export default function ITCS251AdminDashboard() {
             username: update.username,
             labNumber: csvSelectedLab,
             score: update.score,
-            subject: 'ITCS251'
+            subject: 'ITCS251',
+
           })
         })
       }
@@ -341,6 +376,8 @@ export default function ITCS251AdminDashboard() {
       setCsvLoading(false)
     }
   }
+
+
 
   async function toggleQuiz(labId: number, currentStatus: boolean) {
     setTogglingQuiz(labId)
@@ -598,6 +635,9 @@ export default function ITCS251AdminDashboard() {
                 </div>
               </div>
 
+              {/* Row 3: Feedback (optional, full width) */}
+
+
               <div className="flex flex-col md:flex-row gap-4">
                   <button
                     type="submit"
@@ -605,6 +645,7 @@ export default function ITCS251AdminDashboard() {
                   >
                     Update Score to Spreadsheet
                   </button>
+
                   {['Lecturer', 'Main Admin'].includes(role) && (
                   <button
                     type="button"

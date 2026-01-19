@@ -11,6 +11,7 @@ interface LabRow {
     title: string
     score: string
     totalScore?: number
+    feedback?: string
 }
 
 interface ActiveLab {
@@ -413,3 +414,6 @@ export default function ITCS251ScorePage() {
     </div>
   )
 }
+
+
+

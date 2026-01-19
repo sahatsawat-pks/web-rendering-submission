@@ -30,6 +30,7 @@ export default function ITCS255AdminDashboard() {
   const [togglingQuiz, setTogglingQuiz] = useState<number | null>(null)
   const [quizSectionEnabled, setQuizSectionEnabled] = useState(true)
   const [togglingQuizSection, setTogglingQuizSection] = useState(false)
+
   
   // New Lab Dialog state
   const [showNewLabDialog, setShowNewLabDialog] = useState(false)
@@ -187,6 +188,8 @@ export default function ITCS255AdminDashboard() {
     }
   }
 
+
+
   async function handleFillMissing() {
       if (!selectedLab) {
           alert("Please select a lab first.");
@@ -257,7 +260,7 @@ export default function ITCS255AdminDashboard() {
 
       parsed.forEach((csvRow: any) => {
         const studentId = csvRow.studentId || csvRow.StudentId || csvRow.student_id
-        const csvScore = csvRow.score || csvRow.Score || csvRow[csvSelectedLab] || '0'
+        const csvScore = csvRow.score || csvRow.Score || csvRow.scores || csvRow[csvSelectedLab] || '0'
         
         const sheetStudent = currentSheetData.find((s: any) => 
           (s.id || s.studentId) === studentId
@@ -265,13 +268,14 @@ export default function ITCS255AdminDashboard() {
         
         const sheetScore = sheetStudent ? (sheetStudent[`lab${csvSelectedLab}`] || '0') : '0'
         
+        // Include row if score is different
         if (csvScore !== sheetScore) {
           diffs.push({
             studentId,
             name: sheetStudent?.name || csvRow.name || '',
             sheetScore,
             csvScore,
-            isDifferent: true
+            isDifferent: csvScore !== sheetScore
           })
           scores[studentId] = 'csv' // Default to CSV value
         }
@@ -304,6 +308,7 @@ export default function ITCS255AdminDashboard() {
       }))
 
       for (const update of updates) {
+        const diff = diffData.find(d => d.studentId === update.username)
         await fetch('/api/scores', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -312,7 +317,7 @@ export default function ITCS255AdminDashboard() {
             username: update.username,
             labNumber: csvSelectedLab,
             score: update.score,
-            subject: 'ITCS255'
+
           })
         })
       }
@@ -320,7 +325,6 @@ export default function ITCS255AdminDashboard() {
       alert(`Successfully updated ${updates.length} scores`)
       setShowCsvModal(false)
       setCsvFile(null)
-      setCsvData([])
       setDiffData([])
       setCsvSelectedLab('')
     } catch (error: any) {
@@ -329,6 +333,8 @@ export default function ITCS255AdminDashboard() {
       setCsvLoading(false)
     }
   }
+
+
 
   async function toggleQuiz(labId: number, currentStatus: boolean) {
     setTogglingQuiz(labId)
@@ -598,6 +604,9 @@ export default function ITCS255AdminDashboard() {
                 </div>
               </div>
 
+              {/* Row 3: Feedback (optional, full width) */}
+
+
               <div className="flex flex-col md:flex-row gap-4">
                   <button
                     type="submit"
@@ -605,6 +614,7 @@ export default function ITCS255AdminDashboard() {
                   >
                     Update Score to Spreadsheet
                   </button>
+
                   {['Lecturer', 'Main Admin'].includes(role) && (
                   <button
                     type="button"

@@ -8,6 +8,7 @@ import {
   fillMissingScores,
 } from "@/lib/sheets";
 
+
 import { getOneDriveScores } from "@/lib/onedrive";
 
 const ITCS223_ONEDRIVE_URL = "https://studentmahidolac-my.sharepoint.com/:x:/r/personal/wudhichart_saw_mahidol_ac_th/_layouts/15/Doc.aspx?sourcedoc=%7B8DEAE777-D52D-4BFE-8610-A99ACC9153ED%7D&file=682_ITCS223_LabScore.xlsx&action=default&mobileredirect=true";
@@ -34,6 +35,7 @@ export async function GET(request: NextRequest) {
             const allScores = await getAllScores(subject);
             // Transform to student list format
             const students = allScores.map((student: any) => ({
+                ...student, // Include all original properties (scores, etc.)
                 id: student.username || student.ID || student.studentId || '',
                 studentId: student.username || student.ID || student.studentId || '',
                 name: student.name || student.Name || '',
@@ -154,6 +156,10 @@ export async function GET(request: NextRequest) {
     if (targetUsername) {
         console.log(`[Scores API] Standard lookup for ${targetUsername} in subject ${subject || 'default'}`);
         const scores = await getStudentAllScores(targetUsername, subject);
+        
+        // Merge feedback from DB if subject is ITCS251 or ITCS255
+
+
         console.log(`[Scores API] Standard lookup result:`, scores ? 'Found' : 'Not found');
         return NextResponse.json({ success: true, scores });
     }
@@ -181,7 +187,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { action, username, labNumber, score, labScore, challengeScore, feedback, updates, subject, section } = body;
+    const { action, username, labNumber, score, labScore, challengeScore, updates, subject, section } = body;
 
     // Check if user has permission to update scores for this subject (or is main admin)
     if (subject && user.username !== 'kanzaki_aito') {
@@ -208,8 +214,14 @@ export async function POST(request: NextRequest) {
             }
         } else {
             // Standard single score update for other subjects
-            await updateStudentLabScore(username, labNumber, score, feedback, subject);
+            
+            // 1. Update Score in Sheets (pass undefined for feedback to skip sheet feedback update)
+            await updateStudentLabScore(username, labNumber, score, undefined, subject);
+
+            // 2. Update Feedback in DB (if provided)
+
         }
+
     } else if (action === 'batch') {
         await batchUpdateScores(updates); // updates arr should contain subject if mixed, or we pass global subject
     } else if (action === 'fill_missing') {
