@@ -60,7 +60,7 @@ export default function ITCS255AdminDashboard() {
   useEffect(() => {
     async function fetchLabs() {
       try {
-        const res = await fetch("/api/labs?activeOnly=true&subject=ITCS255")
+        const res = await fetch("/api/labs?subject=ITCS255")
         if (res.ok) {
           const data = await res.json()
           if (data.success) {
@@ -347,7 +347,7 @@ export default function ITCS255AdminDashboard() {
       const data = await res.json()
       if (data.success) {
         // Refresh lab list
-        const labsRes = await fetch("/api/labs?activeOnly=true&subject=ITCS255")
+        const labsRes = await fetch("/api/labs?subject=ITCS255")
         if (labsRes.ok) {
           const labsData = await labsRes.json()
           if (labsData.success) {
@@ -388,7 +388,7 @@ export default function ITCS255AdminDashboard() {
         })
         setShowNewLabDialog(false)
         
-        const labsRes = await fetch("/api/labs?activeOnly=true&subject=ITCS255")
+        const labsRes = await fetch("/api/labs?subject=ITCS255")
         if (labsRes.ok) {
           const data = await labsRes.json()
           if (data.success) {
@@ -702,11 +702,11 @@ export default function ITCS255AdminDashboard() {
                     d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                   />
                 </svg>
-                Active Labs
+                Labs
               </h3>
               <div className="flex gap-2">
                 <span className="px-3 py-1.5 bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-400 rounded-lg text-xs font-medium border border-purple-200 dark:border-purple-700 shadow-sm">
-                  {labs.length} Active
+                  {labs.length} Total
                 </span>
                 {(['Lecturer', 'Main Admin'].includes(role) || username === 'kanzaki_aito') && (
                   <a href="/admin/itcs255/tests" className="px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-medium border border-purple-200 dark:border-purple-800 shadow-sm hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors">
@@ -755,7 +755,7 @@ export default function ITCS255AdminDashboard() {
                     />
                   </svg>
                 </div>
-                <p className="text-base font-medium">No active labs found</p>
+                <p className="text-base font-medium">No labs found</p>
                 <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Create a new lab to get started</p>
               </div>
             ) : (
@@ -763,13 +763,26 @@ export default function ITCS255AdminDashboard() {
                 {labs.map((lab) => (
                   <div
                     key={lab.id}
-                    className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5 p-4 sm:p-5 rounded-2xl border border-slate-100 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 hover:border-purple-300 dark:hover:border-purple-600 hover:shadow-lg hover:shadow-purple-500/5 transition-all smooth-transition group"
+                    className={`flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5 p-4 sm:p-5 rounded-2xl border transition-all smooth-transition group ${
+                      lab.isActive
+                        ? "border-slate-100 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 hover:border-purple-300 dark:hover:border-purple-600 hover:shadow-lg hover:shadow-purple-500/5"
+                        : "border-slate-200 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-900/30 opacity-75"
+                    }`}
                   >
-                    <div className="flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-xl sm:text-2xl font-bold text-white shadow-lg shadow-purple-500/20 group-hover:scale-105 transition-transform duration-300">
+                    <div className={`flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center text-xl sm:text-2xl font-bold shadow-lg transition-transform duration-300 ${
+                       lab.isActive
+                        ? "bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-purple-500/20 group-hover:scale-105"
+                        : "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 shadow-none"
+                    }`}>
                       {lab.labNumber}
                     </div>
                     <div className="flex-grow min-w-0">
-                      <h4 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-slate-100 mb-1 truncate">{lab.title}</h4>
+                      <h4 className={`text-sm sm:text-base font-semibold truncate ${
+                        lab.isActive ? "text-slate-900 dark:text-slate-100" : "text-slate-500 dark:text-slate-500"
+                      }`}>
+                        {lab.title}
+                        {!lab.isActive && <span className="ml-2 px-2 py-0.5 rounded text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 uppercase tracking-wide">Inactive</span>}
+                      </h4>
                       <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path
@@ -791,6 +804,41 @@ export default function ITCS255AdminDashboard() {
                       )}
                     </div>
                     <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+                       {['Lecturer', 'Main Admin'].includes(role) && (
+                         <button
+                           onClick={async () => {
+                             try {
+                               const response = await fetch("/api/labs", {
+                                 method: "PUT",
+                                 headers: { "Content-Type": "application/json" },
+                                 body: JSON.stringify({ id: lab.id, isActive: !lab.isActive }),
+                               })
+                               if (response.ok) {
+                                  // Refresh labs
+                                  const labsRes = await fetch("/api/labs?subject=ITCS255")
+                                  if (labsRes.ok) {
+                                    const data = await labsRes.json()
+                                    if (data.success) {
+                                      setLabs(data.labs.sort((a: any, b: any) => a.labNumber.localeCompare(b.labNumber)))
+                                    }
+                                  }
+                               } else {
+                                 alert("Failed to toggle status")
+                               }
+                             } catch (err) {
+                               console.error(err)
+                               alert("Failed to toggle status")
+                             }
+                           }}
+                           className={`flex-1 sm:flex-none justify-center px-3 py-2 text-xs font-semibold rounded-lg transition-all border ${
+                             lab.isActive
+                               ? "bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800 hover:bg-purple-100"
+                               : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-200"
+                           }`}
+                         >
+                           {lab.isActive ? "Active" : "Inactive"}
+                         </button>
+                      )}
                       {['Lecturer', 'Main Admin'].includes(role) && lab.quizQuestions && (
                         <button
                           onClick={() => toggleQuiz(lab.id, lab.quizEnabled)}
