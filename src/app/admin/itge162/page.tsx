@@ -653,14 +653,6 @@ export default function AdminDashboard() {
                           {lab.quizEnabled ? "Quiz: ON" : "Quiz: OFF"}
                         </button>
                       )}
-                      {(['Lecturer', 'Main Admin'].includes(role) || username === 'kanzaki_aito') && (
-                        <a
-                          href="/admin/labs"
-                          className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 rounded-lg shadow-md shadow-teal-500/30 transition-all btn-hover-lift"
-                        >
-                          Manage
-                        </a>
-                      )}
                     </div>
                   </div>
                 ))}

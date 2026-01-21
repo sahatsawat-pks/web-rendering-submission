@@ -714,14 +714,6 @@ export default function ITDS283AdminDashboard() {
                           {lab.quizEnabled ? "Quiz: ON" : "Quiz: OFF"}
                         </button>
                       )}
-                      {(['Lecturer', 'Main Admin'].includes(role) || username === 'kanzaki_aito') && (
-                        <a
-                          href="#"
-                          className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-rose-600 to-orange-600 hover:from-rose-700 hover:to-orange-700 rounded-lg shadow-md shadow-rose-500/30 transition-all btn-hover-lift"
-                        >
-                          Manage
-                        </a>
-                      )}
                     </div>
                   </div>
                 ))}

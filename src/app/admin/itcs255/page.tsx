@@ -804,14 +804,6 @@ export default function ITCS255AdminDashboard() {
                           {lab.quizEnabled ? "Quiz: ON" : "Quiz: OFF"}
                         </button>
                       )}
-                      {(role === 'Lecturer' || username === 'kanzaki_aito') && (
-                        <a
-                          href="/admin/labs"
-                          className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-lg shadow-md shadow-purple-500/30 transition-all btn-hover-lift"
-                        >
-                          Manage
-                        </a>
-                      )}
                     </div>
                   </div>
                 ))}
