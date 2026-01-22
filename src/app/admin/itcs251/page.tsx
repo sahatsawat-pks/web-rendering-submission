@@ -64,7 +64,15 @@ export default function ITCS251AdminDashboard() {
         if (res.ok) {
           const data = await res.json()
           if (data.success) {
-            setLabs(data.labs.sort((a: any, b: any) => a.labNumber.localeCompare(b.labNumber)))
+            const sortedLabs = data.labs.sort((a: any, b: any) => a.labNumber.localeCompare(b.labNumber))
+            setLabs(sortedLabs)
+            
+            // Set default to latest active lab
+            const activeLabs = sortedLabs.filter((lab: any) => lab.isActive)
+            if (activeLabs.length > 0) {
+              const latestActiveLab = activeLabs[activeLabs.length - 1]
+              setSelectedLab(latestActiveLab.labNumber)
+            }
           }
         }
       } catch (e) {
@@ -575,7 +583,7 @@ export default function ITCS251AdminDashboard() {
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-all"
                   >
                     <option value="">Select Lab</option>
-                    {labs.map((lab) => (
+                    {labs.filter(lab => lab.isActive).map((lab) => (
                       <option key={lab.id} value={lab.labNumber}>
                         Lab {lab.labNumber}: {lab.title}
                       </option>
