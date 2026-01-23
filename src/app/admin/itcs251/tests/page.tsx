@@ -29,7 +29,7 @@ interface TestCase {
   name: string;
   input: string;
   expectedOutput: string;
-  matchMode?: 'trim' | 'exact';
+  matchMode?: 'trim' | 'exact' | 'regex';
   subTaskId?: string; // Optional: which task this test belongs to
 }
 
@@ -53,7 +53,7 @@ export default function ManageTestCasesPage() {
   const [testName, setTestName] = useState("");
   const [testInput, setTestInput] = useState("");
   const [testOutput, setTestOutput] = useState("");
-  const [testMatchMode, setTestMatchMode] = useState<'trim' | 'exact'>('trim');
+  const [testMatchMode, setTestMatchMode] = useState<'trim' | 'exact' | 'regex'>('trim');
   const [selectedsubTaskId, setSelectedsubTaskId] = useState<string | undefined>(undefined);
 
   // task Modal State
@@ -491,6 +491,9 @@ export default function ManageTestCasesPage() {
                                                         {test.matchMode === 'exact' && (
                                                             <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] font-bold border border-purple-500/30">EXACT</span>
                                                         )}
+                                                        {test.matchMode === 'regex' && (
+                                                            <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-bold border border-blue-500/30">REGEX</span>
+                                                        )}
                                                     </div>
                                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                         <button 
@@ -574,9 +577,12 @@ export default function ManageTestCasesPage() {
                                                                 {originalIndex + 1}
                                                             </div>
                                                             <h3 className="font-semibold text-slate-900 dark:text-white text-lg">{test.name}</h3>
-                                                            {test.matchMode === 'exact' && (
+                                                              {test.matchMode === 'exact' && (
                                                                 <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] font-bold border border-purple-500/30">EXACT</span>
-                                                            )}
+                                                              )}
+                                                              {test.matchMode === 'regex' && (
+                                                                <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-bold border border-blue-500/30">REGEX</span>
+                                                              )}
                                                         </div>
                                                         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                             <button 
@@ -714,6 +720,7 @@ export default function ManageTestCasesPage() {
                              >
                                 <option value="trim">Match (Trim Whitespace)</option>
                                 <option value="exact">Match (Exact)</option>
+                                <option value="regex">Match (Regular Expression)</option>
                              </select>
                         </div>
                     </div>

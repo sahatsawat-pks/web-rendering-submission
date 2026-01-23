@@ -12,7 +12,7 @@ interface TestCase {
   actualOutput?: string
   status: 'pending' | 'running' | 'pass' | 'fail'
   errorMessage?: string
-  matchMode?: 'trim' | 'exact'
+  matchMode?: 'trim' | 'exact' | 'regex'
 }
 
 export default function PythonTestRunner() {
@@ -163,8 +163,16 @@ print(a + b)`)
           
           if (mode === 'trim') {
             passed = actualNorm.trim() === expectedNorm.trim()
-          } else {
+          } else if (mode === 'exact') {
             passed = actualNorm === expectedNorm
+          } else if (mode === 'regex') {
+            try {
+                const regex = new RegExp(expectedNorm.trim())
+                passed = regex.test(actualNorm)
+            } catch (e: any) {
+                passed = false
+                activeTest.errorMessage = "Invalid Regex Pattern: " + e.message
+            }
           }
           
           activeTest.status = passed ? 'pass' : 'fail'
@@ -245,8 +253,16 @@ print(a + b)`)
                     
                     if (mode === 'trim') {
                         passed = actualNorm.trim() === expectedNorm.trim()
-                    } else {
+                    } else if (mode === 'exact') {
                         passed = actualNorm === expectedNorm
+                    } else if (mode === 'regex') {
+                        try {
+                            const regex = new RegExp(expectedNorm.trim())
+                            passed = regex.test(actualNorm)
+                        } catch (e: any) {
+                            passed = false
+                            activeTest.errorMessage = "Invalid Regex Pattern: " + e.message
+                        }
                     }
                     
                     if (passed) {
