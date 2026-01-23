@@ -19,17 +19,35 @@ const getPythonCommand = async () => {
         '/Library/Frameworks/Python.framework/Versions/3.13/bin/python3'
     ];
     
+    const errors: string[] = [];
+    
     for (const cmd of commands) {
         try {
-            await execPromise(`${cmd} --version`);
+            // If it's an absolute path, verify it exists first
+            if (path.isAbsolute(cmd)) {
+                try {
+                    await fs.access(cmd);
+                } catch (accessErr) {
+                    errors.push(`${cmd}: File not found/access denied`);
+                    continue;
+                }
+            }
+
+            const { stdout } = await execPromise(`${cmd} --version`);
             return cmd;
-        } catch (e) {
-            continue;
+        } catch (e: any) {
+            errors.push(`${cmd}: ${e.message || e}`);
         }
     }
     
-    console.error('PATH env:', process.env.PATH);
-    throw new Error('Python interpreter not found. Checked: ' + commands.join(', '));
+    const debugInfo = {
+        pathEnv: process.env.PATH,
+        user: process.env.USER,
+        errors
+    };
+    
+    console.error('Python detection failed:', debugInfo);
+    throw new Error(`Python interpreter not found.\nDetails:\n${errors.join('\n')}\nPATH: ${process.env.PATH}`);
 };
 
 export async function POST(req: NextRequest) {
