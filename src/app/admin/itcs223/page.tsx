@@ -392,7 +392,7 @@ export default function AdminDashboard() {
                 Student Lab Grader
               </h3>
               <a
-                href="https://studentmahidolac-my.sharepoint.com/personal/wudhichart_saw_mahidol_ac_th/_layouts/15/doc2.aspx?sourcedoc=%7B8DEAE777-D52D-4BFE-8610-A99ACC9153ED%7D&file=682_ITCS223_LabScore.xlsx&action=default&mobileredirect=true"
+                href="https://docs.google.com/spreadsheets/d/1tXj1QnbQFR3RQUWdzimR0vfWVtu-aUyeCbnAgv3RAbE/edit?usp=sharing"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-600 text-white rounded-lg transition-colors text-sm font-semibold shadow-lg shadow-teal-500/20"
