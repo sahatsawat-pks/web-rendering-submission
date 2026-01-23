@@ -143,22 +143,23 @@ print(a + b)`)
       
       const result = await response.json()
       
-      setTestCases(prev => {
-        const current = [...prev]
-        const activeTest = current[testIndex]
+      setTestCases(prev => prev.map(t => {
+        if (t.id !== testId) return t
+        
+        const updatedTest = { ...t }
         
         if (result.error && !result.output) {
-          activeTest.status = 'fail'
-          activeTest.actualOutput = result.output || ''
-          activeTest.errorMessage = result.error
+          updatedTest.status = 'fail'
+          updatedTest.actualOutput = result.output || ''
+          updatedTest.errorMessage = result.error
         } else {
           const rawActual = result.output || ''
-          const rawExpected = activeTest.expectedOutput
+          const rawExpected = updatedTest.expectedOutput
           
           const actualNorm = rawActual.replace(/\r\n/g, '\n')
           const expectedNorm = rawExpected.replace(/\r\n/g, '\n')
           
-          const mode = activeTest.matchMode || 'trim'
+          const mode = updatedTest.matchMode || 'trim'
           let passed = false
           
           if (mode === 'trim') {
@@ -171,24 +172,21 @@ print(a + b)`)
                 passed = regex.test(actualNorm)
             } catch (e: any) {
                 passed = false
-                activeTest.errorMessage = "Invalid Regex Pattern: " + e.message
+                updatedTest.errorMessage = "Invalid Regex Pattern: " + e.message
             }
           }
           
-          activeTest.status = passed ? 'pass' : 'fail'
-          activeTest.actualOutput = (result.output || '') + (result.error ? `\n\nError Stream:\n${result.error}` : '')
+          updatedTest.status = passed ? 'pass' : 'fail'
+          updatedTest.actualOutput = (result.output || '') + (result.error ? `\n\nError Stream:\n${result.error}` : '')
         }
         
-        return current
-      })
+        return updatedTest
+      }))
     } catch (e: any) {
       console.error("Test execution failed", e)
-      setTestCases(prev => {
-        const current = [...prev]
-        current[testIndex].status = 'fail'
-        current[testIndex].errorMessage = "Network or Server Error"
-        return current
-      })
+      setTestCases(prev => prev.map(t => 
+        t.id === testId ? { ...t, status: 'fail', errorMessage: "Network or Server Error" } : t
+      ))
     } finally {
       setRunningTestId(null)
     }
@@ -233,22 +231,26 @@ print(a + b)`)
             
             const result = await response.json()
             
-            setTestCases(prev => {
-                const current = [...prev]
-                const activeTest = current[originalIndex]
+            setTestCases(prev => prev.map(t => {
+                if (t.id !== test.id) return t
+
+                const updatedTest = { ...t }
                 
+                // Logging for debug
+                console.log(`Test ${test.id} result:`, result)
+
                 if (result.error && !result.output) {
-                     activeTest.status = 'fail'
-                     activeTest.actualOutput = result.output || ''
-                     activeTest.errorMessage = result.error
+                     updatedTest.status = 'fail'
+                     updatedTest.actualOutput = result.output || ''
+                     updatedTest.errorMessage = result.error
                 } else {
                     const rawActual = result.output || ''
-                    const rawExpected = activeTest.expectedOutput
+                    const rawExpected = updatedTest.expectedOutput
                     
                     const actualNorm = rawActual.replace(/\r\n/g, '\n')
                     const expectedNorm = rawExpected.replace(/\r\n/g, '\n')
                     
-                    const mode = activeTest.matchMode || 'trim'
+                    const mode = updatedTest.matchMode || 'trim'
                     let passed = false
                     
                     if (mode === 'trim') {
@@ -261,29 +263,27 @@ print(a + b)`)
                             passed = regex.test(actualNorm)
                         } catch (e: any) {
                             passed = false
-                            activeTest.errorMessage = "Invalid Regex Pattern: " + e.message
+                            updatedTest.errorMessage = "Invalid Regex Pattern: " + e.message
                         }
                     }
                     
-                    if (passed) {
-                        activeTest.status = 'pass'
-                    } else {
-                        activeTest.status = 'fail'
-                    }
-                    activeTest.actualOutput = (result.output || '') + (result.error ? `\n\nError Stream:\n${result.error}` : '')
+                    updatedTest.status = passed ? 'pass' : 'fail'
+                    updatedTest.actualOutput = (result.output || '') + (result.error ? `\n\nError Stream:\n${result.error}` : '')
                 }
                 
-                return current
-            })
+                return updatedTest
+            }))
 
         } catch (e: any) {
             console.error("Test execution failed", e)
-             setTestCases(prev => {
-                const current = [...prev]
-                current[originalIndex].status = 'fail'
-                current[originalIndex].errorMessage = "Network or Server Error"
-                return current
-            })
+             setTestCases(prev => prev.map(t => {
+                if (t.id !== test.id) return t
+                return {
+                    ...t,
+                    status: 'fail',
+                    errorMessage: "Network or Server Error"
+                }
+            }))
         }
     }
     
