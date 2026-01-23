@@ -8,6 +8,19 @@ import os from 'os';
 
 const execPromise = util.promisify(exec);
 
+const getPythonCommand = async () => {
+    const commands = ['python3', 'python', 'py'];
+    for (const cmd of commands) {
+        try {
+            await execPromise(`${cmd} --version`);
+            return cmd;
+        } catch (e) {
+            continue;
+        }
+    }
+    throw new Error('Python interpreter not found (checked python3, python, py)');
+};
+
 export async function POST(req: NextRequest) {
     let runDir = '';
     try {
@@ -35,11 +48,14 @@ export async function POST(req: NextRequest) {
             await fs.writeFile(path.join(runDir, 'input.txt'), input);
         }
 
-        // 3. Execute with timeout
-        // using python3 -u (unbuffered) to ensure stdout is captured immediately
+        // 3. Detect and Execute
+        const pythonCmd = await getPythonCommand();
+        console.log('Using Python Command:', pythonCmd);
+
+        // using -u (unbuffered) to ensure stdout is captured immediately
         const command = hasInput 
-            ? `python3 -u main.py < input.txt`
-            : `python3 -u main.py`;
+            ? `${pythonCmd} -u main.py < input.txt`
+            : `${pythonCmd} -u main.py`;
 
         try {
             const { stdout, stderr } = await execPromise(command, { 
