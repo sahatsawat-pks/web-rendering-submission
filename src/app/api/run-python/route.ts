@@ -13,6 +13,8 @@ export async function POST(req: NextRequest) {
     try {
         const { code, input } = await req.json();
 
+        console.log('API Request Received:', { codeLength: code?.length, inputLength: input?.length });
+
         if (!code) {
             return NextResponse.json({ error: 'No code provided' }, { status: 400 });
         }
@@ -46,6 +48,8 @@ export async function POST(req: NextRequest) {
                 maxBuffer: 1024 * 1024 // 1MB output limit
             });
 
+            console.log('Python Execution Result:', { runId, stdout, stderr });
+
             return NextResponse.json({
                 output: stdout,
                 error: stderr
@@ -54,12 +58,14 @@ export async function POST(req: NextRequest) {
         } catch (execError: any) {
             // Check for timeout
             if (execError.signal === 'SIGTERM' || execError.killed) {
+                 console.error('Python Execution Timed Out:', runId);
                  return NextResponse.json({
                     error: 'Execution Timed Out (5s limit)',
                     output: execError.stdout || ''
                 });
             }
             
+            console.error('Python Execution Runtime Error:', { runId, error: execError });
             return NextResponse.json({
                 output: execError.stdout || '',
                 error: execError.stderr || execError.message || 'Runtime Error'

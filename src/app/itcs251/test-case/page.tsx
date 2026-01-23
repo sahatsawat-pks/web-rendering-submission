@@ -150,7 +150,7 @@ print(a + b)`)
         
         if (result.error && !result.output) {
           updatedTest.status = 'fail'
-          updatedTest.actualOutput = result.output || ''
+          updatedTest.actualOutput = result.error // Display error as output
           updatedTest.errorMessage = result.error
         } else {
           const rawActual = result.output || ''
@@ -241,7 +241,7 @@ print(a + b)`)
 
                 if (result.error && !result.output) {
                      updatedTest.status = 'fail'
-                     updatedTest.actualOutput = result.output || ''
+                     updatedTest.actualOutput = result.error // Display error as output
                      updatedTest.errorMessage = result.error
                 } else {
                     const rawActual = result.output || ''
