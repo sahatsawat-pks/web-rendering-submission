@@ -4,6 +4,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import util from 'util';
 import { v4 as uuidv4 } from 'uuid';
+import os from 'os';
 
 const execPromise = util.promisify(exec);
 
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
 
         // 1. Create isolated temp directory
         const runId = uuidv4();
-        const tmpDir = path.join(process.cwd(), 'tmp', 'python-runs');
+        const tmpDir = path.join(os.tmpdir(), 'python-runs');
         runDir = path.join(tmpDir, runId);
         
         await fs.mkdir(runDir, { recursive: true });
