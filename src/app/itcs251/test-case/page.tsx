@@ -560,12 +560,12 @@ print(a + b)`)
                                     <span className="text-slate-500 block mb-0.5">Expected Output:</span>
                                     <div className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-300 whitespace-pre-wrap">{test.expectedOutput}</div>
                                 </div>
-                                {test.actualOutput && (
+                                {test.actualOutput !== undefined && (
                                     <>
                                         <div>
                                             <span className="text-slate-500 block mb-0.5">Actual Output:</span>
                                             <div className={`bg-slate-900 border border-slate-800 rounded px-2 py-1 whitespace-pre-wrap ${test.status === 'pass' ? 'text-green-400' : 'text-red-400'}`}>
-                                                {test.actualOutput}
+                                                {test.actualOutput || <span className="text-slate-600 italic">No output received</span>}
                                             </div>
                                         </div>
                                     </>

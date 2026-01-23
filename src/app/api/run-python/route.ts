@@ -34,10 +34,10 @@ export async function POST(req: NextRequest) {
         }
 
         // 3. Execute with timeout
-        // using python3 and redirecting input if it exists
+        // using python3 -u (unbuffered) to ensure stdout is captured immediately
         const command = hasInput 
-            ? `python3 main.py < input.txt`
-            : `python3 main.py`;
+            ? `python3 -u main.py < input.txt`
+            : `python3 -u main.py`;
 
         try {
             const { stdout, stderr } = await execPromise(command, { 
