@@ -9,7 +9,16 @@ import os from 'os';
 const execPromise = util.promisify(exec);
 
 const getPythonCommand = async () => {
-    const commands = ['python3', 'python', 'py'];
+    const commands = [
+        'python3', 
+        'python', 
+        'py',
+        '/usr/bin/python3',
+        '/usr/local/bin/python3',
+        '/opt/miniconda3/bin/python',
+        '/Library/Frameworks/Python.framework/Versions/3.13/bin/python3'
+    ];
+    
     for (const cmd of commands) {
         try {
             await execPromise(`${cmd} --version`);
@@ -18,7 +27,9 @@ const getPythonCommand = async () => {
             continue;
         }
     }
-    throw new Error('Python interpreter not found (checked python3, python, py)');
+    
+    console.error('PATH env:', process.env.PATH);
+    throw new Error('Python interpreter not found. Checked: ' + commands.join(', '));
 };
 
 export async function POST(req: NextRequest) {
