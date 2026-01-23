@@ -325,7 +325,8 @@ export default function ITCS255AdminDashboard() {
             username: update.username,
             labNumber: csvSelectedLab,
             score: update.score,
-
+            subject: 'ITCS255',
+            isCsv: true
           })
         })
       }

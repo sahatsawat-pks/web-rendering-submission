@@ -413,9 +413,10 @@ export async function updateStudentLabScore(
   score: number, 
   feedback?: string, 
   sheetName: string = 'Sheet1',
-  scoreType?: 'lab' | 'challenge' // For ITCS123 dual scoring
+  scoreType?: 'lab' | 'challenge', // For ITCS123 dual scoring
+  isCsv: boolean = false
 ) {
-  console.log(`[updateStudentLabScore] START: User=${username}, Lab=${labNumber}, Score=${score}, Subject=${sheetName}, Type=${scoreType || 'standard'}`);
+  console.log(`[updateStudentLabScore] START: User=${username}, Lab=${labNumber}, Score=${score}, Subject=${sheetName}, Type=${scoreType || 'standard'}, IsCsv=${isCsv}`);
   
   // For ITCS123, format the column name based on score type
   let actualLabNumber = labNumber;
@@ -476,17 +477,17 @@ export async function updateStudentLabScore(
        }
        
        if (foundSection) {
-           return updateSpecificTab(sheetName, foundSection, username, actualLabNumber, score, feedback);
+           return updateSpecificTab(sheetName, foundSection, username, actualLabNumber, score, feedback, isCsv);
        } else {
            console.log(`[updateStudentLabScore] User ${username} NOT FOUND in any section. Defaulting to ${sections[0]}`);
            // Student not found in any section. Default to first.
-           return updateSpecificTab(sheetName, sections[0], username, actualLabNumber, score, feedback);
+           return updateSpecificTab(sheetName, sections[0], username, actualLabNumber, score, feedback, isCsv);
        }
   }
 
   // Single Sheet Standard Logic
   console.log(`[updateStudentLabScore] Standard sheet: ${sheetName}`);
-  return updateSpecificTab(sheetName, sheetName, username, actualLabNumber, score, feedback);
+  return updateSpecificTab(sheetName, sheetName, username, actualLabNumber, score, feedback, isCsv);
 }
 
 // Helper to update XLSX file directly (Download -> Modify -> Upload)
@@ -557,7 +558,7 @@ async function updateXlsxData(spreadsheetId: string, tabName: string, updates: {
 }
 
 // Internal helper for actual update logic
-async function updateSpecificTab(subject: string, tabName: string, username: string, labNumber: string, score: number, feedback?: string) {
+async function updateSpecificTab(subject: string, tabName: string, username: string, labNumber: string, score: number, feedback?: string, isCsv: boolean = false) {
   const sheets = await getSheetsClient();
   const spreadsheetId = getSpreadsheetId(subject);
   
@@ -677,7 +678,8 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
   xlsxUpdates.push({ col: labIndex + 1, row: actualSheetRow, value: score });
   
   // Special handling for ITCS251 and ITCS255: Update In-Class column adjacent to W column
-  if (subject === 'ITCS251' || subject === 'ITCS255') {
+  // Skip if initiated via CSV upload
+  if ((subject === 'ITCS251' || subject === 'ITCS255') && !isCsv) {
     // Check if the column immediately after the lab column is "In-Class"
     const nextColumnIndex = labIndex + 1;
     if (nextColumnIndex < headers.length) {

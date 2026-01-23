@@ -31,6 +31,7 @@ interface TestCase {
   expectedOutput: string;
   matchMode?: 'trim' | 'exact' | 'regex';
   subQuestionId?: string; // Optional: which task this test belongs to
+  verificationCode?: string; // Optional: python code to verify side effects
 }
 
 export default function ManageTestCasesPage() {
@@ -55,6 +56,7 @@ export default function ManageTestCasesPage() {
   const [testOutput, setTestOutput] = useState("");
   const [testMatchMode, setTestMatchMode] = useState<'trim' | 'exact' | 'regex'>('trim');
   const [selectedSubQuestionId, setSelectedSubQuestionId] = useState<string | undefined>(undefined);
+  const [testVerificationCode, setTestVerificationCode] = useState("");
 
   // task Modal State
   const [issubQuestionModalOpen, setIssubQuestionModalOpen] = useState(false);
@@ -132,6 +134,7 @@ export default function ManageTestCasesPage() {
       setTestOutput(test.expectedOutput);
       setTestMatchMode(test.matchMode || 'trim');
       setSelectedSubQuestionId(test.subQuestionId);
+      setTestVerificationCode(test.verificationCode || "");
     } else {
       setCurrentTest(null);
       setTestName("");
@@ -139,6 +142,7 @@ export default function ManageTestCasesPage() {
       setTestOutput("");
       setTestMatchMode('trim');
       setSelectedSubQuestionId(subQuestionId);
+      setTestVerificationCode("");
     }
     setIsModalOpen(true);
   };
@@ -151,7 +155,15 @@ export default function ManageTestCasesPage() {
       // Edit
       updatedTestCases = testCases.map(t => 
         t.id === currentTest.id 
-          ? { ...t, name: testName, input: testInput, expectedOutput: testOutput, matchMode: testMatchMode, subQuestionId: selectedSubQuestionId }
+          ? { 
+              ...t, 
+              name: testName, 
+              input: testInput, 
+              expectedOutput: testOutput, 
+              matchMode: testMatchMode, 
+              subQuestionId: selectedSubQuestionId,
+              verificationCode: testVerificationCode
+            }
           : t
       );
     } else {
@@ -162,7 +174,8 @@ export default function ManageTestCasesPage() {
         input: testInput,
         expectedOutput: testOutput,
         matchMode: testMatchMode,
-        subQuestionId: selectedSubQuestionId
+        subQuestionId: selectedSubQuestionId,
+        verificationCode: testVerificationCode
       };
       updatedTestCases = [...testCases, newTest];
     }
@@ -494,6 +507,9 @@ export default function ManageTestCasesPage() {
                                                         {test.matchMode === 'regex' && (
                                                             <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-bold border border-blue-500/30">REGEX</span>
                                                         )}
+                                                        {test.verificationCode && (
+                                                          <span className="px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 text-[10px] font-bold border border-yellow-500/30">VERIFIED</span>
+                                                        )}
                                                     </div>
                                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                         <button 
@@ -524,6 +540,14 @@ export default function ManageTestCasesPage() {
                                                             {test.expectedOutput}
                                                         </div>
                                                     </div>
+                                                    {test.verificationCode && (
+                                                      <div className="col-span-1 md:col-span-2 space-y-2">
+                                                        <label className="text-xs font-medium text-yellow-600 dark:text-yellow-400 uppercase tracking-wider">Verification Code (Hidden from Student)</label>
+                                                        <div className="bg-yellow-900/10 dark:bg-yellow-900/20 p-3 rounded-lg border border-yellow-200 dark:border-yellow-900/30 font-mono text-sm text-yellow-700 dark:text-yellow-300 min-h-[40px] whitespace-pre-wrap">
+                                                            {test.verificationCode}
+                                                        </div>
+                                                      </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
@@ -583,6 +607,9 @@ export default function ManageTestCasesPage() {
                                                               {test.matchMode === 'regex' && (
                                                                 <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-bold border border-blue-500/30">REGEX</span>
                                                               )}
+                                                              {test.verificationCode && (
+                                                                <span className="px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 text-[10px] font-bold border border-yellow-500/30">VERIFIED</span>
+                                                              )}
                                                         </div>
                                                         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                             <button 
@@ -613,6 +640,14 @@ export default function ManageTestCasesPage() {
                                                                 {test.expectedOutput}
                                                             </div>
                                                         </div>
+                                                        {test.verificationCode && (
+                                                          <div className="col-span-1 md:col-span-2 space-y-2">
+                                                            <label className="text-xs font-medium text-yellow-600 dark:text-yellow-400 uppercase tracking-wider">Verification Code (Hidden from Student)</label>
+                                                            <div className="bg-yellow-900/10 dark:bg-yellow-900/20 p-3 rounded-lg border border-yellow-200 dark:border-yellow-900/30 font-mono text-sm text-yellow-700 dark:text-yellow-300 min-h-[40px] whitespace-pre-wrap">
+                                                                {test.verificationCode}
+                                                            </div>
+                                                          </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             ))}
@@ -722,6 +757,21 @@ export default function ManageTestCasesPage() {
                                 <option value="exact">Match (Exact)</option>
                                 <option value="regex">Match (Regular Expression)</option>
                              </select>
+                        </div>
+
+                        <div className="space-y-2 pt-2 border-t border-white/5">
+                            <label className="text-sm font-medium text-yellow-400">Verification Code (Optional - For File I/O)</label>
+                            <p className="text-xs text-slate-500 mb-1">
+                                Python code that runs AFTER student code. Use this to check for file existence or content.
+                                Defaults to student's output if left empty.
+                            </p>
+                            <textarea 
+                                value={testVerificationCode}
+                                onChange={(e) => setTestVerificationCode(e.target.value)}
+                                placeholder={'import os\\n# Check if file exists silently\\nassert os.path.exists("output.txt"), "File output.txt missing"\\n# If valid, do nothing. If invalid, raise error.'}
+                                className="w-full bg-[#0d1117] border border-yellow-500/20 rounded-lg p-3 text-yellow-100 focus:outline-none focus:border-yellow-500 transition-colors font-mono min-h-[120px] text-xs leading-relaxed"
+                                spellCheck={false}
+                            />
                         </div>
                     </div>
                     <div className="p-6 border-t border-white/5 flex justify-end gap-3 bg-[#0d1117]/50">

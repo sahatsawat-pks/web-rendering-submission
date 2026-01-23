@@ -13,6 +13,7 @@ interface TestCase {
   status: 'pending' | 'running' | 'pass' | 'fail'
   errorMessage?: string
   matchMode?: 'trim' | 'exact' | 'regex'
+  verificationCode?: string
 }
 
 export default function PythonTestRunner() {
@@ -137,7 +138,8 @@ print(a + b)`)
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code,
-          input: test.input
+          input: test.input,
+          verificationCode: test.verificationCode
         })
       })
       
@@ -174,6 +176,11 @@ print(a + b)`)
                 passed = false
                 updatedTest.errorMessage = "Invalid Regex Pattern: " + e.message
             }
+          }
+          
+          // Fail if there is any error output (including verification errors)
+          if (result.error && result.error.trim()) {
+              passed = false
           }
           
           updatedTest.status = passed ? 'pass' : 'fail'
@@ -225,7 +232,8 @@ print(a + b)`)
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     code,
-                    input: test.input
+                    input: test.input,
+                    verificationCode: test.verificationCode
                 })
             })
             
@@ -265,6 +273,11 @@ print(a + b)`)
                             passed = false
                             updatedTest.errorMessage = "Invalid Regex Pattern: " + e.message
                         }
+                    }
+
+                    // Fail if there is any error output (including verification errors)
+                    if (result.error && result.error.trim()) {
+                        passed = false
                     }
                     
                     updatedTest.status = passed ? 'pass' : 'fail'

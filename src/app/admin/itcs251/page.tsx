@@ -367,7 +367,7 @@ export default function ITCS251AdminDashboard() {
             labNumber: csvSelectedLab,
             score: update.score,
             subject: 'ITCS251',
-
+            isCsv: true
           })
         })
       }

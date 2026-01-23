@@ -51,7 +51,7 @@ const getPythonCommand = async () => {
 };
 
 // Helper to run code via Piston API (Fallback)
-const runRemoteExecution = async (code: string, input: string) => {
+const runRemoteExecution = async (code: string, input: string, verificationCode?: string) => {
     console.log('Falling back to Piston Remote Execution...');
     try {
         const response = await fetch('https://emkc.org/api/v2/piston/execute', {
@@ -66,7 +66,30 @@ const runRemoteExecution = async (code: string, input: string) => {
                     {
                         name: 'main.py',
                         content: code
-                    }
+                    },
+                    ...(verificationCode ? [{
+                        name: 'verification.py',
+                        content: verificationCode
+                    }, {
+                        name: 'runner.py',
+                        content: `
+import subprocess
+import sys
+
+# Read stdin content once
+stdin_content = sys.stdin.read()
+
+# Run student code
+p1 = subprocess.run([sys.executable, "main.py"], input=stdin_content, text=True, capture_output=True)
+print(p1.stdout, end="")
+print(p1.stderr, file=sys.stderr, end="")
+
+# Run verification code
+p2 = subprocess.run([sys.executable, "verification.py"], text=True, capture_output=True)
+if p2.returncode != 0:
+    print(f"\\nVerification Error: {p2.stderr}", file=sys.stderr, end="")
+`
+                    }] : [])
                 ],
                 stdin: input || '',
                 run_timeout: 5000,
@@ -98,9 +121,9 @@ const runRemoteExecution = async (code: string, input: string) => {
 export async function POST(req: NextRequest) {
     let runDir = '';
     try {
-        const { code, input } = await req.json();
+        const { code, input, verificationCode } = await req.json();
 
-        console.log('API Request Received:', { codeLength: code?.length, inputLength: input?.length });
+        console.log('API Request Received:', { codeLength: code?.length, inputLength: input?.length, hasVerification: !!verificationCode });
 
         if (!code) {
             return NextResponse.json({ error: 'No code provided' }, { status: 400 });
@@ -113,7 +136,7 @@ export async function POST(req: NextRequest) {
             console.log('Using Python Command:', pythonCmd);
         } catch (detectionError) {
              console.warn('Local Python not found, switching to remote execution.', detectionError);
-             return await runRemoteExecution(code, input);
+             return await runRemoteExecution(code, input, verificationCode);
         }
 
         // 1. Create isolated temp directory (Only needed for local execution)
@@ -137,19 +160,17 @@ export async function POST(req: NextRequest) {
             ? `${pythonCmd} -u main.py < input.txt`
             : `${pythonCmd} -u main.py`;
 
+        let output = '';
+        let error = '';
+
         try {
             const { stdout, stderr } = await execPromise(command, { 
                 cwd: runDir,
                 timeout: 5000, // 5 second timeout
                 maxBuffer: 1024 * 1024 // 1MB output limit
             });
-
-            console.log('Python Execution Result:', { runId, stdout, stderr });
-
-            return NextResponse.json({
-                output: stdout,
-                error: stderr
-            });
+            output = stdout;
+            error = stderr;
 
         } catch (execError: any) {
             // Check for timeout
@@ -162,11 +183,32 @@ export async function POST(req: NextRequest) {
             }
             
             console.error('Python Execution Runtime Error:', { runId, error: execError });
-            return NextResponse.json({
-                output: execError.stdout || '',
-                error: execError.stderr || execError.message || 'Runtime Error'
-            });
+            output = execError.stdout || '';
+            error = execError.stderr || execError.message || 'Runtime Error';
         }
+
+        // 5. Run Verification Code (if exists)
+        if (verificationCode) {
+             try {
+                await fs.writeFile(path.join(runDir, 'verification.py'), verificationCode);
+                const { stdout: vOut, stderr: vErr } = await execPromise(`${pythonCmd} verification.py`, { 
+                    cwd: runDir,
+                    timeout: 5000 
+                });
+                // output += vOut; // verification output is silent unless error
+                if (vErr) error += `\nVerification Stderr: ${vErr}`;
+             } catch (vError: any) {
+                  // If verification fails
+                  if (vError.stdout) output += vError.stdout;
+                  error += `\nVerification Failed: ${vError.message}`;
+             }
+        }
+
+        return NextResponse.json({
+            output: output,
+            error: error
+        });
+
 
     } catch (error: any) {
         console.error('Local Python Execution Error:', error);
