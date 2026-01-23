@@ -50,6 +50,51 @@ const getPythonCommand = async () => {
     throw new Error(`Python interpreter not found.\nDetails:\n${errors.join('\n')}\nPATH: ${process.env.PATH}`);
 };
 
+// Helper to run code via Piston API (Fallback)
+const runRemoteExecution = async (code: string, input: string) => {
+    console.log('Falling back to Piston Remote Execution...');
+    try {
+        const response = await fetch('https://emkc.org/api/v2/piston/execute', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                language: 'python',
+                version: '3.10.0',
+                files: [
+                    {
+                        name: 'main.py',
+                        content: code
+                    }
+                ],
+                stdin: input || '',
+                run_timeout: 5000,
+                compile_timeout: 10000
+            })
+        });
+
+        const result = await response.json();
+        console.log('Piston Result:', result);
+
+        if (result.message) {
+             throw new Error(`Piston Error: ${result.message}`);
+        }
+
+        return NextResponse.json({
+            output: result.run.stdout,
+            error: result.run.stderr || (result.run.code !== 0 ? `Process exited with code ${result.run.code}` : '')
+        });
+
+    } catch (error: any) {
+        console.error('Remote Execution Error:', error);
+        return NextResponse.json({
+            output: '',
+            error: `Remote Execution Failed: ${error.message}`
+        });
+    }
+};
+
 export async function POST(req: NextRequest) {
     let runDir = '';
     try {
@@ -61,7 +106,17 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'No code provided' }, { status: 400 });
         }
 
-        // 1. Create isolated temp directory
+        // 3. Detect Python Command
+        let pythonCmd = '';
+        try {
+            pythonCmd = await getPythonCommand();
+            console.log('Using Python Command:', pythonCmd);
+        } catch (detectionError) {
+             console.warn('Local Python not found, switching to remote execution.', detectionError);
+             return await runRemoteExecution(code, input);
+        }
+
+        // 1. Create isolated temp directory (Only needed for local execution)
         const runId = uuidv4();
         const tmpDir = path.join(os.tmpdir(), 'python-runs');
         runDir = path.join(tmpDir, runId);
@@ -77,11 +132,7 @@ export async function POST(req: NextRequest) {
             await fs.writeFile(path.join(runDir, 'input.txt'), input);
         }
 
-        // 3. Detect and Execute
-        const pythonCmd = await getPythonCommand();
-        console.log('Using Python Command:', pythonCmd);
-
-        // using -u (unbuffered) to ensure stdout is captured immediately
+        // Using -u (unbuffered)
         const command = hasInput 
             ? `${pythonCmd} -u main.py < input.txt`
             : `${pythonCmd} -u main.py`;
