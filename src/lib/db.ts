@@ -197,6 +197,52 @@ async function ensureTables() {
             WHERE quiz_section_enabled IS NULL;
         `);
 
+        // Add dynamic routing configuration columns
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subjects' AND column_name = 'has_grading_interface') THEN 
+                    ALTER TABLE subjects ADD COLUMN has_grading_interface BOOLEAN DEFAULT false; 
+                END IF; 
+            END $$;
+        `);
+        
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subjects' AND column_name = 'has_quiz_management') THEN 
+                    ALTER TABLE subjects ADD COLUMN has_quiz_management BOOLEAN DEFAULT false; 
+                END IF; 
+            END $$;
+        `);
+        
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subjects' AND column_name = 'has_test_cases') THEN 
+                    ALTER TABLE subjects ADD COLUMN has_test_cases BOOLEAN DEFAULT false; 
+                END IF; 
+            END $$;
+        `);
+        
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subjects' AND column_name = 'grading_type') THEN 
+                    ALTER TABLE subjects ADD COLUMN grading_type VARCHAR(50); 
+                END IF; 
+            END $$;
+        `);
+
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subjects' AND column_name = 'google_sheet_id') THEN 
+                    ALTER TABLE subjects ADD COLUMN google_sheet_id TEXT; 
+                END IF; 
+            END $$;
+        `);
+
         // Create subjects table
         await client.query(`
             CREATE TABLE IF NOT EXISTS subjects (
@@ -283,7 +329,33 @@ async function ensureTables() {
             );
         `);
 
+        // --- MIGRATION: Backfill legacy subject configuration ---
+        // Ensuring these subjects work with the new dynamic routing directly
+        console.log('🔄 Running legacy subject migration...');
+        
+        await client.query(`
+            UPDATE subjects SET has_grading_interface=true, grading_type='lab_challenge', has_quiz_management=true, has_test_cases=true WHERE code='ITCS123';
+            UPDATE subjects SET has_grading_interface=true, grading_type='lab_challenge', has_quiz_management=true, has_test_cases=true WHERE code='ITCS223';
+            UPDATE subjects SET has_grading_interface=true, grading_type='python', has_quiz_management=true, has_test_cases=true WHERE code='ITCS251';
+            UPDATE subjects SET has_grading_interface=true, grading_type='sql', has_quiz_management=true, has_test_cases=true WHERE code='ITCS255';
+            UPDATE subjects SET has_grading_interface=true, grading_type='simple_score', has_quiz_management=true, has_test_cases=false WHERE code='ITCS227';
+            UPDATE subjects SET has_grading_interface=true, grading_type='simple_score', has_quiz_management=true, has_test_cases=false WHERE code='ITDS283';
+            UPDATE subjects SET has_grading_interface=true, grading_type='simple_score', has_quiz_management=true, has_test_cases=false WHERE code='ITGE162';
+        `);
+        console.log('✅ Legacy subjects migrated to dynamic routing');
 
+        // --- MIGRATION: Backfill Google Sheet IDs ---
+        console.log('🔄 Running Google Sheets ID backfill...');
+        await client.query(`
+            UPDATE subjects SET google_sheet_id='1b3BdHlzBc5jVcaaldRkdUVLAVicTG5hqKDYEModLraA' WHERE code='ITGE162' AND google_sheet_id IS NULL;
+            UPDATE subjects SET google_sheet_id='1LnPggDqEnvGZ7LSEhZZf0TSE8bnbX_3zuoZFeIpJD_g' WHERE code='ITCS227' AND google_sheet_id IS NULL;
+            UPDATE subjects SET google_sheet_id='1ZH6-_4we-PCHstk719MZr2Vo0NAOe5wGokq-IBHIx2U' WHERE code='ITCS123' AND google_sheet_id IS NULL;
+            UPDATE subjects SET google_sheet_id='1tXj1QnbQFR3RQUWdzimR0vfWVtu-aUyeCbnAgv3RAbE' WHERE code='ITCS223' AND google_sheet_id IS NULL;
+            UPDATE subjects SET google_sheet_id='1ZHm5UnRK80aDLsACU5vOe68vLWcK6eeI3TB1vf2fkhI' WHERE code='ITDS283' AND google_sheet_id IS NULL;
+            UPDATE subjects SET google_sheet_id='1x29jzhrMCzr7MazNWoLZ2XSn77hk33bu5ltuGmLSVtE' WHERE code='ITCS251' AND google_sheet_id IS NULL;
+            UPDATE subjects SET google_sheet_id='154LairckAZ5jF33dZ4cRAuP54cbv_42Inv-gZTNxSro' WHERE code='ITCS255' AND google_sheet_id IS NULL;
+        `);
+        console.log('✅ Google Sheets IDs backfilled');
 
         // Index for faster lookups
         await client.query(`
@@ -313,6 +385,10 @@ async function ensureTables() {
     }
 }
 
+// Run initialization once (lazy or explicit)
+// We'll call this inside our accessor methods to ensure DB is ready, or rely on calling it once.
+// For simplicity, let's call it on first pool access logic or just rely on manual invocation if we had a start script.
+// To satisfy "async getDb()" signature from legacy code, we can alias permission check here.
 // Run initialization once (lazy or explicit)
 // We'll call this inside our accessor methods to ensure DB is ready, or rely on calling it once.
 // For simplicity, let's call it on first pool access logic or just rely on manual invocation if we had a start script.
@@ -750,6 +826,12 @@ export interface Subject {
   createLabRunnerPlaceholder?: boolean;
   courseSummaryLink?: string;
   quizSectionEnabled?: boolean;
+  // Dynamic routing configuration
+  hasGradingInterface?: boolean;
+  hasQuizManagement?: boolean;
+  hasTestCases?: boolean;
+  gradingType?: 'lab_challenge' | 'simple_score' | 'sql' | 'python' | 'java' | null;
+  googleSheetId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -778,6 +860,11 @@ export async function getSubjects(visibleOnly: boolean = false): Promise<Subject
       createLabRunnerPlaceholder: row.create_lab_runner_placeholder,
       courseSummaryLink: row.course_summary_link,
       quizSectionEnabled: row.quiz_section_enabled !== false,
+      hasGradingInterface: row.has_grading_interface || false,
+      hasQuizManagement: row.has_quiz_management || false,
+      hasTestCases: row.has_test_cases || false,
+      gradingType: row.grading_type,
+      googleSheetId: row.google_sheet_id,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     }));
@@ -855,7 +942,8 @@ export async function createSubject(
   displayOrder: number = 0,
   createScoreCheckPlaceholder: boolean = false,
   createLabRunnerPlaceholder: boolean = false,
-  courseSummaryLink?: string
+  courseSummaryLink?: string,
+  googleSheetId?: string
 ): Promise<Subject> {
   await init();
   const pool = getPool();
@@ -864,11 +952,11 @@ export async function createSubject(
   try {
     const result = await client.query(`
       INSERT INTO subjects (code, title, description, icon, color, is_visible, display_order, 
-        create_score_check_placeholder, create_lab_runner_placeholder, course_summary_link)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        create_score_check_placeholder, create_lab_runner_placeholder, course_summary_link, google_sheet_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *
     `, [code, title, description, icon, color, isVisible, displayOrder, 
-        createScoreCheckPlaceholder, createLabRunnerPlaceholder, courseSummaryLink || null]);
+        createScoreCheckPlaceholder, createLabRunnerPlaceholder, courseSummaryLink || null, googleSheetId || null]);
     
     const row = result.rows[0];
     return {
@@ -883,6 +971,7 @@ export async function createSubject(
       createScoreCheckPlaceholder: row.create_score_check_placeholder,
       createLabRunnerPlaceholder: row.create_lab_runner_placeholder,
       courseSummaryLink: row.course_summary_link,
+      googleSheetId: row.google_sheet_id,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
@@ -913,6 +1002,12 @@ export async function updateSubject(
     if (updates.createScoreCheckPlaceholder !== undefined) { fields.push(`create_score_check_placeholder = $${idx++}`); values.push(updates.createScoreCheckPlaceholder); }
     if (updates.createLabRunnerPlaceholder !== undefined) { fields.push(`create_lab_runner_placeholder = $${idx++}`); values.push(updates.createLabRunnerPlaceholder); }
     if (updates.courseSummaryLink !== undefined) { fields.push(`course_summary_link = $${idx++}`); values.push(updates.courseSummaryLink); }
+    if (updates.hasGradingInterface !== undefined) { fields.push(`has_grading_interface = $${idx++}`); values.push(updates.hasGradingInterface); }
+    if (updates.hasQuizManagement !== undefined) { fields.push(`has_quiz_management = $${idx++}`); values.push(updates.hasQuizManagement); }
+    if (updates.hasTestCases !== undefined) { fields.push(`has_test_cases = $${idx++}`); values.push(updates.hasTestCases); }
+    if (updates.gradingType !== undefined) { fields.push(`grading_type = $${idx++}`); values.push(updates.gradingType); }
+    if (updates.quizSectionEnabled !== undefined) { fields.push(`quiz_section_enabled = $${idx++}`); values.push(updates.quizSectionEnabled); }
+    if (updates.googleSheetId !== undefined) { fields.push(`google_sheet_id = $${idx++}`); values.push(updates.googleSheetId); }
 
     if (fields.length === 0) {
       const existing = await client.query('SELECT * FROM subjects WHERE code = $1', [code]);

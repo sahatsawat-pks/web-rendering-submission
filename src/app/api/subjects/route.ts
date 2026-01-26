@@ -38,8 +38,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { code, title, description, icon, color, isVisible, displayOrder, 
-            createScoreCheckPlaceholder, createLabRunnerPlaceholder, courseSummaryLink } = body;
+    const { 
+      code, title, description, icon, color, isVisible, displayOrder, 
+      courseSummaryLink,
+      // Dynamic routing configuration
+      hasGradingInterface,
+      hasQuizManagement,
+      hasTestCases,
+      gradingType
+    } = body;
 
     if (!code || !title) {
       return NextResponse.json({ error: "Code and title are required" }, { status: 400 });
@@ -50,6 +57,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Subject code must contain only uppercase letters and numbers" }, { status: 400 });
     }
 
+    // Import db dynamically to avoid circular deps if any (standard pattern in this codebase)
+    const { createSubject, updateSubject } = await import("@/lib/db");
+
+    // Create subject
+    // We need to update createSubject signature in db.ts or use update after create if createSubject doesn't support all fields yet.
+    // Looking at db.ts, createSubject supports most fields but NOT the new dynamic flags yet.
+    // Strategy: Create with basic fields, then immediately Update with new flags.
+
     const subject = await createSubject(
       code,
       title,
@@ -58,10 +73,20 @@ export async function POST(request: NextRequest) {
       color || 'from-blue-500 to-indigo-500',
       isVisible !== undefined ? isVisible : true,
       displayOrder || 0,
-      createScoreCheckPlaceholder || false,
-      createLabRunnerPlaceholder || false,
+      false, // createScoreCheckPlaceholder - deprecated
+      false, // createLabRunnerPlaceholder - deprecated
       courseSummaryLink || undefined
     );
+
+    // Apply extended configuration
+    if (subject) {
+      await updateSubject(code, {
+        hasGradingInterface: hasGradingInterface || false,
+        hasQuizManagement: hasQuizManagement || false,
+        hasTestCases: hasTestCases || false,
+        gradingType: gradingType || null
+      });
+    }
 
     return NextResponse.json({ 
       success: true, 
@@ -87,21 +112,53 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { code, isVisible, displayOrder } = body;
+    const { code, ...updates } = body;
 
     if (!code) {
       return NextResponse.json({ error: "Subject code is required" }, { status: 400 });
     }
 
-    if (isVisible !== undefined) {
-      await updateSubjectVisibility(code, isVisible);
+    const { updateSubject } = await import("@/lib/db");
+    
+    // Use the full updateSubject function from db.ts
+    // This supports title, description, icon, color, visibility, order, AND the new flags
+    const updated = await updateSubject(code, updates);
+
+    if (!updated) {
+      return NextResponse.json({ error: "Subject not found" }, { status: 404 });
     }
 
-    if (displayOrder !== undefined) {
-      await updateSubjectOrder(code, displayOrder);
+    return NextResponse.json({ success: true, message: "Subject updated successfully", subject: updated });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getAuthUser();
+    
+    // Only main admin can manage subjects
+    if (!user || user.username !== 'kanzaki_aito') {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    return NextResponse.json({ success: true, message: "Subject updated successfully" });
+    const { searchParams } = new URL(request.url);
+    const code = searchParams.get('code');
+
+    if (!code) {
+      return NextResponse.json({ error: "Subject code is required" }, { status: 400 });
+    }
+
+    // Call deleteSubject from db
+    const { deleteSubject } = await import("@/lib/db");
+    const success = await deleteSubject(code);
+
+    if (!success) {
+      return NextResponse.json({ error: "Subject not found or could not be deleted" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, message: "Subject deleted successfully" });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

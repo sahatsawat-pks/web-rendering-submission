@@ -6,67 +6,10 @@ import LogoutButton from "@/components/LogoutButton"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import Footer from "@/components/Footer"
+import { getGradientStyleProps, getTextGradientStyle } from "@/lib/colors"
 
 export default function AdminHub() {
-  const modules = [
-    {
-      code: "ITCS123",
-      title: "Object Oriented Programming",
-      desc: "Java test case configuration and logs.",
-      icon: <Terminal className="w-8 h-8" />,
-      color: "from-orange-500 to-amber-500",
-      href: "/admin/itcs123"
-    },
-    {
-      code: "ITCS223",
-      title: "Introduction to Web Development",
-      desc: "Manage lab submissions, file rendering, and deadlines.",
-      icon: <Code2 className="w-8 h-8" />,
-      color: "from-teal-500 to-cyan-500",
-      href: "/admin/itcs223"
-    },
-    {
-      code: "ITCS227",
-      title: "Introduction to Data Science",
-      desc: "Gradebook management and score tracking.",
-      icon: <BarChart3 className="w-8 h-8" />,
-      color: "from-indigo-500 to-violet-500",
-      href: "/admin/itcs227"
-    },
-    {
-      code: "ITGE162",
-      title: "Physical Science and Computation",
-      desc: "Gradebook management and score tracking.",
-      icon: <Layers className="w-8 h-8" />,
-      color: "from-emerald-500 to-green-500",
-      href: "/admin/itge162"
-    },
-    {
-      code: "ITCS251",
-      title: "Programming in Python",
-      desc: "Python test runner and gradebook management.",
-      icon: <Code2 className="w-8 h-8" />,
-      color: "from-blue-500 to-sky-500",
-      href: "/admin/itcs251"
-    },
-    {
-      code: "ITCS255",
-      title: "Structured Query Language Essentials",
-      desc: "SQL query management and score tracking.",
-      icon: <Database className="w-8 h-8" />,
-      color: "from-purple-500 to-pink-500",
-      href: "/admin/itcs255"
-    },
-    {
-      code: "ITDS283",
-      title: "Mobile Development",
-      desc: "Mobile dev labs gradebook and score tracking.",
-      icon: <Smartphone className="w-8 h-8" />,
-      color: "from-rose-500 to-red-500",
-      href: "/admin/itds283"
-    }
-  ]
-
+  const [subjects, setSubjects] = useState<any[]>([])
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -78,22 +21,36 @@ export default function AdminHub() {
   const [permissions, setPermissions] = useState<any>({})
   const [loading, setLoading] = useState(true)
 
-  // Fetch user data on mount
+  // Fetch user data and subjects on mount
   useEffect(() => {
-    fetch("/api/auth/me")
-      .then(res => res.json())
-      .then(data => {
-        if (data.username) {
-          setUsername(data.username)
-          setRole(data.role || 'LA')
-          setPermissions(data.permissions || {})
+    const fetchData = async () => {
+      try {
+        const [userRes, subjectsRes] = await Promise.all([
+          fetch("/api/auth/me"),
+          fetch("/api/subjects")
+        ])
+
+        const userData = await userRes.json()
+        if (userData.username) {
+          setUsername(userData.username)
+          setRole(userData.role || 'LA')
+          setPermissions(userData.permissions || {})
         }
+
+        const subjectsData = await subjectsRes.json()
+        if (subjectsData.success) {
+          // Sort by display order
+          const sorted = subjectsData.subjects.sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
+          setSubjects(sorted)
+        }
+      } catch (err) {
+        console.error("Failed to fetch data", err)
+      } finally {
         setLoading(false)
-      })
-      .catch(err => {
-        console.error("Failed to fetch user", err)
-        setLoading(false)
-      })
+      }
+    }
+
+    fetchData()
   }, [])
 
   async function handlePasswordChange(e: React.FormEvent) {
@@ -129,10 +86,39 @@ export default function AdminHub() {
       }
   }
 
-  const visibleModules = modules.filter(mod => {
-      // Main admin sees all
+  // Dynamically resolve icon component
+  const getIconComponent = (iconName: string) => {
+    // We need to map string to component. 
+    // Since we can't easily dynamic import specific lucide icons in clientside map without bulk import,
+    // we'll rely on the imported ones or standard fallback. 
+    // Ideally we'd import * as Icons, but let's stick to the ones we have imported + a few common ones.
+    // Or we can just import the specific ones we know we use from the top.
+    
+    // Quick map for common ones used in seed
+    const iconMap: any = {
+      'Terminal': Terminal,
+      'Code2': Code2,
+      'BarChart3': BarChart3,
+      'Layers': Layers,
+      'Database': Database,
+      'Smartphone': Smartphone,
+      'BookOpen': BookOpen,
+      'ClipboardList': ClipboardList,
+      'Shield': Shield
+    }
+    
+    const Icon = iconMap[iconName] || Code2 // Default to Code2 if not found
+    return <Icon className="w-8 h-8" />
+  }
+
+  const visibleModules = subjects.filter(mod => {
+      if (!mod.isVisible) return false;
+      
+      // Main admin sees all (except explicitly hidden? logic says !isVisible returns false above)
       if (username === "kanzaki_aito") return true;
+      
       // Check specific permission
+      // The permissions object keys are usually lowercase subject codes
       const key = mod.code.toLowerCase();
       return permissions[key] === true;
   });
@@ -259,22 +245,39 @@ export default function AdminHub() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-5xl mx-auto animate-scale-in">
-            {visibleModules.map((mod, idx) => (
+            {visibleModules.map((mod, idx) => {
+                const gradientProps = getGradientStyleProps(mod.color)
+                const textGradient = getTextGradientStyle(mod.color)
+                const icon = getIconComponent(mod.icon)
+                const href = `/admin/${mod.code.toLowerCase()}` // Generate href dynamically
+                
+                return (
                 <Link 
                     key={mod.code} 
-                    href={mod.href}
+                    href={href}
                     className="group relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
                 >
-                    <div className={`h-2 animate-pulse bg-gradient-to-r ${mod.color}`}></div>
+                    <div 
+                        className={`h-2 animate-pulse ${gradientProps.className}`}
+                        style={gradientProps.style}
+                    ></div>
                     <div className="p-8 flex items-start gap-6">
-                        <div className={`flex-shrink-0 h-16 w-16 rounded-2xl bg-gradient-to-br ${mod.color} flex items-center justify-center text-white shadow-lg`}>
-                            {mod.icon}
+                        <div 
+                            className={`flex-shrink-0 h-16 w-16 rounded-2xl flex items-center justify-center text-white shadow-lg ${gradientProps.className}`}
+                            style={gradientProps.style}
+                        >
+                            {icon}
                         </div>
                         <div className="flex-1">
-                            <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">{mod.code}</h3>
+                            <h3 
+                                className={`text-2xl font-bold mb-2 transition-colors ${textGradient.className}`}
+                                style={textGradient.style}
+                            >
+                                {mod.code}
+                            </h3>
                             <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">{mod.title}</h4>
                             <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                                {mod.desc}
+                                {mod.description}
                             </p>
                         </div>
                     </div>
@@ -283,7 +286,7 @@ export default function AdminHub() {
                         <ArrowRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1 transition-transform group-hover:text-slate-900 dark:group-hover:text-slate-200" />
                     </div>
                 </Link>
-            ))}
+            )})}
         </div>
 
         {!loading && (role === 'Lecturer' || role === 'LA' || username === 'kanzaki_aito') && (

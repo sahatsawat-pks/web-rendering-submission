@@ -5,13 +5,31 @@ const GOOGLE_CLIENT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL!;
 const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')!;
 
 // Helper to determine spreadsheet ID based on subject
-function getSpreadsheetId(subject: string): string {
+// Helper to determine spreadsheet ID based on subject
+async function getSubjectSheetId(subject: string): Promise<string> {
+    // 1. Try DB first
+    try {
+        const { getSubjects } = await import("./db");
+        // We need an efficient way to get one subject. getSubjects gets all.
+        // For now, it's acceptable volume.
+        const subjects = await getSubjects(); 
+        const target = subjects.find(s => s.code === subject);
+        
+        if (target && target.googleSheetId) {
+            console.log(`[getSubjectSheetId] Found ID in DB for ${subject}: ${target.googleSheetId.substring(0, 5)}...`);
+            return target.googleSheetId;
+        }
+    } catch (e) {
+        console.error(`[getSubjectSheetId] DB lookup failed for ${subject}, falling back to env.`);
+    }
+
+    // 2. Fallback to Env Var (Legacy)
     // Normalize subject to uppercase to match env convention (e.g. ITGE162 -> GOOGLE_SHEETS_ID_ITGE162)
     const upperSubject = subject.toUpperCase();
     const envVar = `GOOGLE_SHEETS_ID_${upperSubject}`;
     const specificId = process.env[envVar];
     
-    console.log(`[getSpreadsheetId] Subject: ${subject}, EnvVar: ${envVar}, ID found: ${specificId ? 'Yes' : 'No'}`);
+    console.log(`[getSubjectSheetId] Subject: ${subject}, EnvVar: ${envVar}, ID found: ${specificId ? 'Yes' : 'No'}`);
 
     if (specificId) {
         return specificId;
@@ -101,7 +119,7 @@ async function getXlsxData(spreadsheetId: string, tabName: string) {
 
 export async function getSheetData(subject: string = 'Sheet1', tabName?: string) {
   const sheets = await getSheetsClient();
-  const spreadsheetId = getSpreadsheetId(subject);
+  const spreadsheetId = await getSubjectSheetId(subject);
   const targetTab = tabName || subject;
 
   // For ITCS251 and ITCS255, header starts at row 5
@@ -560,7 +578,7 @@ async function updateXlsxData(spreadsheetId: string, tabName: string, updates: {
 // Internal helper for actual update logic
 async function updateSpecificTab(subject: string, tabName: string, username: string, labNumber: string, score: number, feedback?: string, isCsv: boolean = false) {
   const sheets = await getSheetsClient();
-  const spreadsheetId = getSpreadsheetId(subject);
+  const spreadsheetId = await getSubjectSheetId(subject);
   
   const rows = await getSheetData(subject, tabName);
   
@@ -735,7 +753,7 @@ export async function batchUpdateScores(updates: {username: string, labNumber: s
 
 export async function fillMissingScores(subject: string, labNumber: string, value: string = '0', section?: string) {
   const sheets = await getSheetsClient();
-  const spreadsheetId = getSpreadsheetId(subject);
+  const spreadsheetId = await getSubjectSheetId(subject);
 
   const isMultiSection = subject === 'ITCS123' || subject === 'ITCS223' || subject === 'ITDS283';
   const isSingleSubjectTab = subject === 'ITCS251' || subject === 'ITCS255' || subject === 'ITCS227';

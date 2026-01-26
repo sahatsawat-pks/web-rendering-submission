@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
-import { Eye, EyeOff, ArrowUp, ArrowDown, Plus, X, FolderPlus } from "lucide-react"
+import { Eye, EyeOff, ArrowUp, ArrowDown, Plus, X, FolderPlus, Edit, Check, Settings, Beaker, Trash } from "lucide-react"
 
 interface Subject {
   id: number
@@ -14,11 +14,18 @@ interface Subject {
   color: string
   isVisible: boolean
   displayOrder: number
+  // Configuration Flags
+  hasGradingInterface: boolean
+  hasQuizManagement: boolean
+  hasTestCases: boolean
+  gradingType: 'lab_challenge' | 'simple_score' | 'sql' | 'python' | 'java' | null
+  courseSummaryLink?: string
+  googleSheetId?: string
 }
 
 const ICON_OPTIONS = [
   'Code', 'Code2', 'Database', 'Terminal', 'Smartphone', 'Layers', 
-  'BarChart3', 'Server', 'Globe', 'BookOpen', 'Cpu', 'Binary'
+  'BarChart3', 'Server', 'Globe', 'BookOpen', 'Cpu', 'Binary', 'FileJson', 'Monitor'
 ]
 
 const COLOR_OPTIONS = [
@@ -32,22 +39,41 @@ const COLOR_OPTIONS = [
   { name: 'Slate-Gray', value: 'from-slate-500 to-gray-500' }
 ]
 
+const GRADING_TYPES = [
+  { value: 'lab_challenge', label: 'Lab & Challenge (Default)', desc: 'Dual scoring system with challenge toggles' },
+  { value: 'simple_score', label: 'Simple Score Tracking', desc: 'Manual score entry (0-100) per lab' },
+  { value: 'python', label: 'Python Automation', desc: 'Python script execution and output matching' },
+  { value: 'sql', label: 'SQL Automation', desc: 'Database query execution and validation' },
+  { value: 'java', label: 'Java Automation', desc: 'Java JUnit test runner' }
+]
+
 export default function SubjectManagementPage() {
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
-  const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [newSubject, setNewSubject] = useState({
+  
+  // Modal State
+  const [showSubjectDialog, setShowSubjectDialog] = useState(false)
+  const [editingSubject, setEditingSubject] = useState<Subject | null>(null)
+  
+  // Form State
+  const [formData, setFormData] = useState({
     code: '',
     title: '',
     description: '',
     icon: 'Code',
     color: 'from-blue-500 to-indigo-500',
     isVisible: true,
-    createScoreCheckPlaceholder: false,
-    createLabRunnerPlaceholder: false,
-    courseSummaryLink: ''
+    courseSummaryLink: '',
+    hasGradingInterface: false,
+    gradingType: 'lab_challenge',
+    hasQuizManagement: false,
+    hasTestCases: false,
+    googleSheetId: ''
   })
+  
+  // Tab State for Modal
+  const [activeTab, setActiveTab] = useState<'basic' | 'config'>('basic')
 
   useEffect(() => {
     fetchSubjects()
@@ -67,6 +93,47 @@ export default function SubjectManagementPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  function openCreateDialog() {
+    setEditingSubject(null)
+    setFormData({
+      code: '',
+      title: '',
+      description: '',
+      icon: 'Code',
+      color: 'from-blue-500 to-indigo-500',
+      isVisible: true,
+      courseSummaryLink: '',
+      hasGradingInterface: true, // Default to true for new subjects
+      gradingType: 'simple_score', // Default to simple
+
+      hasQuizManagement: false,
+      hasTestCases: false,
+      googleSheetId: ''
+    })
+    setActiveTab('basic')
+    setShowSubjectDialog(true)
+  }
+
+  function openEditDialog(subject: Subject) {
+    setEditingSubject(subject)
+    setFormData({
+      code: subject.code,
+      title: subject.title,
+      description: subject.description || '',
+      icon: subject.icon || 'Code',
+      color: subject.color || 'from-blue-500 to-indigo-500',
+      isVisible: subject.isVisible,
+      courseSummaryLink: subject.courseSummaryLink || '',
+      hasGradingInterface: subject.hasGradingInterface,
+      gradingType: subject.gradingType || 'simple_score',
+      hasQuizManagement: subject.hasQuizManagement,
+      hasTestCases: subject.hasTestCases,
+      googleSheetId: subject.googleSheetId || ''
+    })
+    setActiveTab('basic')
+    setShowSubjectDialog(true)
   }
 
   async function toggleVisibility(code: string, currentValue: boolean) {
@@ -126,80 +193,67 @@ export default function SubjectManagementPage() {
     }
   }
 
-  async function handleCreateSubject() {
-    if (!newSubject.code || !newSubject.title) {
-      alert("Please fill in required fields (Code and Title)")
+  async function handleSaveSubject() {
+    if (!formData.code || !formData.title) {
+      alert("Please fill in Code and Title")
       return
     }
 
     // Validate code format (uppercase letters and numbers only)
-    if (!/^[A-Z0-9]+$/.test(newSubject.code)) {
+    if (!/^[A-Z0-9]+$/.test(formData.code)) {
       alert("Subject code must contain only uppercase letters and numbers")
       return
     }
 
-    setSaving('creating')
+    setSaving('modal')
+    
     try {
-      // Step 1: Create subject in database
+      const method = editingSubject ? "PATCH" : "POST"
+      const payload = {
+        ...formData,
+        displayOrder: editingSubject ? editingSubject.displayOrder : subjects.length
+      }
+
       const res = await fetch("/api/subjects", {
-        method: "POST",
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...newSubject,
-          displayOrder: subjects.length
-        })
+        body: JSON.stringify(payload)
+      })
+
+      const data = await res.json()
+      
+      if (res.ok && data.success) {
+        setShowSubjectDialog(false)
+        await fetchSubjects()
+      } else {
+        alert(data.error || "Failed to save subject")
+      }
+    } catch (e) {
+      alert("An error occurred while saving")
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  async function handleDeleteSubject(subject: Subject) {
+    if (!confirm(`Are you sure you want to delete ${subject.code}? This action cannot be undone and will remove all associated data.`)) {
+      return
+    }
+
+    setSaving(subject.code)
+    try {
+      const res = await fetch(`/api/subjects?code=${subject.code}`, {
+        method: "DELETE",
       })
 
       if (res.ok) {
-        const data = await res.json()
-        if (data.success) {
-          // Step 2: Attempt to create routes via GitHub API (Vercel-compatible)
-          try {
-            const routeRes = await fetch("/api/subjects/create-routes", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ 
-                subjectCode: newSubject.code,
-                createScoreCheckPlaceholder: newSubject.createScoreCheckPlaceholder,
-                createLabRunnerPlaceholder: newSubject.createLabRunnerPlaceholder,
-                courseSummaryLink: newSubject.courseSummaryLink
-              })
-            })
-
-            if (routeRes.ok) {
-              const routeData = await routeRes.json()
-              alert(`✅ Subject ${newSubject.code} created successfully!\n\n✅ Route files created and committed to GitHub:\n${routeData.filesCreated.join('\n')}\n\nNext steps:\n1. Wait for Vercel deployment (auto-triggered)\n2. Add permissions for users in Account Management\n3. Add lab configurations in Lab Management`)
-            } else {
-              const routeData = await routeRes.json()
-              // Subject created but route creation failed
-              alert(`⚠️ Subject ${newSubject.code} created in database.\n\n❌ Route creation failed: ${routeData.error}\n\nManual steps required:\n1. Create route folders: /src/app/${newSubject.code.toLowerCase()} and /src/app/admin/${newSubject.code.toLowerCase()}\n2. See SUBJECT_ROUTE_TEMPLATES.md for templates\n3. Add permissions for users in Account Management`)
-            }
-          } catch (routeErr) {
-            alert(`⚠️ Subject ${newSubject.code} created in database.\n\n❌ Could not create routes automatically.\n\nManual steps required:\n1. Create route folders: /src/app/${newSubject.code.toLowerCase()} and /src/app/admin/${newSubject.code.toLowerCase()}\n2. See SUBJECT_ROUTE_TEMPLATES.md for templates\n3. Add permissions for users in Account Management`)
-          }
-
-          setShowCreateDialog(false)
-          setNewSubject({
-            code: '',
-            title: '',
-            description: '',
-            icon: 'Code',
-            color: 'from-blue-500 to-indigo-500',
-            isVisible: true,
-            createScoreCheckPlaceholder: false,
-            createLabRunnerPlaceholder: false,
-            courseSummaryLink: ''
-          })
-          await fetchSubjects()
-        } else {
-          alert(data.error || "Failed to create subject")
-        }
+        await fetchSubjects()
       } else {
         const data = await res.json()
-        alert(data.error || "Failed to create subject")
+        alert(data.error || "Failed to delete subject")
       }
     } catch (e) {
-      alert("An error occurred while creating subject")
+      alert("An error occurred while deleting")
     } finally {
       setSaving(null)
     }
@@ -260,15 +314,15 @@ export default function SubjectManagementPage() {
         <div className="mb-8 flex items-end justify-between">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-2">
-              Subject Modules
+              All Subjects
             </h1>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              Create new subjects, manage visibility, and reorder display sequence on the landing page.
+              Manage curricula, visibility, and grading configurations.
             </p>
           </div>
           
           <button
-            onClick={() => setShowCreateDialog(true)}
+            onClick={openCreateDialog}
             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
           >
             <Plus className="w-5 h-5" />
@@ -276,310 +330,480 @@ export default function SubjectManagementPage() {
           </button>
         </div>
 
-        {loading ? (
-          <div className="py-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-slate-200 dark:border-slate-800 border-t-slate-600 dark:border-t-slate-400"></div>
-            <p className="text-slate-500 dark:text-slate-400 mt-4">Loading subjects...</p>
+        {subjects.length === 0 ? (
+          <div className="text-center py-20 bg-white/50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 border-dashed">
+            <FolderPlus className="w-16 h-16 text-slate-400 mx-auto mb-4 opacity-50" />
+            <h3 className="text-xl font-bold text-slate-700 dark:text-slate-300">No Subjects Found</h3>
+            <p className="text-slate-500 dark:text-slate-400 mt-2">Create your first subject to get started.</p>
           </div>
         ) : (
-          <div className="glass-card p-6 rounded-2xl">
-            <div className="space-y-3">
-              {subjects.map((subject, index) => (
-                <div
-                  key={subject.code}
-                  className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 hover:shadow-lg transition-all"
-                >
-                  <div className="flex flex-col gap-1">
-                    <button
-                      onClick={() => moveSubject(subject.code, "up")}
-                      disabled={index === 0 || saving === subject.code}
-                      className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                      title="Move up"
-                    >
-                      <ArrowUp className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => moveSubject(subject.code, "down")}
-                      disabled={index === subjects.length - 1 || saving === subject.code}
-                      className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                      title="Move down"
-                    >
-                      <ArrowDown className="w-4 h-4" />
-                    </button>
-                  </div>
+          <div className="space-y-3">
+            {subjects.map((subject, index) => (
+              <div
+                key={subject.code}
+                className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 hover:shadow-lg transition-all animate-scale-in"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <div className="flex flex-col gap-1">
+                  <button
+                    onClick={() => moveSubject(subject.code, "up")}
+                    disabled={index === 0 || saving === subject.code}
+                    className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ArrowUp className="w-4 h-4 text-slate-500" />
+                  </button>
+                  <button
+                    onClick={() => moveSubject(subject.code, "down")}
+                    disabled={index === subjects.length - 1 || saving === subject.code}
+                    className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ArrowDown className="w-4 h-4 text-slate-500" />
+                  </button>
+                </div>
 
-                  <div className={`flex-shrink-0 w-12 h-12 bg-gradient-to-br ${subject.color} rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-lg`}>
-                    {subject.code.substring(0, 4)}
-                  </div>
+                <div className={`flex-shrink-0 w-12 h-12 bg-gradient-to-br ${subject.color} rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-lg`}>
+                  {subject.code.substring(0, 4)}
+                </div>
 
-                  <div className="flex-grow">
-                    <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                <div className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                       {subject.code}
+                      {!subject.isVisible && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500">Hidden</span>
+                      )}
                     </h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">{subject.title}</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 truncate">{subject.title}</p>
                   </div>
 
+                  <div className="hidden md:flex items-center gap-2">
+                    {subject.hasGradingInterface ? (
+                      <span className="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium border border-blue-200 dark:border-blue-900/50">
+                        {GRADING_TYPES.find(t => t.value === subject.gradingType)?.label || subject.gradingType}
+                      </span>
+                    ) : (
+                      <span className="text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-500">No Grading</span>
+                    )}
+                    <div className="flex gap-1">
+                       {subject.hasQuizManagement && (
+                         <span title="Quiz" className="w-2 h-2 rounded-full bg-purple-500"></span>
+                       )}
+                       {subject.hasTestCases && (
+                         <span title="Tests" className="w-2 h-2 rounded-full bg-green-500"></span>
+                       )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => toggleVisibility(subject.code, subject.isVisible)}
                     disabled={saving === subject.code}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                      subject.isVisible
-                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50"
-                        : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
-                    } disabled:opacity-50`}
+                    className={`p-2 rounded-lg transition-all ${
+                        subject.isVisible
+                        ? "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                    }`}
+                    title={subject.isVisible ? "Hide Subject" : "Show Subject"}
                   >
-                    {saving === subject.code ? (
-                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                    ) : subject.isVisible ? (
-                      <>
-                        <Eye className="w-4 h-4" />
-                        <span>Visible</span>
-                      </>
-                    ) : (
-                      <>
-                        <EyeOff className="w-4 h-4" />
-                        <span>Hidden</span>
-                      </>
-                    )}
+                    {subject.isVisible ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+                  </button>
+
+                  <button
+                    onClick={() => openEditDialog(subject)}
+                    className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-all shadow-sm hover:shadow"
+                  >
+                    <Edit className="w-4 h-4" />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteSubject(subject)}
+                    disabled={saving === subject.code}
+                    className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg transition-all shadow-sm hover:shadow"
+                    title="Delete Subject"
+                  >
+                    <Trash className="w-4 h-4" />
                   </button>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         )}
       </main>
 
-      {/* Create Subject Dialog */}
-      {showCreateDialog && (
+      {/* Subject Dialog (Create/Edit) */}
+      {showSubjectDialog && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 py-4 flex items-center justify-between">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto flex flex-col">
+            <div className="sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 py-4 flex items-center justify-between z-10">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center">
+                <div className={`w-10 h-10 bg-gradient-to-br ${formData.color} rounded-xl flex items-center justify-center shadow-md transition-all duration-300`}>
                   <FolderPlus className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Create New Subject</h2>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Add a new course to the system</p>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                    {editingSubject ? 'Edit Subject' : 'Create New Subject'}
+                  </h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {editingSubject ? `Configure ${formData.code}` : 'Add a new course curriculum'}
+                  </p>
                 </div>
               </div>
               <button
-                onClick={() => setShowCreateDialog(false)}
-                disabled={saving === 'creating'}
+                onClick={() => setShowSubjectDialog(false)}
+                disabled={saving === 'modal'}
                 className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
-              {/* Subject Code */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  Subject Code <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={newSubject.code}
-                  onChange={(e) => setNewSubject({ ...newSubject, code: e.target.value.toUpperCase() })}
-                  placeholder="ITCS999"
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  disabled={saving === 'creating'}
-                />
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Uppercase letters and numbers only (e.g., ITCS123, CS101)
-                </p>
-              </div>
+            {/* Tabs */}
+            <div className="flex border-b border-slate-200 dark:border-slate-700 px-6">
+               <button
+                 onClick={() => setActiveTab('basic')}
+                 className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'basic'
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400' 
+                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                 }`}
+               >
+                 Basic Info
+               </button>
+               <button
+                 onClick={() => setActiveTab('config')}
+                 className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'config'
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400' 
+                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                 }`}
+               >
+                 Configuration & Grading
+               </button>
+            </div>
 
-              {/* Subject Title */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  Subject Title <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={newSubject.title}
-                  onChange={(e) => setNewSubject({ ...newSubject, title: e.target.value })}
-                  placeholder="Advanced Web Development"
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  disabled={saving === 'creating'}
-                />
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={newSubject.description}
-                  onChange={(e) => setNewSubject({ ...newSubject, description: e.target.value })}
-                  placeholder="Lab submission and automated testing system."
-                  rows={3}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                  disabled={saving === 'creating'}
-                />
-              </div>
-
-              {/* Icon Selection */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  Icon
-                </label>
-                <select
-                  value={newSubject.icon}
-                  onChange={(e) => setNewSubject({ ...newSubject, icon: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  disabled={saving === 'creating'}
-                >
-                  {ICON_OPTIONS.map(icon => (
-                    <option key={icon} value={icon}>{icon}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Color Selection */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  Color Gradient
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {COLOR_OPTIONS.map(color => (
-                    <button
-                      key={color.value}
-                      onClick={() => setNewSubject({ ...newSubject, color: color.value })}
-                      disabled={saving === 'creating'}
-                      className={`px-4 py-3 rounded-lg border-2 transition-all ${
-                        newSubject.color === color.value
-                          ? 'border-green-500 dark:border-green-400'
-                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                      }`}
-                    >
-                      <div className={`w-full h-8 bg-gradient-to-r ${color.value} rounded mb-2`}></div>
-                      <p className="text-xs font-medium text-slate-700 dark:text-slate-300">{color.name}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Route Creation Options */}
-              <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
-                <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-sm">Route Creation Options</h3>
-                
-                {/* Score Check Placeholder */}
-                <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg">
+            <div className="p-6 space-y-6 flex-1 overflow-y-auto">
+              
+              {activeTab === 'basic' ? (
+                <div className="space-y-6 animate-fade-in">
+                  {/* Subject Code */}
                   <div>
-                    <p className="font-medium text-slate-900 dark:text-slate-100 text-sm">Create Score Check as Placeholder</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">For future implementation</p>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      Subject Code <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.code}
+                      onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                      placeholder="ITCS999"
+                      disabled={!!editingSubject || saving === 'modal'}
+                      className={`w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${editingSubject ? 'opacity-70 cursor-not-allowed bg-slate-100 dark:bg-slate-800' : ''}`}
+                    />
+                    {!editingSubject && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Uppercase letters and numbers only. Cannot be changed later.
+                        </p>
+                    )}
                   </div>
-                  <button
-                    onClick={() => setNewSubject({ ...newSubject, createScoreCheckPlaceholder: !newSubject.createScoreCheckPlaceholder })}
-                    disabled={saving === 'creating'}
-                    className={`w-12 h-7 rounded-full transition-colors ${
-                      newSubject.createScoreCheckPlaceholder ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-600'
-                    }`}
-                  >
-                    <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform ${
-                      newSubject.createScoreCheckPlaceholder ? 'translate-x-6' : 'translate-x-1'
-                    }`}></div>
-                  </button>
-                </div>
 
-                {/* Lab Runner Placeholder */}
-                <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg">
+                  {/* Subject Title */}
                   <div>
-                    <p className="font-medium text-slate-900 dark:text-slate-100 text-sm">Create Lab Runner as Placeholder</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">For future implementation</p>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      Subject Title <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      placeholder="e.g. Advanced Web Development"
+                      disabled={saving === 'modal'}
+                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
                   </div>
-                  <button
-                    onClick={() => setNewSubject({ ...newSubject, createLabRunnerPlaceholder: !newSubject.createLabRunnerPlaceholder })}
-                    disabled={saving === 'creating'}
-                    className={`w-12 h-7 rounded-full transition-colors ${
-                      newSubject.createLabRunnerPlaceholder ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-600'
-                    }`}
-                  >
-                    <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform ${
-                      newSubject.createLabRunnerPlaceholder ? 'translate-x-6' : 'translate-x-1'
-                    }`}></div>
-                  </button>
-                </div>
+                  
+                  {/* Description */}
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      Description
+                    </label>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      placeholder="Brief description of the course..."
+                      rows={3}
+                      disabled={saving === 'modal'}
+                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    />
+                  </div>
 
-                {/* Course Summary Link */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Course Summary Link (Optional)
-                  </label>
-                  <input
-                    type="url"
-                    value={newSubject.courseSummaryLink}
-                    onChange={(e) => setNewSubject({ ...newSubject, courseSummaryLink: e.target.value })}
-                    placeholder="https://example.com/course-summary"
-                    className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    disabled={saving === 'creating'}
-                  />
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Provide a link if you have a course summary document
-                  </p>
-                </div>
-              </div>
+                  {/* Branding: Icon & Color */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Icon
+                        </label>
+                        <select
+                        value={formData.icon}
+                        onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
+                        disabled={saving === 'modal'}
+                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                        {ICON_OPTIONS.map(icon => (
+                            <option key={icon} value={icon}>{icon}</option>
+                        ))}
+                        </select>
+                      </div>
+                      
+                      <div>
+                          <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                          Visibility
+                          </label>
+                          <div className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+                             <input 
+                               type="checkbox" 
+                               checked={formData.isVisible}
+                               onChange={(e) => setFormData({ ...formData, isVisible: e.target.checked })}
+                               className="w-5 h-5 ml-2"
+                             />
+                             <span className="text-sm text-slate-700 dark:text-slate-300">Visible to Users</span>
+                          </div>
+                      </div>
+                  </div>
 
-              {/* Visibility Toggle */}
-              <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
-                <div>
-                  <p className="font-semibold text-slate-900 dark:text-slate-100">Make Visible</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Show on main landing page</p>
-                </div>
-                <button
-                  onClick={() => setNewSubject({ ...newSubject, isVisible: !newSubject.isVisible })}
-                  disabled={saving === 'creating'}
-                  className={`w-14 h-8 rounded-full transition-colors ${
-                    newSubject.isVisible ? 'bg-green-500' : 'bg-slate-300 dark:bg-slate-600'
-                  }`}
-                >
-                  <div className={`w-6 h-6 bg-white rounded-full shadow-md transform transition-transform ${
-                    newSubject.isVisible ? 'translate-x-7' : 'translate-x-1'
-                  }`}></div>
-                </button>
-              </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      Color Theme
+                    </label>
+                    <div className="flex flex-col gap-4">
+                        {/* Custom Color Toggle */}
+                        <div className="flex items-center gap-4">
+                             <label className="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="radio" 
+                                    name="colorMode"
+                                    checked={!formData.color.startsWith("#") && !formData.color.startsWith("linear-gradient")}
+                                    onChange={() => setFormData({ ...formData, color: 'from-blue-500 to-indigo-500' })}
+                                    className="w-4 h-4 text-blue-600"
+                                />
+                                <span className="text-sm text-slate-700 dark:text-slate-300">Preset Gradient</span>
+                             </label>
+                             <label className="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="radio" 
+                                    name="colorMode"
+                                    checked={formData.color.startsWith("#") || formData.color.startsWith("linear-gradient")}
+                                    onChange={() => setFormData({ ...formData, color: '#3b82f6' })} // Default Blue Hex
+                                    className="w-4 h-4 text-blue-600"
+                                />
+                                <span className="text-sm text-slate-700 dark:text-slate-300">Custom Color</span>
+                             </label>
+                        </div>
 
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowCreateDialog(false)}
-                  disabled={saving === 'creating'}
-                  className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors font-medium disabled:opacity-50"
-                >
+                        {/* Presets Grid */}
+                        {(!formData.color.startsWith("#") && !formData.color.startsWith("linear-gradient")) && (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-in">
+                            {COLOR_OPTIONS.map(color => (
+                                <button
+                                key={color.value}
+                                onClick={() => setFormData({ ...formData, color: color.value })}
+                                disabled={saving === 'modal'}
+                                className={`p-2 rounded-lg border-2 transition-all ${
+                                    formData.color === color.value
+                                    ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                                }`}
+                                >
+                                <div className={`w-full h-8 bg-gradient-to-r ${color.value} rounded mb-2`}></div>
+                                <p className="text-[10px] font-medium text-slate-600 dark:text-slate-400 text-center">{color.name}</p>
+                                </button>
+                            ))}
+                            </div>
+                        )}
+
+                        {/* Color Picker */}
+                        {(formData.color.startsWith("#") || formData.color.startsWith("linear-gradient")) && (
+                             <div className="animate-fade-in p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                                 <div className="flex items-center gap-4">
+                                     <input 
+                                        type="color" 
+                                        value={formData.color.startsWith("#") ? formData.color : "#3b82f6"}
+                                        onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                                        className="h-12 w-24 p-1 rounded cursor-pointer"
+                                     />
+                                     <div className="flex-1">
+                                         <p className="text-sm font-medium text-slate-900 dark:text-white">Custom Gradient Preview</p>
+                                         <div 
+                                            className="h-8 w-full rounded-lg mt-2 shadow-sm" 
+                                            style={{ background: formData.color.startsWith("#") ? `linear-gradient(135deg, ${formData.color} 0%, ${formData.color} 100%)` : formData.color }} // Simple preview, helper handles real gradient logic
+                                         ></div>
+                                         <p className="text-xs text-slate-500 mt-2">
+                                             Smart Gradient will be automatically generated from this color.
+                                         </p>
+                                     </div>
+                                 </div>
+                             </div>
+                        )}
+                    </div>
+                  </div>
+                  
+                  {/* Google Sheet ID */}
+                  <div>
+                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                       Google Sheet ID
+                     </label>
+                     <input
+                       type="text"
+                       value={formData.googleSheetId}
+                       onChange={(e) => setFormData({ ...formData, googleSheetId: e.target.value })}
+                       placeholder="1BxiMVs0XRA5nFMdKvBdBZjGWZW-u_7QYs..."
+                       className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-mono text-sm"
+                     />
+                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                       The document ID from the Google Sheet URL. Required for fetching scores.
+                     </p>
+                  </div>
+                  
+                  {/* Summary Link */}
+                  <div>
+                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                       Course Summary Link (Optional)
+                     </label>
+                     <input
+                       type="url"
+                       value={formData.courseSummaryLink}
+                       onChange={(e) => setFormData({ ...formData, courseSummaryLink: e.target.value })}
+                       placeholder="https://..."
+                       className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+                     />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6 animate-fade-in">
+                   {/* Grading Interface Toggle */}
+                   <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-start gap-3">
+                         <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
+                            <Beaker className="w-6 h-6" />
+                         </div>
+                         <div className="flex-1">
+                            <label className="flex items-center gap-2 cursor-pointer mb-1">
+                               <input 
+                                 type="checkbox"
+                                 checked={formData.hasGradingInterface}
+                                 onChange={(e) => setFormData({ ...formData, hasGradingInterface: e.target.checked })}
+                                 className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500"
+                               />
+                               <span className="font-bold text-slate-900 dark:text-white">Enable Grading Interface</span>
+                            </label>
+                            <p className="text-sm text-slate-600 dark:text-slate-400">
+                              Enables the grading dashboard for this subject. If disabled, the admin page will be empty.
+                            </p>
+                         </div>
+                      </div>
+
+                      {formData.hasGradingInterface && (
+                         <div className="mt-4 pl-12 space-y-4">
+                            <div>
+                               <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                                 Grading Strategy
+                               </label>
+                               <div className="grid gap-2">
+                                  {GRADING_TYPES.map(type => (
+                                     <label 
+                                       key={type.value} 
+                                       className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                                          formData.gradingType === type.value
+                                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-sm'
+                                          : 'border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800'
+                                       }`}
+                                     >
+                                        <input 
+                                          type="radio" 
+                                          name="gradingType"
+                                          value={type.value}
+                                          checked={formData.gradingType === type.value}
+                                          onChange={(e) => setFormData({ ...formData, gradingType: e.target.value as any })}
+                                          className="w-4 h-4 text-blue-600"
+                                        />
+                                        <div>
+                                           <p className="font-medium text-slate-900 dark:text-slate-100 text-sm">{type.label}</p>
+                                           <p className="text-xs text-slate-500 dark:text-slate-400">{type.desc}</p>
+                                        </div>
+                                     </label>
+                                  ))}
+                               </div>
+                            </div>
+                         </div>
+                      )}
+                   </div>
+                   
+                   {/* Modules */}
+                   <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center gap-3 mb-4">
+                         <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400">
+                            <Settings className="w-6 h-6" />
+                         </div>
+                         <h3 className="font-bold text-slate-900 dark:text-white">Additional Modules</h3>
+                      </div>
+                      
+                      <div className="space-y-3 pl-2">
+                         <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer">
+                            <input 
+                               type="checkbox"
+                               checked={formData.hasQuizManagement}
+                               onChange={(e) => setFormData({ ...formData, hasQuizManagement: e.target.checked })}
+                               className="w-5 h-5 rounded text-purple-600 focus:ring-purple-500"
+                            />
+                            <div>
+                               <p className="font-medium text-slate-900 dark:text-slate-100 text-sm">Quiz Management</p>
+                               <p className="text-xs text-slate-500 dark:text-slate-400">Enable quiz creation, question banking, and student attempts.</p>
+                            </div>
+                         </label>
+                         
+                         <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer">
+                            <input 
+                               type="checkbox"
+                               checked={formData.hasTestCases}
+                               onChange={(e) => setFormData({ ...formData, hasTestCases: e.target.checked })}
+                               className="w-5 h-5 rounded text-green-600 focus:ring-green-500"
+                            />
+                            <div>
+                               <p className="font-medium text-slate-900 dark:text-slate-100 text-sm">Test Case Management</p>
+                               <p className="text-xs text-slate-500 dark:text-slate-400">Enable input/output test case definition (Required for Python/Java auto-grading).</p>
+                            </div>
+                         </label>
+                      </div>
+                   </div>
+                </div>
+              )}
+
+            </div>
+
+            <div className="p-6 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3 bg-slate-50/50 dark:bg-slate-900/50">
+               <button
+                  onClick={() => setShowSubjectDialog(false)}
+                  disabled={saving === 'modal'}
+                  className="px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors font-medium"
+               >
                   Cancel
-                </button>
-                <button
-                  onClick={handleCreateSubject}
-                  disabled={saving === 'creating' || !newSubject.code || !newSubject.title}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-lg font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {saving === 'creating' ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      Creating...
-                    </>
+               </button>
+               <button
+                  onClick={handleSaveSubject}
+                  disabled={saving === 'modal'}
+                  className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
+               >
+                  {saving === 'modal' ? (
+                     <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        Saving...
+                     </>
                   ) : (
-                    <>
-                      <Plus className="w-4 h-4" />
-                      Create Subject
-                    </>
+                     <>
+                        <Check className="w-4 h-4" />
+                        {editingSubject ? 'Update Subject' : 'Create Subject'}
+                     </>
                   )}
-                </button>
-              </div>
-
-              {/* Info Box */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">After Creating:</h4>
-                <ul className="text-sm text-blue-800 dark:text-blue-400 space-y-1">
-                  <li>• Add user permissions in <strong>Account Management</strong></li>
-                  <li>• Create route folders: <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">/src/app/{newSubject.code.toLowerCase()}</code></li>
-                  <li>• Create admin routes: <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">/src/app/admin/{newSubject.code.toLowerCase()}</code></li>
-                  <li>• Configure labs in <strong>Lab Management</strong></li>
-                </ul>
-              </div>
+               </button>
             </div>
           </div>
         </div>
