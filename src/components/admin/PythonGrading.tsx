@@ -885,6 +885,27 @@ export default function PythonGrading({
                   required
                 />
               </div>
+              
+              <div>
+                <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Status</label>
+                <div className="flex gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setNewLabData({...newLabData, isActive: true})}
+                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border ${newLabData.isActive ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800' : 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'}`}
+                    >
+                        Active
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setNewLabData({...newLabData, isActive: false})}
+                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border ${!newLabData.isActive ? 'bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600' : 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'}`}
+                    >
+                        Inactive
+                    </button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Total Score</label>

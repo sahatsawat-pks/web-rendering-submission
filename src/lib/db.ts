@@ -334,13 +334,17 @@ async function ensureTables() {
         console.log('🔄 Running legacy subject migration...');
         
         await client.query(`
-            UPDATE subjects SET has_grading_interface=true, grading_type='lab_challenge', has_quiz_management=true, has_test_cases=true WHERE code='ITCS123';
-            UPDATE subjects SET has_grading_interface=true, grading_type='lab_challenge', has_quiz_management=true, has_test_cases=true WHERE code='ITCS223';
-            UPDATE subjects SET has_grading_interface=true, grading_type='python', has_quiz_management=true, has_test_cases=true WHERE code='ITCS251';
-            UPDATE subjects SET has_grading_interface=true, grading_type='sql', has_quiz_management=true, has_test_cases=true WHERE code='ITCS255';
-            UPDATE subjects SET has_grading_interface=true, grading_type='simple_score', has_quiz_management=true, has_test_cases=false WHERE code='ITCS227';
-            UPDATE subjects SET has_grading_interface=true, grading_type='simple_score', has_quiz_management=true, has_test_cases=false WHERE code='ITDS283';
-            UPDATE subjects SET has_grading_interface=true, grading_type='simple_score', has_quiz_management=true, has_test_cases=false WHERE code='ITGE162';
+            UPDATE subjects SET has_grading_interface=true, grading_type='lab_challenge', has_quiz_management=true, has_test_cases=true WHERE code='ITCS123' AND grading_type IS NULL;
+            UPDATE subjects SET has_grading_interface=true, grading_type='lab_challenge', has_quiz_management=true, has_test_cases=true WHERE code='ITCS223' AND grading_type IS NULL;
+            UPDATE subjects SET has_grading_interface=true, grading_type='python', has_quiz_management=true, has_test_cases=true WHERE code='ITCS251' AND grading_type IS NULL;
+            UPDATE subjects SET has_grading_interface=true, grading_type='sql', has_quiz_management=true, has_test_cases=true WHERE code='ITCS255' AND grading_type IS NULL;
+            UPDATE subjects SET has_grading_interface=true, grading_type='simple_score', has_quiz_management=true, has_test_cases=false WHERE code='ITCS227' AND grading_type IS NULL;
+            UPDATE subjects SET has_grading_interface=true, grading_type='simple_score', has_quiz_management=true, has_test_cases=false WHERE code='ITDS283' AND grading_type IS NULL;
+            UPDATE subjects SET has_grading_interface=true, grading_type='simple_score', has_quiz_management=true, has_test_cases=false WHERE code='ITGE162' AND grading_type IS NULL;
+            
+            -- Force enable features for Python/SQL subjects (Fixes missing Test Case / Quiz pages)
+            UPDATE subjects SET has_test_cases=true, has_quiz_management=true WHERE code='ITCS251';
+            UPDATE subjects SET has_test_cases=true, has_quiz_management=true WHERE code='ITCS255';
         `);
         console.log('✅ Legacy subjects migrated to dynamic routing');
 
