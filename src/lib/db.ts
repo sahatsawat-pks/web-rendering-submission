@@ -315,6 +315,60 @@ async function ensureTables() {
             console.log('✅ Seeded subjects table');
         }
 
+        // Seed labs if table is empty
+        const labsCount = await client.query('SELECT COUNT(*) FROM labs');
+        if (parseInt(labsCount.rows[0].count) === 0) {
+            await client.query(`
+                INSERT INTO labs (lab_number, title, file_name, subject, is_active, lab_type) VALUES
+                -- ITCS123 (Java OOP) - Labs and Challenges
+                ('1', 'Introduction to Java', 'index.html', 'ITCS123', true, 'Lab'),
+                ('1', 'Introduction to Java', 'index.html', 'ITCS123', true, 'Challenge'),
+                ('2', 'Classes and Objects', 'index.html', 'ITCS123', true, 'Lab'),
+                ('2', 'Classes and Objects', 'index.html', 'ITCS123', true, 'Challenge'),
+                ('3', 'Inheritance and Polymorphism', 'index.html', 'ITCS123', true, 'Lab'),
+                ('3', 'Inheritance and Polymorphism', 'index.html', 'ITCS123', true, 'Challenge'),
+                
+                -- ITCS223 (Web Development)
+                ('1', 'HTML Basics', 'index.html', 'ITCS223', true, 'Lab'),
+                ('2', 'CSS Styling', 'index.html', 'ITCS223', true, 'Lab'),
+                ('3', 'JavaScript Fundamentals', 'index.html', 'ITCS223', true, 'Lab'),
+                ('4', 'DOM Manipulation', 'index.html', 'ITCS223', true, 'Lab'),
+                ('5', 'Forms and Validation', 'index.html', 'ITCS223', true, 'Lab'),
+                
+                -- ITCS251 (Python)
+                ('1', 'Python Basics', 'main.py', 'ITCS251', true, 'Lab'),
+                ('2', 'Control Flow', 'main.py', 'ITCS251', true, 'Lab'),
+                ('3', 'Functions and Modules', 'main.py', 'ITCS251', true, 'Lab'),
+                ('4', 'Data Structures', 'main.py', 'ITCS251', true, 'Lab'),
+                ('5', 'File I/O', 'main.py', 'ITCS251', true, 'Lab'),
+                
+                -- ITCS255 (SQL)
+                ('1', 'Basic SELECT Queries', 'queries.sql', 'ITCS255', true, 'Lab'),
+                ('2', 'Filtering with WHERE', 'queries.sql', 'ITCS255', true, 'Lab'),
+                ('3', 'Joins and Relationships', 'queries.sql', 'ITCS255', true, 'Lab'),
+                ('4', 'Aggregation Functions', 'queries.sql', 'ITCS255', true, 'Lab'),
+                ('5', 'Subqueries', 'queries.sql', 'ITCS255', true, 'Lab'),
+                
+                -- ITCS227 (Data Science)
+                ('1', 'Introduction to Data Analysis', 'notebook.ipynb', 'ITCS227', true, 'Lab'),
+                ('2', 'Data Visualization', 'notebook.ipynb', 'ITCS227', true, 'Lab'),
+                ('3', 'Statistical Analysis', 'notebook.ipynb', 'ITCS227', true, 'Lab'),
+                ('4', 'Machine Learning Basics', 'notebook.ipynb', 'ITCS227', true, 'Lab'),
+                
+                -- ITDS283 (Mobile Development)
+                ('1', 'Introduction to Mobile UI', 'MainActivity.java', 'ITDS283', true, 'Lab'),
+                ('2', 'User Input and Events', 'MainActivity.java', 'ITDS283', true, 'Lab'),
+                ('3', 'Data Persistence', 'MainActivity.java', 'ITDS283', true, 'Lab'),
+                ('4', 'API Integration', 'MainActivity.java', 'ITDS283', true, 'Lab'),
+                
+                -- ITGE162 (Physical Science)
+                ('1', 'Scientific Computing Basics', 'index.html', 'ITGE162', true, 'Lab'),
+                ('2', 'Physics Simulations', 'index.html', 'ITGE162', true, 'Lab'),
+                ('3', 'Data Analysis in Science', 'index.html', 'ITGE162', true, 'Lab');
+            `);
+            console.log('✅ Seeded labs table with sample data');
+        }
+
         // Create quiz_progress table for storing student quiz answers
         await client.query(`
             CREATE TABLE IF NOT EXISTS quiz_progress (

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
 import { Eye, EyeOff, ArrowUp, ArrowDown, Plus, X, FolderPlus, Edit, Check, Settings, Beaker, Trash } from "lucide-react"
+import { getTextGradientStyle } from "@/lib/colors"
 
 interface Subject {
   id: number
@@ -296,7 +297,7 @@ export default function SubjectManagementPage() {
             <div className="flex items-center gap-4 md:gap-6">
               <a
                 href="/admin/dashboard"
-                className="text-sm font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors whitespace-nowrap"
+                className="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors whitespace-nowrap"
               >
                 &larr; <span className="hidden sm:inline">Back to Dashboard</span>
               </a>
@@ -350,14 +351,14 @@ export default function SubjectManagementPage() {
                     disabled={index === 0 || saving === subject.code}
                     className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   >
-                    <ArrowUp className="w-4 h-4 text-slate-500" />
+                    <ArrowUp className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                   </button>
                   <button
                     onClick={() => moveSubject(subject.code, "down")}
                     disabled={index === subjects.length - 1 || saving === subject.code}
                     className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   >
-                    <ArrowDown className="w-4 h-4 text-slate-500" />
+                    <ArrowDown className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                   </button>
                 </div>
 
@@ -367,10 +368,13 @@ export default function SubjectManagementPage() {
 
                 <div className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
                   <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <h3 
+                      className={`text-base font-bold flex items-center gap-2 ${getTextGradientStyle(subject.color).className}`}
+                      style={getTextGradientStyle(subject.color).style}
+                    >
                       {subject.code}
                       {!subject.isVisible && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500">Hidden</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300">Hidden</span>
                       )}
                     </h3>
                     <p className="text-sm text-slate-600 dark:text-slate-400 truncate">{subject.title}</p>
@@ -382,7 +386,7 @@ export default function SubjectManagementPage() {
                         {GRADING_TYPES.find(t => t.value === subject.gradingType)?.label || subject.gradingType}
                       </span>
                     ) : (
-                      <span className="text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-500">No Grading</span>
+                      <span className="text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">No Grading</span>
                     )}
                     <div className="flex gap-1">
                        {subject.hasQuizManagement && (
@@ -465,7 +469,7 @@ export default function SubjectManagementPage() {
                  className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
                     activeTab === 'basic'
                     ? 'border-blue-500 text-blue-600 dark:text-blue-400' 
-                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
                  }`}
                >
                  Basic Info
@@ -475,7 +479,7 @@ export default function SubjectManagementPage() {
                  className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
                     activeTab === 'config'
                     ? 'border-blue-500 text-blue-600 dark:text-blue-400' 
-                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
                  }`}
                >
                  Configuration & Grading
