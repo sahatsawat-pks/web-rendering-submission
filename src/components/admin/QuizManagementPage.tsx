@@ -94,8 +94,8 @@ export default function QuizManagementPage({
       .catch(() => router.push('/admin/login'))
       .finally(() => setLoading(false))
 
-    // Fetch labs
-    fetch(`/api/labs?activeOnly=false&subject=${subjectCode}`)
+    // Fetch labs (convert to uppercase for database lookup)
+    fetch(`/api/labs?activeOnly=false&subject=${subjectCode.toUpperCase()}`)
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -112,7 +112,7 @@ export default function QuizManagementPage({
 
   const loadQuizData = async () => {
     try {
-      const res = await fetch(`/api/quiz?labNumber=${selectedLab}&subject=${subjectCode}`)
+      const res = await fetch(`/api/quiz?labNumber=${selectedLab}&subject=${subjectCode.toUpperCase()}`)
       if (res.ok) {
         const data = await res.json()
         setCategories(data.categories || [])
@@ -137,7 +137,7 @@ export default function QuizManagementPage({
         body: JSON.stringify({
           action: 'update_questions',
           labNumber: selectedLab,
-          subject: subjectCode,
+          subject: subjectCode.toUpperCase(),
           categories,
           questions
         })
@@ -165,7 +165,7 @@ export default function QuizManagementPage({
         body: JSON.stringify({
           action: 'update_settings',
           labNumber: selectedLab,
-          subject: subjectCode,
+          subject: subjectCode.toUpperCase(),
           quizEnabled,
           quizTimeLimit: timeLimit,
           quizTimeLimitEnabled: timeLimitEnabled
@@ -364,10 +364,10 @@ export default function QuizManagementPage({
               onClick={() => router.push(`/admin/${subjectCode.toLowerCase()}`)}
               className={`${colorTheme.primary} dark:text-${colorTheme.accent}-400 hover:opacity-80`}
             >
-              ← Back to {subjectCode}
+              ← Back to {subjectCode.toUpperCase()}
             </button>
             <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-              Quiz Management - {subjectCode}
+              Quiz Management - {subjectCode.toUpperCase()}
             </h1>
           </div>
           <div className="flex items-center gap-3">

@@ -11,7 +11,7 @@ export default function SubjectQuizPage() {
   
   useEffect(() => {
     if (subjectCode) {
-      fetch(`/api/subjects?code=${subjectCode}`)
+      fetch(`/api/subjects?code=${subjectCode.toUpperCase()}`)
         .then(res => res.json())
         .then(data => {
           if (data.subjects && data.subjects.length > 0) {

@@ -11,7 +11,7 @@ export default function SubjectTestsPage() {
   
   useEffect(() => {
     if (subjectCode) {
-      fetch(`/api/subjects?code=${subjectCode}`)
+      fetch(`/api/subjects?code=${subjectCode.toUpperCase()}`)
         .then(res => res.json())
         .then(data => {
           if (data.subjects && data.subjects.length > 0) {
@@ -26,8 +26,8 @@ export default function SubjectTestsPage() {
 
   // Logic to determine props based on subject
   // In a future refactor, these could be columns in the DB
-  const isITCS251 = subjectCode === 'ITCS251'
-  const isITCS123 = subjectCode === 'ITCS123' || subjectCode === 'ITCS223' // Java challenges
+  const isITCS251 = subjectCode.toUpperCase() === 'ITCS251'
+  const isITCS123 = subjectCode.toUpperCase() === 'ITCS123' || subjectCode.toUpperCase() === 'ITCS223' // Java challenges
 
   const taskKey = isITCS251 ? 'subQuestions' : 'Tasks'
   const taskLabel = isITCS251 ? 'Task' : 'Task' // Both effectively use 'Task' label in UI now 

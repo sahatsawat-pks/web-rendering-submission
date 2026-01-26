@@ -66,6 +66,18 @@ export default function TestManagementPage({
     accent: "blue"
   }
 }: TestManagementPageProps) {
+  
+  const accentGradients: Record<string, string> = {
+    blue: "from-blue-600 to-indigo-600",
+    teal: "from-teal-600 to-cyan-600",
+    emerald: "from-emerald-600 to-green-600",
+    indigo: "from-indigo-600 to-purple-600",
+    purple: "from-purple-600 to-pink-600",
+    orange: "from-orange-600 to-amber-600",
+    rose: "from-rose-600 to-red-600",
+    cyan: "from-cyan-600 to-blue-600",
+    slate: "from-slate-600 to-gray-600",
+  }
   const router = useRouter()
   const [labs, setLabs] = useState<Lab[]>([])
   const [selectedLab, setSelectedLab] = useState<Lab | null>(null)
@@ -117,7 +129,7 @@ export default function TestManagementPage({
 
   const fetchLabs = async () => {
     try {
-      const res = await fetch(`/api/labs?subject=${subjectCode}`)
+      const res = await fetch(`/api/labs?subject=${subjectCode.toUpperCase()}`)
       const data = await res.json()
       if (data.success) {
         setLabs(data.labs)
@@ -392,10 +404,10 @@ export default function TestManagementPage({
               <ArrowLeft size={24} />
             </button>
             <div>
-              <h1 className={`text-3xl font-bold bg-gradient-to-r from-${colorTheme.accent}-600 to-${colorTheme.accent === 'blue' ? 'indigo' : 'orange'}-600 bg-clip-text text-transparent`}>
+              <h1 className={`text-3xl font-bold bg-gradient-to-r ${accentGradients[colorTheme.accent] || accentGradients.blue} bg-clip-text text-transparent`}>
                 Manage Test Cases
               </h1>
-              <p className="text-slate-600 dark:text-slate-400 mt-1">{subjectCode} - {subjectTitle}</p>
+              <p className="text-slate-600 dark:text-slate-400 mt-1">{subjectCode.toUpperCase()} - {subjectTitle}</p>
             </div>
           </div>
         </div>
@@ -408,7 +420,7 @@ export default function TestManagementPage({
             <div className="lg:col-span-1 animate-fade-in">
                 <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl p-6">
                 <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Select Lab</h2>
+                    <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-200">Select Lab</h2>
                 </div>
                 
                 {hasChallengeMode && (
@@ -446,7 +458,7 @@ export default function TestManagementPage({
                                 onClick={() => handleSelectLab(lab)}
                                 className={`w-full text-left p-4 rounded-xl transition-all border ${
                                     selectedLab?.id === lab.id 
-                                    ? `bg-${colorTheme.accent}-50 dark:bg-${colorTheme.accent}-500/20 border-${colorTheme.accent}-200 dark:border-${colorTheme.accent}-500/50 text-slate-900 dark:text-white`
+                                    ? `bg-${colorTheme.accent}-50 dark:bg-${colorTheme.accent}-500/20 border-${colorTheme.accent}-200 dark:border-${colorTheme.accent}-500/50 text-slate-900 dark:text-slate-200`
                                     : "bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600"
                                 }`}
                             >
@@ -467,7 +479,7 @@ export default function TestManagementPage({
                     <>
                         <div className="flex items-center justify-between bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl">
                             <div>
-                                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{selectedLab.title}</h2>
+                                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-200">{selectedLab.title}</h2>
                                 <p className="text-slate-600 dark:text-slate-400 text-sm mt-1">
                                     {testCases.length} Test Case{testCases.length !== 1 && 's'} Defined
                                     {tasks.length > 0 && <span className="mx-2">•</span>}
@@ -547,7 +559,7 @@ export default function TestManagementPage({
                             {testCases.some(tc => !tc.taskId) && (
                                 <div className="space-y-3">
                                     {tasks.length > 0 && (
-                                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                                        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2">
                                             <span className="text-slate-500 dark:text-slate-400">No {taskLabel.toLowerCase()}</span>
                                         </h3>
                                     )}
@@ -626,7 +638,7 @@ export default function TestManagementPage({
                                 return (
                                     <div key={task.id} className="space-y-3">
                                         <div className="flex items-center justify-between">
-                                            <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                                            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2">
                                                 <span className={`text-${colorTheme.accent}-600 dark:text-${colorTheme.accent}-400`}>{task.name}</span>
                                                 <span className="text-sm text-slate-500 dark:text-slate-400">({taskTests.length} test{taskTests.length !== 1 ? 's' : ''})</span>
                                             </h3>
@@ -662,7 +674,7 @@ export default function TestManagementPage({
                                                             <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 font-mono text-sm border border-slate-200 dark:border-slate-600">
                                                                 {originalIndex + 1}
                                                             </div>
-                                                            <h3 className="font-semibold text-slate-900 dark:text-white text-lg">{test.name}</h3>
+                                                            <h3 className="font-semibold text-slate-900 dark:text-slate-200 text-lg">{test.name}</h3>
                                                               {test.matchMode === 'exact' && (
                                                                 <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] font-bold border border-purple-500/30">EXACT</span>
                                                               )}
