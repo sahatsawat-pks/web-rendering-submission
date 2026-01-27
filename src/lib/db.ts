@@ -370,9 +370,9 @@ async function ensureTables() {
                 ('ITCS223', 'Introduction to Web Development', 'Full-stack web submission rendering & testing.', 'Code2', 'from-teal-500 to-cyan-500', true, 1),
                 ('ITCS227', 'Introduction to Data Science', 'Lab score tracking and grading system.', 'BarChart3', 'from-indigo-500 to-violet-500', true, 2),
                 ('ITGE162', 'Physical Science and Computation', 'Lab score tracking and grading system.', 'Layers', 'from-emerald-500 to-green-500', true, 3),
-                ('ITCS123', 'Object Oriented Programming', 'Java JUnit test runner and code validator.', 'Terminal', 'from-orange-500 to-amber-500', true, 4),
+                ('ITCS123', 'Object Oriented Programming', 'Java JUnit test runner and code validator.', 'Terminal', 'from-orange-600 to-amber-600', true, 4),
                 ('ITDS283', 'Mobile Application Development', 'Mobile app project submissions and testing.', 'Smartphone', 'from-rose-500 to-red-500', true, 5),
-                ('ITCS251', 'Programming in Python', 'Python code execution and test validation.', 'Code', 'from-blue-500 to-sky-500', true, 6),
+                ('ITCS251', 'Programming in Python', 'Python code execution and test validation.', 'Code', 'from-blue-600 to-sky-600', true, 6),
                 ('ITCS255', 'Structured Query Language Essentials', 'SQL query execution and validation.', 'Database', 'from-purple-500 to-pink-500', true, 7);
             `);
             console.log('✅ Seeded subjects table');
@@ -477,6 +477,15 @@ async function ensureTables() {
             UPDATE subjects SET google_sheet_id='154LairckAZ5jF33dZ4cRAuP54cbv_42Inv-gZTNxSro' WHERE code='ITCS255' AND google_sheet_id IS NULL;
         `);
         console.log('✅ Google Sheets IDs backfilled');
+
+        // --- MIGRATION: Contrast Fix ---
+        // Switch ITCS123 (Orange) and ITCS251 (Blue/Sky) to darker shades (600) for better text readability
+        console.log('🔄 Running Color Contrast Fix...');
+        await client.query(`
+            UPDATE subjects SET color = 'from-orange-600 to-amber-600' WHERE code = 'ITCS123' AND color LIKE '%500%';
+            UPDATE subjects SET color = 'from-blue-600 to-sky-600' WHERE code = 'ITCS251' AND color LIKE '%500%';
+        `);
+        console.log('✅ Color contrast improved');
 
         // Index for faster lookups
         await client.query(`
