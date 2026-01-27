@@ -472,13 +472,13 @@ export default function SimpleScoreGrading({
           <div className="flex gap-2">
             {/* Badge */}
             {(() => {
-                const badgeGradient = getGradientStyleProps(color);
+                const textGradient = getGradientStyleProps(color); // Reuse logic but apply to text
                 return (
-                    <span 
-                        className={`px-3 py-1.5 bg-white dark:bg-slate-700 rounded-lg text-xs font-medium border shadow-sm ${badgeGradient.className && !badgeGradient.style ? `border-${badgeGradient.className.split(' ')[1]}` : ''}`}
-                        style={{ ...badgeGradient.style, opacity: 0.8 }} 
-                    >
-                    {labs.length} Total
+                    <span className="px-3 py-1.5 bg-white dark:bg-slate-700 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <span className={textGradient.className ? textGradient.className.replace('bg-', 'text-').replace('from-', 'text-transparent bg-clip-text bg-gradient-to-r from-') : ''} 
+                              style={textGradient.style ? { ...textGradient.style, backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' } : undefined}>
+                        {labs.length} Total
+                        </span>
                     </span>
                 );
             })()}

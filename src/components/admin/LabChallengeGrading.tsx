@@ -587,11 +587,17 @@ export default function LabChallengeGrading({
             Labs
           </h3>
           <div className="flex gap-2">
-            <span className={`px-3 py-1.5 bg-white dark:bg-slate-700 rounded-lg text-xs font-medium border shadow-sm ${getGradientStyleProps(color).className && !getGradientStyleProps(color).style ? 'text-orange-600 border-orange-200' : ''}`}
-                  style={{ ...getGradientStyleProps(color).style, opacity: 0.8 }}
-            >
-              {new Set(labs.map(lab => lab.labNumber)).size} Total
-            </span>
+            {(() => {
+              const textGradient = getGradientStyleProps(color); // Reuse logic but apply to text
+              return (
+                <span className="px-3 py-1.5 bg-white dark:bg-slate-700 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 shadow-sm">
+                  <span className={textGradient.className ? textGradient.className.replace('bg-', 'text-').replace('from-', 'text-transparent bg-clip-text bg-gradient-to-r from-') : ''} 
+                        style={textGradient.style ? { ...textGradient.style, backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' } : undefined}>
+                    {new Set(labs.map(lab => lab.labNumber)).size} Total
+                  </span>
+                </span>
+              );
+            })()}
             {hasTestCases && ['Lecturer', 'Main Admin'].includes(role) && (
               <a href={`/admin/${subjectCode.toLowerCase()}/tests`} className="px-3 py-1.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-lg text-xs font-medium border border-orange-200 dark:border-orange-800 shadow-sm hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors">
                 Manage Test Cases

@@ -367,13 +367,13 @@ async function ensureTables() {
         if (parseInt(subjectsCount.rows[0].count) === 0) {
             await client.query(`
                 INSERT INTO subjects (code, title, description, icon, color, is_visible, display_order) VALUES
-                ('ITCS223', 'Introduction to Web Development', 'Full-stack web submission rendering & testing.', 'Code2', 'from-teal-500 to-cyan-500', true, 1),
-                ('ITCS227', 'Introduction to Data Science', 'Lab score tracking and grading system.', 'BarChart3', 'from-indigo-500 to-violet-500', true, 2),
-                ('ITGE162', 'Physical Science and Computation', 'Lab score tracking and grading system.', 'Layers', 'from-emerald-500 to-green-500', true, 3),
-                ('ITCS123', 'Object Oriented Programming', 'Java JUnit test runner and code validator.', 'Terminal', 'from-orange-600 to-amber-600', true, 4),
-                ('ITDS283', 'Mobile Application Development', 'Mobile app project submissions and testing.', 'Smartphone', 'from-rose-500 to-red-500', true, 5),
-                ('ITCS251', 'Programming in Python', 'Python code execution and test validation.', 'Code', 'from-blue-600 to-sky-600', true, 6),
-                ('ITCS255', 'Structured Query Language Essentials', 'SQL query execution and validation.', 'Database', 'from-purple-500 to-pink-500', true, 7);
+                ('ITCS223', 'Introduction to Web Development', 'Full-stack web submission rendering & testing.', 'Code2', 'from-teal-600 to-cyan-600 dark:from-teal-400 dark:to-cyan-400', true, 1),
+                ('ITCS227', 'Introduction to Data Science', 'Lab score tracking and grading system.', 'BarChart3', 'from-indigo-600 to-violet-600 dark:from-indigo-400 dark:to-violet-400', true, 2),
+                ('ITGE162', 'Physical Science and Computation', 'Lab score tracking and grading system.', 'Layers', 'from-emerald-600 to-green-600 dark:from-emerald-400 dark:to-green-400', true, 3),
+                ('ITCS123', 'Object Oriented Programming', 'Java JUnit test runner and code validator.', 'Terminal', 'from-orange-600 to-amber-600 dark:from-orange-400 dark:to-amber-400', true, 4),
+                ('ITDS283', 'Mobile Application Development', 'Mobile app project submissions and testing.', 'Smartphone', 'from-rose-600 to-red-600 dark:from-rose-400 dark:to-red-400', true, 5),
+                ('ITCS251', 'Programming in Python', 'Python code execution and test validation.', 'Code', 'from-blue-600 to-sky-600 dark:from-blue-400 dark:to-sky-400', true, 6),
+                ('ITCS255', 'Structured Query Language Essentials', 'SQL query execution and validation.', 'Database', 'from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400', true, 7);
             `);
             console.log('✅ Seeded subjects table');
         }
@@ -478,14 +478,40 @@ async function ensureTables() {
         `);
         console.log('✅ Google Sheets IDs backfilled');
 
-        // --- MIGRATION: Contrast Fix ---
-        // Switch ITCS123 (Orange) and ITCS251 (Blue/Sky) to darker shades (600) for better text readability
-        console.log('🔄 Running Color Contrast Fix...');
+        // --- MIGRATION: Contrast Fix (Adaptive Dark/Light) ---
+        // Ensure all subjects use 600 weight for light mode (contrast against white)
+        // and 400 weight for dark mode (contrast against slate-900)
+        console.log('🔄 Running Color Contrast Fix (Adaptive)...');
         await client.query(`
-            UPDATE subjects SET color = 'from-orange-600 to-amber-600' WHERE code = 'ITCS123' AND color LIKE '%500%';
-            UPDATE subjects SET color = 'from-blue-600 to-sky-600' WHERE code = 'ITCS251' AND color LIKE '%500%';
+            -- ITCS123 (Orange/Amber)
+            UPDATE subjects SET color = 'from-orange-600 to-amber-600 dark:from-orange-400 dark:to-amber-400' 
+            WHERE code = 'ITCS123';
+
+            -- ITCS251 (Blue/Sky)
+            UPDATE subjects SET color = 'from-blue-600 to-sky-600 dark:from-blue-400 dark:to-sky-400' 
+            WHERE code = 'ITCS251';
+
+            -- ITCS223 (Teal/Cyan)
+            UPDATE subjects SET color = 'from-teal-600 to-cyan-600 dark:from-teal-400 dark:to-cyan-400' 
+            WHERE code = 'ITCS223';
+
+            -- ITCS227 (Indigo/Violet)
+            UPDATE subjects SET color = 'from-indigo-600 to-violet-600 dark:from-indigo-400 dark:to-violet-400' 
+            WHERE code = 'ITCS227';
+
+            -- ITGE162 (Emerald/Green)
+            UPDATE subjects SET color = 'from-emerald-600 to-green-600 dark:from-emerald-400 dark:to-green-400' 
+            WHERE code = 'ITGE162';
+
+            -- ITDS283 (Rose/Red)
+            UPDATE subjects SET color = 'from-rose-600 to-red-600 dark:from-rose-400 dark:to-red-400' 
+            WHERE code = 'ITDS283';
+
+            -- ITCS255 (Purple/Pink)
+            UPDATE subjects SET color = 'from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400' 
+            WHERE code = 'ITCS255';
         `);
-        console.log('✅ Color contrast improved');
+        console.log('✅ Color contrast improved with adaptive dark mode support');
 
         // Index for faster lookups
         await client.query(`
