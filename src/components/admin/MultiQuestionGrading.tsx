@@ -72,8 +72,11 @@ export default function MultiQuestionGrading({
     fetchLabs()
 
     fetch(`/api/student-prefixes?subject=${subjectCode}`).then(r=>r.json()).then(d=>{
-        if(d.success && d.prefixes) setPrefixes(d.prefixes);
-        if(d.prefixes?.[0]) setSelectedPrefix(d.prefixes[0]);
+        if(d.success && d.prefixes) {
+            const sorted = d.prefixes.sort();
+            setPrefixes(sorted);
+            if(sorted.length > 0) setSelectedPrefix(sorted[sorted.length - 1]);
+        }
     }).catch(console.error)
   }, [subjectCode])
 

@@ -82,9 +82,10 @@ export default function CriteriaGrading({
       .then(res => res.json())
       .then(data => {
         if (data.success && data.prefixes) {
-          setPrefixes(data.prefixes)
-          if (data.prefixes.length > 0) {
-            setSelectedPrefix(data.prefixes[0])
+          const sorted = data.prefixes.sort();
+          setPrefixes(sorted)
+          if (sorted.length > 0) {
+            setSelectedPrefix(sorted[sorted.length - 1])
           }
         }
       })
