@@ -49,7 +49,7 @@ export default function SQLGrading({
   const [newLabData, setNewLabData] = useState({
     labNumber: "",
     title: "",
-    fileName: "index.html",
+    fileName: "",
     isActive: true,
     deadline: "",
     totalScore: ""
@@ -258,7 +258,7 @@ export default function SQLGrading({
         setNewLabData({
           labNumber: "",
           title: "",
-          fileName: "index.html",
+          fileName: "",
           isActive: true,
           deadline: "",
           totalScore: ""
@@ -886,26 +886,6 @@ export default function SQLGrading({
                 />
               </div>
               
-              <div>
-                <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Status</label>
-                <div className="flex gap-2">
-                    <button
-                        type="button"
-                        onClick={() => setNewLabData({...newLabData, isActive: true})}
-                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border ${newLabData.isActive ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800' : 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'}`}
-                    >
-                        Active
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setNewLabData({...newLabData, isActive: false})}
-                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border ${!newLabData.isActive ? 'bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600' : 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'}`}
-                    >
-                        Inactive
-                    </button>
-                </div>
-              </div>
-
               <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Total Score</label>
@@ -917,20 +897,20 @@ export default function SQLGrading({
                       placeholder="Default: 10"
                     />
                   </div>
-                   <div>
-                    <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Deadline</label>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Deadline (Optional)</label>
                     <input
                       type="text"
                       value={newLabData.deadline}
                       onChange={(e) => setNewLabData({...newLabData, deadline: e.target.value})}
                       className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-                      placeholder="Optional"
+                      placeholder="e.g. 2024-12-31"
                     />
                   </div>
               </div>
-              
-               <div>
-                <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Filename</label>
+
+              <div>
+                <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">File Name</label>
                 <input
                   type="text"
                   value={newLabData.fileName}
@@ -938,6 +918,19 @@ export default function SQLGrading({
                   className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                   placeholder="e.g. index.html"
                 />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="labActive"
+                  checked={newLabData.isActive}
+                  onChange={(e) => setNewLabData({...newLabData, isActive: e.target.checked})}
+                  className="w-5 h-5 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                />
+                <label htmlFor="labActive" className="text-sm font-semibold text-slate-900 dark:text-slate-200 cursor-pointer">
+                  Active (Visible to students)
+                </label>
               </div>
 
               <div className="flex gap-3 justify-end mt-6">

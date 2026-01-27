@@ -11,6 +11,8 @@ import LabChallengeGrading from "@/components/admin/LabChallengeGrading"
 import SimpleScoreGrading from "@/components/admin/SimpleScoreGrading"
 import SQLGrading from "@/components/admin/SQLGrading"
 import PythonGrading from "@/components/admin/PythonGrading"
+import CriteriaGrading from "@/components/admin/CriteriaGrading"
+import MultiQuestionGrading from "@/components/admin/MultiQuestionGrading"
 import { getGradientStyleProps } from "@/lib/colors"
 
 interface Subject {
@@ -19,7 +21,7 @@ interface Subject {
   hasGradingInterface: boolean
   hasQuizManagement: boolean
   hasTestCases: boolean
-  gradingType: 'lab_challenge' | 'simple_score' | 'sql' | 'python' | 'java' | null
+  gradingType: 'lab_challenge' | 'simple_score' | 'sql' | 'python' | 'java' | 'criteria' | 'multi_question' | null
   color: string
   quizSectionEnabled: boolean
 }
@@ -118,7 +120,7 @@ export default function DynamicAdminDashboard() {
         <main className="container mx-auto max-w-4xl px-4 py-16">
           <div className="glass-card p-8 rounded-2xl text-center">
             <AlertCircle className="w-16 h-16 mx-auto text-red-500 mb-4" />
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Subject Not Found</h1>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-200 mb-2">Subject Not Found</h1>
             <p className="text-slate-600 dark:text-slate-400 mb-6">{error}</p>
             <Link
               href="/admin/dashboard"
@@ -163,7 +165,7 @@ export default function DynamicAdminDashboard() {
             >
               <Layers className="h-5 w-5" />
             </div>
-            <span className="text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 hidden sm:inline">
+            <span className="text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-200 hidden sm:inline">
               {subjectCode} Dashboard
             </span>
           </div>
@@ -224,10 +226,28 @@ export default function DynamicAdminDashboard() {
             quizSectionEnabled={subject.quizSectionEnabled}
             color={subject.color}
           />
+        ) : subject.hasGradingInterface && subject.gradingType === 'criteria' ? (
+          <CriteriaGrading
+            subjectCode={subjectCode}
+            subjectTitle={subject.title}
+            role={role}
+            username={username}
+            hasQuizManagement={subject.hasQuizManagement}
+            quizSectionEnabled={subject.quizSectionEnabled}
+            color={subject.color}
+          />
+        ) : subject.hasGradingInterface && subject.gradingType === 'multi_question' ? (
+          <MultiQuestionGrading
+            subjectCode={subjectCode}
+            subjectTitle={subject.title}
+            role={role}
+            username={username}
+            color={subject.color}
+          />
         ) : subject.hasGradingInterface && !subject.gradingType ? (
           <div className="glass-card p-8 rounded-2xl text-center">
             <AlertCircle className="w-12 h-12 mx-auto text-yellow-500 mb-4" />
-            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">Grading Type Not Set</h2>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-200 mb-2">Grading Type Not Set</h2>
             <p className="text-slate-600 dark:text-slate-400 mb-4">
               This subject has grading enabled but no grading type configured.
             </p>
@@ -241,7 +261,7 @@ export default function DynamicAdminDashboard() {
         ) : !subject.hasGradingInterface ? (
           <div className="glass-card p-8 rounded-2xl text-center">
             <AlertCircle className="w-12 h-12 mx-auto text-blue-500 mb-4" />
-            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">Grading Interface Disabled</h2>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-200 mb-2">Grading Interface Disabled</h2>
             <p className="text-slate-600 dark:text-slate-400 mb-4">
               Enable grading features for this subject in Subject Management.
             </p>
@@ -255,7 +275,7 @@ export default function DynamicAdminDashboard() {
         ) : (
           <div className="glass-card p-8 rounded-2xl text-center">
             <AlertCircle className="w-12 h-12 mx-auto text-amber-500 mb-4" />
-            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">Grading Type Not Supported Yet</h2>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-200 mb-2">Grading Type Not Supported Yet</h2>
             <p className="text-slate-600 dark:text-slate-400 mb-4">
               Grading type "<span className="font-mono">{subject.gradingType}</span>" will be added soon. Use the standard dashboard for now.
             </p>

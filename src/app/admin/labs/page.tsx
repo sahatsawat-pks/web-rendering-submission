@@ -307,7 +307,7 @@ export default function LabManagement() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 text-white font-bold shadow-lg shadow-blue-500/30 text-xs">
               ICT
             </div>
-            <span className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+            <span className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-200">
               Lab Management
             </span>
           </div>
@@ -388,7 +388,7 @@ export default function LabManagement() {
                     />
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-200">
                   {editingLab ? "Edit Lab" : "Add New Lab"}
                 </h2>
               </div>
@@ -398,7 +398,7 @@ export default function LabManagement() {
                   <select
                     value={formData.subject}
                     onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white/90 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-all mb-4"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white/90 dark:bg-slate-800/90 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-all mb-4"
                   >
                     {allowedSubjects.length > 0 ? (
                       allowedSubjects.map(subject => (
@@ -418,7 +418,7 @@ export default function LabManagement() {
                     onChange={(e) => setFormData({ ...formData, labNumber: e.target.value })}
                     required
                     placeholder="e.g., 01"
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white/90 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white/90 dark:bg-slate-800/90 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   />
                 </div>
                 <div>
@@ -429,7 +429,7 @@ export default function LabManagement() {
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     required
                     placeholder="e.g., HTML Basics"
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white/90 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white/90 dark:bg-slate-800/90 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   />
                 </div>
                 <div>
@@ -441,7 +441,7 @@ export default function LabManagement() {
                     value={formData.deadline}
                     onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
                     placeholder="e.g., 2024-01-31"
-                    className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-all font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/90 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-all font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   />
                 </div>
 
@@ -458,7 +458,7 @@ export default function LabManagement() {
                       placeholder="e.g., 100"
                       min="0"
                       step="1"
-                      className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-all font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                      className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/90 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-all font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                       Set max score for color gradient: 0 (red) → {formData.totalScore || 'max'} (green)
@@ -509,7 +509,7 @@ export default function LabManagement() {
           <div className="lg:col-span-2 animate-fade-in">
             <div className="glass-card overflow-hidden hover:shadow-2xl hover:shadow-blue-500/5 transition-all duration-300 border-white/40 dark:border-slate-700/50">
               <div className="px-8 py-6 border-b border-white/20 dark:border-slate-700/50 bg-gradient-to-r from-blue-50/50 to-cyan-50/50 dark:from-slate-800/50 dark:to-slate-700/50">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-3">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-3">
                   <svg
                     className="w-5 h-5 text-blue-600 dark:text-blue-400"
                     fill="none"
@@ -570,7 +570,7 @@ export default function LabManagement() {
                           className="hover:bg-blue-50/40 dark:hover:bg-slate-700/40 transition-colors group"
                         >
                           <td className="px-4 md:px-8 py-4 md:py-5 text-slate-700 dark:text-slate-300 font-bold text-xs md:text-sm">{lab.subject || "-"}</td>
-                          <td className="px-4 md:px-8 py-4 md:py-5 font-semibold text-slate-900 dark:text-slate-100">
+                          <td className="px-4 md:px-8 py-4 md:py-5 font-semibold text-slate-900 dark:text-slate-200">
                             <div className="flex items-center gap-2">
                               <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 text-white flex items-center justify-center text-xs md:text-sm font-bold shadow-md shadow-blue-500/20">
                                 {lab.labNumber}

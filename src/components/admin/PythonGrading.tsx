@@ -49,7 +49,7 @@ export default function PythonGrading({
   const [newLabData, setNewLabData] = useState({
     labNumber: "",
     title: "",
-    fileName: "main.py",
+    fileName: "",
     isActive: true,
     deadline: "",
     totalScore: ""
@@ -258,7 +258,7 @@ export default function PythonGrading({
         setNewLabData({
           labNumber: "",
           title: "",
-          fileName: "main.py",
+          fileName: "",
           isActive: true,
           deadline: "",
           totalScore: ""
@@ -399,7 +399,7 @@ export default function PythonGrading({
       {/* Welcome Section */}
       <div className="animate-slide-up">
         <div className="flex items-center justify-between mb-2">
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100">{subjectCode} Dashboard</h1>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-200">{subjectCode} Dashboard</h1>
           {['Lecturer', 'Main Admin'].includes(role) && hasQuizManagement && (
             <button
               onClick={toggleQuizSection}
@@ -423,7 +423,7 @@ export default function PythonGrading({
       {/* Grading Interface */}
       <div className="glass-card p-8 animate-scale-in hover:shadow-2xl hover:shadow-blue-500/5 transition-all duration-300 border-white/40">
         <div className="flex items-center justify-between mb-8">
-          <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+          <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2">
             <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
             </svg>
@@ -462,7 +462,7 @@ export default function PythonGrading({
                 value={selectedLab}
                 onChange={(e) => setSelectedLab(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm"
               >
                 <option value="">Select Lab</option>
                 {labs.filter(lab => lab.isActive).map((lab) => (
@@ -483,7 +483,7 @@ export default function PythonGrading({
                       setSelectedPrefix(e.target.value)
                       setStudentId(e.target.value + remainingDigits)
                     }}
-                    className="w-28 px-3 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm font-mono"
+                    className="w-28 px-3 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm font-mono"
                   >
                     {prefixes.map(prefix => (
                       <option key={prefix} value={prefix}>{prefix}</option>
@@ -500,7 +500,7 @@ export default function PythonGrading({
                     placeholder="xxxxx"
                     maxLength={5}
                     required
-                    className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm font-mono"
+                    className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm font-mono"
                   />
                 </div>
               </div>
@@ -515,7 +515,7 @@ export default function PythonGrading({
                   required
                   min="0"
                   step="0.5"
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm"
                 />
               </div>
             </div>
@@ -600,7 +600,7 @@ export default function PythonGrading({
       {/* Labs Section */}
       <div className="glass-card p-8 animate-scale-in hover:shadow-2xl hover:shadow-blue-500/5 transition-all duration-300 border-white/40">
         <div className="flex items-center justify-between mb-8">
-          <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+          <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2">
             <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
@@ -669,7 +669,7 @@ export default function PythonGrading({
                   {lab.labNumber}
                 </div>
                 <div className="flex-grow">
-                  <h4 className={`text-base font-semibold mb-1 ${lab.isActive ? "text-slate-900 dark:text-slate-100" : "text-slate-500 dark:text-slate-500"}`}>
+                  <h4 className={`text-base font-semibold mb-1 ${lab.isActive ? "text-slate-900 dark:text-slate-200" : "text-slate-500 dark:text-slate-500"}`}>
                      {lab.title}
                     {!lab.isActive && <span className="ml-2 px-2 py-0.5 rounded text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 uppercase tracking-wide">Inactive</span>}
                   </h4>
@@ -748,7 +748,7 @@ export default function PythonGrading({
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-4xl w-full p-6 animate-scale-in max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Upload CSV</h3>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-200">Upload CSV</h3>
               <button onClick={() => setShowCsvModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
@@ -853,7 +853,7 @@ export default function PythonGrading({
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-scale-in">
             <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Create New Lab</h3>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-200">Create New Lab</h3>
                 <button 
                     onClick={() => setShowNewLabDialog(false)}
                     className="text-slate-400 hover:text-slate-500 dark:hover:text-slate-300 transition-colors"
@@ -869,7 +869,7 @@ export default function PythonGrading({
                   type="text"
                   value={newLabData.labNumber}
                   onChange={(e) => setNewLabData({...newLabData, labNumber: e.target.value})}
-                  className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   placeholder="e.g. 01"
                   required
                 />
@@ -880,32 +880,12 @@ export default function PythonGrading({
                   type="text"
                   value={newLabData.title}
                   onChange={(e) => setNewLabData({...newLabData, title: e.target.value})}
-                  className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   placeholder="Lab Title"
                   required
                 />
               </div>
               
-              <div>
-                <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Status</label>
-                <div className="flex gap-2">
-                    <button
-                        type="button"
-                        onClick={() => setNewLabData({...newLabData, isActive: true})}
-                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border ${newLabData.isActive ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800' : 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'}`}
-                    >
-                        Active
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setNewLabData({...newLabData, isActive: false})}
-                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border ${!newLabData.isActive ? 'bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600' : 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'}`}
-                    >
-                        Inactive
-                    </button>
-                </div>
-              </div>
-
               <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Total Score</label>
@@ -913,31 +893,44 @@ export default function PythonGrading({
                       type="number"
                       value={newLabData.totalScore}
                       onChange={(e) => setNewLabData({...newLabData, totalScore: e.target.value})}
-                      className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                      className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                       placeholder="Default: 10"
                     />
                   </div>
-                   <div>
-                    <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Deadline</label>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Deadline (Optional)</label>
                     <input
                       type="text"
                       value={newLabData.deadline}
                       onChange={(e) => setNewLabData({...newLabData, deadline: e.target.value})}
-                      className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                      placeholder="Optional"
+                      className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                      placeholder="e.g. 2024-12-31"
                     />
                   </div>
               </div>
-              
-               <div>
-                <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Filename</label>
+
+              <div>
+                <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">File Name</label>
                 <input
                   type="text"
                   value={newLabData.fileName}
                   onChange={(e) => setNewLabData({...newLabData, fileName: e.target.value})}
-                  className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   placeholder="e.g. index.html"
                 />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="labActive"
+                  checked={newLabData.isActive}
+                  onChange={(e) => setNewLabData({...newLabData, isActive: e.target.checked})}
+                  className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="labActive" className="text-sm font-semibold text-slate-900 dark:text-slate-200 cursor-pointer">
+                  Active (Visible to students)
+                </label>
               </div>
 
               <div className="flex gap-3 justify-end mt-6">

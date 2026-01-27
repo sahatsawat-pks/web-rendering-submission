@@ -282,7 +282,7 @@ export default function UserManagement() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 text-white font-bold shadow-lg shadow-purple-500/30 text-xs">
               <Shield className="h-5 w-5" />
             </div>
-            <span className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">User Permissions</span>
+            <span className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-200">User Permissions</span>
           </div>
           <div className="flex items-center gap-4">
             <a
@@ -348,7 +348,7 @@ export default function UserManagement() {
         <div className="animate-fade-in">
             <div className="glass-card overflow-hidden hover:shadow-2xl hover:shadow-purple-500/5 transition-all duration-300 border-white/40 dark:border-slate-700/40">
               <div className="px-8 py-6 border-b border-white/20 dark:border-slate-700/50 bg-gradient-to-r from-purple-50/50 to-pink-50/50 dark:from-purple-950/20 dark:to-pink-950/20">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2">
                   <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
@@ -380,7 +380,7 @@ export default function UserManagement() {
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {users.map((user) => (
                       <tr key={user.id} className="hover:bg-purple-50/40 dark:hover:bg-purple-950/20 transition-colors group">
-                        <td className="px-8 py-5 text-sm font-medium text-slate-900 dark:text-slate-100 flex items-center gap-4">
+                        <td className="px-8 py-5 text-sm font-medium text-slate-900 dark:text-slate-200 flex items-center gap-4">
                           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold shadow-md shadow-purple-500/20">
                             {user.username.substring(0, 2).toUpperCase()}
                           </div>
@@ -479,7 +479,7 @@ export default function UserManagement() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="glass-card p-8 max-w-md w-full animate-scale-in">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-200">
                 Change Password for {selectedUserForPasswordChange?.username}
               </h3>
               <button
@@ -518,7 +518,7 @@ export default function UserManagement() {
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
                   placeholder="Enter new password"
-                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-all font-medium"
+                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-all font-medium"
                 />
               </div>
               <div>
@@ -531,7 +531,7 @@ export default function UserManagement() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                   placeholder="Confirm new password"
-                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-all font-medium"
+                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-all font-medium"
                 />
               </div>
               <div className="flex gap-3 mt-6">
@@ -543,7 +543,7 @@ export default function UserManagement() {
                     setConfirmPassword("")
                     setPasswordChangeMessage(null)
                   }}
-                  className="flex-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-100 font-bold py-3 px-6 rounded-2xl transition-all"
+                  className="flex-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-200 font-bold py-3 px-6 rounded-2xl transition-all"
                 >
                   Cancel
                 </button>
@@ -571,7 +571,7 @@ export default function UserManagement() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Add New Admin</h3>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-200">Add New Admin</h3>
               </div>
               <button
                 onClick={() => {
@@ -606,7 +606,7 @@ export default function UserManagement() {
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                   required
                   placeholder="Enter username"
-                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 outline-none shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all font-medium"
+                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 outline-none shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all font-medium"
                 />
               </div>
               <div>
@@ -627,7 +627,7 @@ export default function UserManagement() {
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
                   placeholder="Enter password"
-                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 outline-none shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all font-medium"
+                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 outline-none shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all font-medium"
                 />
               </div>
               <div>
@@ -646,7 +646,7 @@ export default function UserManagement() {
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value as 'LA' | 'Lecturer' })}
                   required
-                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 outline-none shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all font-medium"
+                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 outline-none shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all font-medium"
                 >
                   <option value="LA">LA (Learning Assistant)</option>
                   <option value="Lecturer">Lecturer</option>
@@ -660,7 +660,7 @@ export default function UserManagement() {
                     setFormData({ username: "", password: "", role: "LA" })
                     setError(null)
                   }}
-                  className="flex-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-100 font-bold py-3 px-6 rounded-2xl transition-all"
+                  className="flex-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-200 font-bold py-3 px-6 rounded-2xl transition-all"
                 >
                   Cancel
                 </button>

@@ -143,7 +143,7 @@ export default function QuizManagement() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg">
               <ClipboardList className="h-5 w-5" />
             </div>
-            <span className="text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 hidden sm:inline">
+            <span className="text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-200 hidden sm:inline">
               Quiz Management
             </span>
           </div>
@@ -161,7 +161,7 @@ export default function QuizManagement() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Total Labs</p>
-                <p className="text-3xl font-bold text-slate-900 dark:text-white mt-1">{stats.total}</p>
+                <p className="text-3xl font-bold text-slate-900 dark:text-slate-200 mt-1">{stats.total}</p>
               </div>
               <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
                 <ClipboardList className="w-6 h-6 text-blue-600 dark:text-blue-400" />
@@ -301,7 +301,7 @@ export default function QuizManagement() {
                         </span>
                       )}
                     </div>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-200 mb-2">
                       {quiz.title}
                     </h3>
                     <div className="flex flex-wrap items-center gap-4 text-sm">

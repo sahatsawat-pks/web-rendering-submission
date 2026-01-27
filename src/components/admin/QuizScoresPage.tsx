@@ -182,7 +182,7 @@ export default function QuizScoresPage({
                 <ArrowLeft className="h-5 w-5" />
               </Link>
               <div>
-                <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
+                <h1 className="text-2xl font-bold text-gray-800 dark:text-slate-200">
                   {subjectCode} Quiz Scores
                 </h1>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -205,7 +205,7 @@ export default function QuizScoresPage({
               </div>
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Total Students</p>
-                <p className="text-2xl font-bold text-gray-800 dark:text-white">{overallStats.totalStudents}</p>
+                <p className="text-2xl font-bold text-gray-800 dark:text-slate-200">{overallStats.totalStudents}</p>
               </div>
             </div>
           </div>
@@ -217,7 +217,7 @@ export default function QuizScoresPage({
               </div>
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Total Attempts</p>
-                <p className="text-2xl font-bold text-gray-800 dark:text-white">{overallStats.totalAttempts}</p>
+                <p className="text-2xl font-bold text-gray-800 dark:text-slate-200">{overallStats.totalAttempts}</p>
               </div>
             </div>
           </div>
@@ -229,7 +229,7 @@ export default function QuizScoresPage({
               </div>
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Average Score</p>
-                <p className="text-2xl font-bold text-gray-800 dark:text-white">{overallStats.averageScore}%</p>
+                <p className="text-2xl font-bold text-gray-800 dark:text-slate-200">{overallStats.averageScore}%</p>
               </div>
             </div>
           </div>
@@ -241,7 +241,7 @@ export default function QuizScoresPage({
               </div>
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Highest Score</p>
-                <p className="text-2xl font-bold text-gray-800 dark:text-white">{overallStats.highestScore}%</p>
+                <p className="text-2xl font-bold text-gray-800 dark:text-slate-200">{overallStats.highestScore}%</p>
               </div>
             </div>
           </div>
@@ -257,7 +257,7 @@ export default function QuizScoresPage({
               <select
                 value={selectedLab}
                 onChange={(e) => setSelectedLab(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-slate-200"
               >
                 <option value="all">All Labs</option>
                 {labNumbers.map(lab => (
@@ -273,7 +273,7 @@ export default function QuizScoresPage({
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-slate-200"
               >
                 <option value="date">Submission Date</option>
                 <option value="score">Score</option>
@@ -288,7 +288,7 @@ export default function QuizScoresPage({
               <select
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value as any)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-slate-200"
               >
                 <option value="desc">Descending</option>
                 <option value="asc">Ascending</option>
@@ -325,7 +325,7 @@ export default function QuizScoresPage({
             {studentStats.length > 0 && (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden mb-6">
                 <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                  <h2 className="text-xl font-bold text-gray-800 dark:text-white">Student Performance Summary</h2>
+                  <h2 className="text-xl font-bold text-gray-800 dark:text-slate-200">Student Performance Summary</h2>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -354,7 +354,7 @@ export default function QuizScoresPage({
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {studentStats.map((stat) => (
                         <tr key={stat.studentId} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-slate-200">
                             {stat.studentId}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
@@ -389,7 +389,7 @@ export default function QuizScoresPage({
             {/* All Submissions Table */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-xl font-bold text-gray-800 dark:text-white">All Submissions ({sortedScores.length})</h2>
+                <h2 className="text-xl font-bold text-gray-800 dark:text-slate-200">All Submissions ({sortedScores.length})</h2>
               </div>
               {sortedScores.length === 0 ? (
                 <div className="px-6 py-12 text-center">
@@ -420,7 +420,7 @@ export default function QuizScoresPage({
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {sortedScores.map((score) => (
                         <tr key={score.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-slate-200">
                             {score.studentId}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">

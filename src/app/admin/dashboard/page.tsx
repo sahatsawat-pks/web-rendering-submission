@@ -135,7 +135,7 @@ export default function AdminHub() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white font-bold shadow-lg">
               <Shield className="h-5 w-5" />
             </div>
-            <span className="text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 hidden sm:inline">
+            <span className="text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-200 hidden sm:inline">
               Admin Portal
             </span>
           </div>
@@ -179,7 +179,7 @@ export default function AdminHub() {
                     <div className="w-12 h-12 bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 rounded-full flex items-center justify-center mx-auto mb-3">
                         <Key className="w-6 h-6" />
                     </div>
-                    <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Change Password</h2>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-200">Change Password</h2>
                     <p className="text-sm text-slate-500 dark:text-slate-400">Update your account security credentials.</p>
                 </div>
 
@@ -236,7 +236,7 @@ export default function AdminHub() {
 
       <main className="flex-1 container mx-auto max-w-7xl px-4 sm:px-6 py-8 sm:py-12">
         <div className="mb-8 sm:mb-12 text-center animate-slide-up">
-            <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-slate-100 mb-3 sm:mb-4">
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-slate-200 mb-3 sm:mb-4">
                 Select Administration Module
             </h1>
             <p className="text-lg text-slate-600 dark:text-slate-400">
@@ -292,7 +292,7 @@ export default function AdminHub() {
         {!loading && (role === 'Lecturer' || role === 'LA' || username === 'kanzaki_aito') && (
           <>
             <div className="mt-16 mb-8 text-center animate-slide-up" style={{ animationDelay: '0.2s' }}>
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-200 mb-2">
                     Global Management
                 </h2>
                 <p className="text-slate-600 dark:text-slate-400">
@@ -313,7 +313,7 @@ export default function AdminHub() {
                         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
                     </div>
                     <div className="flex-1">
-                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Account Management</h3>
+                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-200 mb-2">Account Management</h3>
                          <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">System Admins</h4>
                         <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
                             Manage admin users and permissions.
@@ -338,7 +338,7 @@ export default function AdminHub() {
                         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                     </div>
                     <div className="flex-1">
-                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Lab Management</h3>
+                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-200 mb-2">Lab Management</h3>
                         <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Global Config</h4>
                         <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
                             Configure labs, deadlines, and sections.
@@ -363,7 +363,7 @@ export default function AdminHub() {
                         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
                     </div>
                     <div className="flex-1">
-                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Subject Management</h3>
+                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-200 mb-2">Subject Management</h3>
                         <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Module Visibility</h4>
                         <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
                             Control subject display and ordering on main page.
@@ -388,7 +388,7 @@ export default function AdminHub() {
                         <ClipboardList className="w-8 h-8" />
                     </div>
                     <div className="flex-1">
-                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Quiz Management</h3>
+                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-200 mb-2">Quiz Management</h3>
                         <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Enable/Disable Quizzes</h4>
                         <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
                             Manage quiz availability across all subjects.
@@ -413,7 +413,7 @@ export default function AdminHub() {
                         <Key className="w-8 h-8" />
                     </div>
                     <div className="flex-1">
-                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Credential Management</h3>
+                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-200 mb-2">Credential Management</h3>
                         <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Universal Access</h4>
                         <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
                             Create, sync, and manage credentials for all students.
@@ -439,7 +439,7 @@ export default function AdminHub() {
                         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </div>
                     <div className="flex-1">
-                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Teaching Attendance</h3>
+                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-200 mb-2">Teaching Attendance</h3>
                         <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Check-in System</h4>
                         <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
                             Record and manage teaching attendance sessions.

@@ -94,7 +94,7 @@ export default function AdminLogin() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 autoComplete="username"
-                className="w-full px-5 py-4 rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-base font-semibold focus:ring-4 focus:ring-teal-500/30 focus:border-teal-500 transition-all outline-none shadow-sm hover:border-teal-300 dark:hover:border-teal-600 hover:shadow-md"
+                className="w-full px-5 py-4 rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-base font-semibold focus:ring-4 focus:ring-teal-500/30 focus:border-teal-500 transition-all outline-none shadow-sm hover:border-teal-300 dark:hover:border-teal-600 hover:shadow-md"
                 placeholder="Enter your username"
               />
             </div>
@@ -114,7 +114,7 @@ export default function AdminLogin() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                className="w-full px-5 py-4 rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-base font-semibold focus:ring-4 focus:ring-teal-500/30 focus:border-teal-500 transition-all outline-none shadow-sm hover:border-teal-300 dark:hover:border-teal-600 hover:shadow-md"
+                className="w-full px-5 py-4 rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-base font-semibold focus:ring-4 focus:ring-teal-500/30 focus:border-teal-500 transition-all outline-none shadow-sm hover:border-teal-300 dark:hover:border-teal-600 hover:shadow-md"
                 placeholder="Enter your password"
               />
             </div>

@@ -19,9 +19,14 @@ interface Subject {
   hasGradingInterface: boolean
   hasQuizManagement: boolean
   hasTestCases: boolean
-  gradingType: 'lab_challenge' | 'simple_score' | 'sql' | 'python' | 'java' | null
+  gradingType: 'lab_challenge' | 'simple_score' | 'sql' | 'python' | 'java' | 'multi_question' | 'criteria' | null
   courseSummaryLink?: string
   googleSheetId?: string
+  // Advanced Config
+  headerRow?: number
+  columnPattern?: string
+  dataSourceType?: 'single_sheet' | 'tab_per_section' | 'tab_per_lab'
+  sheetTabs?: string
 }
 
 const ICON_OPTIONS = [
@@ -45,7 +50,9 @@ const GRADING_TYPES = [
   { value: 'simple_score', label: 'Simple Score Tracking', desc: 'Manual score entry (0-100) per lab' },
   { value: 'python', label: 'Python Automation', desc: 'Python script execution and output matching' },
   { value: 'sql', label: 'SQL Automation', desc: 'Database query execution and validation' },
-  { value: 'java', label: 'Java Automation', desc: 'Java JUnit test runner' }
+  { value: 'java', label: 'Java Automation', desc: 'Java JUnit test runner' },
+  { value: 'multi_question', label: 'Multi-Question Labs', desc: 'Score inputs for multiple questions (e.g. Q1, Q2)' },
+  { value: 'criteria', label: 'Criteria Grading', desc: 'Ethics, Understanding, Reflection (0-2 scores)' }
 ]
 
 export default function SubjectManagementPage() {
@@ -70,7 +77,11 @@ export default function SubjectManagementPage() {
     gradingType: 'lab_challenge',
     hasQuizManagement: false,
     hasTestCases: false,
-    googleSheetId: ''
+    googleSheetId: '',
+    headerRow: 1,
+    columnPattern: '',
+    dataSourceType: 'single_sheet',
+    sheetTabs: ''
   })
   
   // Tab State for Modal
@@ -111,7 +122,11 @@ export default function SubjectManagementPage() {
 
       hasQuizManagement: false,
       hasTestCases: false,
-      googleSheetId: ''
+      googleSheetId: '',
+      headerRow: 1,
+      columnPattern: '',
+      dataSourceType: 'single_sheet',
+      sheetTabs: ''
     })
     setActiveTab('basic')
     setShowSubjectDialog(true)
@@ -131,7 +146,11 @@ export default function SubjectManagementPage() {
       gradingType: subject.gradingType || 'simple_score',
       hasQuizManagement: subject.hasQuizManagement,
       hasTestCases: subject.hasTestCases,
-      googleSheetId: subject.googleSheetId || ''
+      googleSheetId: subject.googleSheetId || '',
+      headerRow: subject.headerRow || 1,
+      columnPattern: subject.columnPattern || '',
+      dataSourceType: (subject.dataSourceType as any) || 'single_sheet',
+      sheetTabs: subject.sheetTabs || ''
     })
     setActiveTab('basic')
     setShowSubjectDialog(true)
@@ -289,7 +308,7 @@ export default function SubjectManagementPage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-slate-600 to-slate-800 text-white font-bold shadow-lg text-xs">
                 SYS
               </div>
-              <span className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+              <span className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-200">
                 Subject Management
               </span>
             </div>
@@ -314,7 +333,7 @@ export default function SubjectManagementPage() {
       <main className="container mx-auto max-w-6xl px-4 py-8 relative z-10">
         <div className="mb-8 flex items-end justify-between">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-2">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-200 mb-2">
               All Subjects
             </h1>
             <p className="text-lg text-slate-600 dark:text-slate-400">
@@ -445,7 +464,7 @@ export default function SubjectManagementPage() {
                   <FolderPlus className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-slate-200">
                     {editingSubject ? 'Edit Subject' : 'Create New Subject'}
                   </h2>
                   <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -501,7 +520,7 @@ export default function SubjectManagementPage() {
                       onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                       placeholder="ITCS999"
                       disabled={!!editingSubject || saving === 'modal'}
-                      className={`w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${editingSubject ? 'opacity-70 cursor-not-allowed bg-slate-100 dark:bg-slate-800' : ''}`}
+                      className={`w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${editingSubject ? 'opacity-70 cursor-not-allowed bg-slate-100 dark:bg-slate-800' : ''}`}
                     />
                     {!editingSubject && (
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -521,7 +540,7 @@ export default function SubjectManagementPage() {
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                       placeholder="e.g. Advanced Web Development"
                       disabled={saving === 'modal'}
-                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
                   
@@ -536,7 +555,7 @@ export default function SubjectManagementPage() {
                       placeholder="Brief description of the course..."
                       rows={3}
                       disabled={saving === 'modal'}
-                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                     />
                   </div>
 
@@ -550,7 +569,7 @@ export default function SubjectManagementPage() {
                         value={formData.icon}
                         onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
                         disabled={saving === 'modal'}
-                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         >
                         {ICON_OPTIONS.map(icon => (
                             <option key={icon} value={icon}>{icon}</option>
@@ -635,7 +654,7 @@ export default function SubjectManagementPage() {
                                         className="h-12 w-24 p-1 rounded cursor-pointer"
                                      />
                                      <div className="flex-1">
-                                         <p className="text-sm font-medium text-slate-900 dark:text-white">Custom Gradient Preview</p>
+                                         <p className="text-sm font-medium text-slate-900 dark:text-slate-200">Custom Gradient Preview</p>
                                          <div 
                                             className="h-8 w-full rounded-lg mt-2 shadow-sm" 
                                             style={{ background: formData.color.startsWith("#") ? `linear-gradient(135deg, ${formData.color} 0%, ${formData.color} 100%)` : formData.color }} // Simple preview, helper handles real gradient logic
@@ -660,12 +679,79 @@ export default function SubjectManagementPage() {
                        value={formData.googleSheetId}
                        onChange={(e) => setFormData({ ...formData, googleSheetId: e.target.value })}
                        placeholder="1BxiMVs0XRA5nFMdKvBdBZjGWZW-u_7QYs..."
-                       className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-mono text-sm"
+                       className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 font-mono text-sm"
                      />
                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                        The document ID from the Google Sheet URL. Required for fetching scores.
                      </p>
                   </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+                      <div>
+                         <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                           Header Row
+                         </label>
+                         <input
+                           type="number"
+                           min="1"
+                           value={formData.headerRow}
+                           onChange={(e) => setFormData({ ...formData, headerRow: parseInt(e.target.value) || 1 })}
+                           className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
+                         />
+                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                           Row number where column headers are located (Default: 1).
+                         </p>
+                      </div>
+                      
+                      <div>
+                         <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                           Column Pattern (Regex)
+                         </label>
+                         <input
+                           type="text"
+                           value={formData.columnPattern}
+                           onChange={(e) => setFormData({ ...formData, columnPattern: e.target.value })}
+                           placeholder="e.g. ^Lab\s*{labId}"
+                           className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 font-mono text-sm"
+                         />
+                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                           Custom regex to match lab columns. Use <code>{'{labId}'}</code> placeholder.
+                         </p>
+                      </div>
+                  </div>
+
+                  <div>
+                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                       Data Source Strategy
+                     </label>
+                     <select
+                       value={formData.dataSourceType}
+                       onChange={(e) => setFormData({ ...formData, dataSourceType: e.target.value })}
+                       className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
+                     >
+                        <option value="single_sheet">Single Sheet (Default)</option>
+                        <option value="tab_per_section">Tab per Section (e.g. Sec1, Sec2)</option>
+                        <option value="tab_per_lab">Tab per Lab (e.g. Lab 1, Lab 2)</option>
+                     </select>
+                  </div>
+
+                  {formData.dataSourceType !== 'single_sheet' && (
+                      <div>
+                         <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                           Sheet Tabs (Comma Separated)
+                         </label>
+                         <input
+                           type="text"
+                           value={formData.sheetTabs}
+                           onChange={(e) => setFormData({ ...formData, sheetTabs: e.target.value })}
+                           placeholder={formData.dataSourceType === 'tab_per_section' ? "Sec1, Sec2, Sec3" : "Lab 1, Lab 2, Lab 3"}
+                           className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
+                         />
+                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                           Explicitly list the tab names to fetch data from.
+                         </p>
+                      </div>
+                  )}
                   
                   {/* Summary Link */}
                   <div>
@@ -677,7 +763,7 @@ export default function SubjectManagementPage() {
                        value={formData.courseSummaryLink}
                        onChange={(e) => setFormData({ ...formData, courseSummaryLink: e.target.value })}
                        placeholder="https://..."
-                       className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+                       className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
                      />
                   </div>
                 </div>
@@ -697,7 +783,7 @@ export default function SubjectManagementPage() {
                                  onChange={(e) => setFormData({ ...formData, hasGradingInterface: e.target.checked })}
                                  className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500"
                                />
-                               <span className="font-bold text-slate-900 dark:text-white">Enable Grading Interface</span>
+                               <span className="font-bold text-slate-900 dark:text-slate-200">Enable Grading Interface</span>
                             </label>
                             <p className="text-sm text-slate-600 dark:text-slate-400">
                               Enables the grading dashboard for this subject. If disabled, the admin page will be empty.
@@ -730,7 +816,7 @@ export default function SubjectManagementPage() {
                                           className="w-4 h-4 text-blue-600"
                                         />
                                         <div>
-                                           <p className="font-medium text-slate-900 dark:text-slate-100 text-sm">{type.label}</p>
+                                           <p className="font-medium text-slate-900 dark:text-slate-200 text-sm">{type.label}</p>
                                            <p className="text-xs text-slate-500 dark:text-slate-400">{type.desc}</p>
                                         </div>
                                      </label>
@@ -747,7 +833,7 @@ export default function SubjectManagementPage() {
                          <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400">
                             <Settings className="w-6 h-6" />
                          </div>
-                         <h3 className="font-bold text-slate-900 dark:text-white">Additional Modules</h3>
+                         <h3 className="font-bold text-slate-900 dark:text-slate-200">Additional Modules</h3>
                       </div>
                       
                       <div className="space-y-3 pl-2">
@@ -759,7 +845,7 @@ export default function SubjectManagementPage() {
                                className="w-5 h-5 rounded text-purple-600 focus:ring-purple-500"
                             />
                             <div>
-                               <p className="font-medium text-slate-900 dark:text-slate-100 text-sm">Quiz Management</p>
+                               <p className="font-medium text-slate-900 dark:text-slate-200 text-sm">Quiz Management</p>
                                <p className="text-xs text-slate-500 dark:text-slate-400">Enable quiz creation, question banking, and student attempts.</p>
                             </div>
                          </label>
@@ -772,7 +858,7 @@ export default function SubjectManagementPage() {
                                className="w-5 h-5 rounded text-green-600 focus:ring-green-500"
                             />
                             <div>
-                               <p className="font-medium text-slate-900 dark:text-slate-100 text-sm">Test Case Management</p>
+                               <p className="font-medium text-slate-900 dark:text-slate-200 text-sm">Test Case Management</p>
                                <p className="text-xs text-slate-500 dark:text-slate-400">Enable input/output test case definition (Required for Python/Java auto-grading).</p>
                             </div>
                          </label>

@@ -171,109 +171,148 @@ function fixMashedName(name: string): string {
     return name.trim();
 }
 
+// Helper to get full subject config
+async function getSubjectConfig(subjectCode: string) {
+    try {
+        const { getSubjects } = await import("./db");
+        const subjects = await getSubjects();
+        const target = subjects.find(s => s.code === subjectCode);
+        return target;
+    } catch (e) {
+        console.error(`[getSubjectConfig] Failed to fetch config for ${subjectCode}`, e);
+        return undefined;
+    }
+}
+
 // Helper to map raw rows to student objects
-function mapRowsToStudents(rows: any[][], subject: string): any[] {
+function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] {
   if (rows.length === 0) return [];
 
-  const headers = rows[0];
-  const data = rows.slice(1);
-  // ITCS123, ITCS223, ITCS251, ITCS255, and ITDS283 use index 1 (Column B) for ID
+  // Determine header row index (0-based)
+  // config.headerRow is 1-based (default 1)
+  const headerRowIndex = (config?.headerRow || 1) - 1;
+  
+  // Safety check
+  if (headerRowIndex >= rows.length) return [];
+
+  const headers = rows[headerRowIndex];
+  const data = rows.slice(headerRowIndex + 1);
+  
+  // Determine ID Column Index
+  // Default logic: ITCS123/223/251/255/ITDS283 -> Index 1 (Col B)
+  // Others -> Index 0 (Col A)
+  // We can make this configurable later, but for now stick to patterns + overrides
   let idIndex = (subject === 'ITCS123' || subject === 'ITCS223' || subject === 'ITCS251' || subject === 'ITCS255' || subject === 'ITDS283') ? 1 : 0;
   
+  // ITDS283 Dynamic Search
   if (subject === 'ITDS283') {
       const foundIndex = headers.findIndex((h: string) => String(h).toLowerCase().trim() === 'id');
       if (foundIndex !== -1) idIndex = foundIndex;
   }
 
+  // Regex for Custom Pattern
+  let customRegex: RegExp | null = null;
+  if (config?.columnPattern) {
+      try {
+          // User provides pattern like "^Lab\s*{labId}"
+          // We prefer they provide valid Regex string. 
+          // If they use {labId}, we prepare to match it dynamically? 
+          // Actually, mapRows iterates headers to FIND what they are.
+          // So we need a Regex that captures the Lab ID.
+          // Example pattern: "^Lab\s*(\d+)"
+          // If user puts "{labId}", we replace it with "(\d+)" for capturing.
+          const patternStr = config.columnPattern.replace('{labId}', '(\\d+)').replace('{questionId}', '(\\w+)');
+          customRegex = new RegExp(patternStr, 'i');
+      } catch (e) {
+          console.error(`[mapRows] Invalid Regex Pattern for ${subject}: ${config.columnPattern}`);
+      }
+  }
+
   return data.map((row) => {
     const rawUsername = row[idIndex];
-    // console.log(`[mapRows] ${subject} ID: ${rawUsername}`);
     const student: any = { username: rawUsername ? String(rawUsername).trim() : "" };
     
+    // ... [Existing Name Mapping Logic preserved for legacy/specific subjects] ...
     if (subject === 'ITCS123') {
-        // Specific mapping allows for Thai names
-        // Index 3: First, 4: Last, 5: Nickname
         student['name'] = fixMashedName(row[3]);
         student['surname'] = fixMashedName(row[4]);
         student['nickname'] = row[5];
     } else if (subject === 'ITCS223') {
-        // ITCS223 Layout: B=ID(1), C=Name(2), D=Surname(3)
         student['name'] = fixMashedName(row[2]);
         student['surname'] = fixMashedName(row[3]);
     } else if (subject === 'ITCS227') {
-        // ITCS227 Layout: A=ID(0), B-E=Other columns, F=Section(5)
-        student['Section'] = row[5]; // Column F
-    } else if (subject === 'ITCS251' || subject === 'ITCS255') {
-        // ITCS251/ITCS255 Layout: B=ID(1), header at row 5
-        // No additional fields needed for now
+        student['Section'] = row[5]; 
     } else if (subject === 'ITDS283') {
-        // ITDS283 Structure: 
-        // No(0), ID(1), Title(2), Fname(3), Lname(4), Nickname(5), EngName(6), Col3(7), Col4(8), NickEng(9), Email(10), Lab1(11)...
-        // Note: The user said "Name in English" is col 6, "Column3" is 7.
-        // Let's map useful fields.
         student['title'] = row[2];
         student['name'] = fixMashedName(row[3]);
         student['surname'] = fixMashedName(row[4]);
         student['nickname'] = row[5];
-        student['engName'] = fixMashedName(row[6]); // Name in English
-        student['nicknameEng'] = row[9]; // Nickname(Eng)
-        student['email'] = row[10]; // MU eMail
+        student['engName'] = fixMashedName(row[6]);
+        student['nicknameEng'] = row[9];
+        student['email'] = row[10];
     }
     
     let lastLabNumber: string | null = null;
 
-    headers.slice(1).forEach((header: string, index: number) => {
-        // Safe access to row data
-         const cellValue = row[index + 1];
+    headers.slice(idIndex + 1).forEach((header: string, relativeIndex: number) => {
+         const trueIndex = idIndex + 1 + relativeIndex;
+         const cellValue = row[trueIndex];
+         if (!header) return;
 
-        // Try to identify if this is a Lab Column
-        // For ITCS251/ITCS255: "W 1", "W 2" format
+         // 1. Custom Regex Match
+         if (customRegex) {
+             const match = String(header).match(customRegex);
+             if (match && match[1]) {
+                 // Assumes capture group 1 is the lab number/id
+                 // If there is a second capture group, it might be sub-question
+                 const labId = match[1];
+                 const subId = match[2];
+                 
+                 const key = subId ? `Lab ${labId} ${subId}` : `Lab ${labId}`;
+                 student[key] = cellValue;
+                 lastLabNumber = labId;
+                 return;
+             }
+         }
+
+        // 2. Legacy/Hardcoded Matchers
         const wMatch = header.match(/^W\s*(\d+)$/i);
         const match = header.match(/^(?:Lab\s*|L)(\d+)(?:\s*\(.*\))?$/i);
         const chMatch = header.match(/^(?:Ch\s*|Challenge\s*)(\d+)(?:\s*\(.*\))?$/i);
         
         if (wMatch) {
-            // It's a W column for ITCS251/ITCS255, e.g. "W 1" -> "Lab 1"
             const labNum = parseInt(wMatch[1]).toString();
             student[`Lab ${labNum}`] = cellValue;
             lastLabNumber = labNum;
         } else if (match) {
-            // It's a lab column, e.g. "L01 (2)" -> "1"
             const labNum = parseInt(match[1]).toString(); 
             student[`Lab ${labNum}`] = cellValue;
             lastLabNumber = labNum;
         } else if (chMatch) {
-            // It's a challenge column, e.g. "Ch01 (2)" -> "1"
             const chNum = parseInt(chMatch[1]).toString();
             student[`Challenge ${chNum}`] = cellValue;
-            // Challenge implies new context? Maybe not resetting lastLabNumber for now unless needed.
-            // Resetting for safety if strictly Lab -> In-Class
             lastLabNumber = null; 
         } else if (header.match(/Feedback/i)) {
              student[header] = cellValue;
         } else if (header.match(/^\s*(name|firstname)\s*$/i)) {
-             if (subject !== 'ITCS123' && subject !== 'ITCS223' && subject !== 'ITDS283') student['name'] = fixMashedName(cellValue);
+             if (!student['name']) student['name'] = fixMashedName(cellValue);
         } else if (header.match(/^\s*(surname|lastname)\s*$/i)) {
-             if (subject !== 'ITCS123' && subject !== 'ITCS223' && subject !== 'ITDS283') student['surname'] = fixMashedName(cellValue);
+             if (!student['surname']) student['surname'] = fixMashedName(cellValue);
         } else if (header.match(/^\s*(Sum|Total)(?:\s*\((\d+)\))?\s*$/i)) {
              student['total'] = cellValue;
              const match = header.match(/\((\d+)\)/);
-             if (match) {
-                 student['max_score'] = match[1];
-             }
+             if (match) student['max_score'] = match[1];
         } else if (String(header).toLowerCase().trim() === 'in-class') {
-             // Handle In-Class column
              if (lastLabNumber) {
                  student[`In-Class ${lastLabNumber}`] = cellValue;
              }
-             student[header] = cellValue; // Keep original just in case
+             student[header] = cellValue; 
         } else {
-             // Keep original for other cols
              student[header] = cellValue;
         }
     });
     
-    // ITCS223 Specific Calculation if Total is missing
+    // ITCS223 Specific Calculation
     if (subject === 'ITCS223' && !student['total']) {
         const totalScoreVal = Object.keys(student).reduce((acc, key) => {
             if (key.startsWith('Lab ')) {
@@ -289,122 +328,100 @@ function mapRowsToStudents(rows: any[][], subject: string): any[] {
   });
 }
 
+// Main Score Fetching Logic
 export async function getAllScores(subject: string = 'Sheet1') {
-  if (subject === 'ITCS123') {
-      try {
-        // Fetch from Sec1, Sec2, Sec3
-        const [sec1, sec2, sec3] = await Promise.all([
-            getSheetData(subject, 'Sec1').catch(() => []),
-            getSheetData(subject, 'Sec2').catch(() => []), 
-            getSheetData(subject, 'Sec3').catch(() => [])
-        ]);
-
-        let allStudents: any[] = [];
-        const sections = [
-            { data: sec1, id: '1' },
-            { data: sec2, id: '2' },
-            { data: sec3, id: '3' }
-        ];
-
-        for (const sec of sections) {
-            if (sec.data && sec.data.length > 0) {
-                 const studs = mapRowsToStudents(sec.data, subject);
-                 // Inject Section ID
-                 studs.forEach(s => s.Section = sec.id);
-                 allStudents = [...allStudents, ...studs];
-            }
-        }
-        
-        return allStudents;
-
-      } catch (e) {
-          console.error("Error fetching ITCS123 sections:", e);
-          return [];
-      }
-  }
+  const config = await getSubjectConfig(subject);
   
-  if (subject === 'ITCS223') {
-      try {
-        console.log('[Sheets] Fetching ITCS223 sections from Google Sheets...');
-        
-        // Fetch from Section 1, Section 2, Section 3 (User confirmed spaces)
-        const [sec1, sec2, sec3] = await Promise.all([
-            getSheetData(subject, 'Section 1').catch((e) => {
-                 // Fallback to "Section1" if "Section 1" fails?
-                 console.log("[Sheets] Failed Section 1, trying fallback", e.message);
-                 return getSheetData(subject, 'Section1').catch(() => []);
-            }),
-            getSheetData(subject, 'Section 2').catch(() => getSheetData(subject, 'Section2').catch(() => [])), 
-            getSheetData(subject, 'Section 3').catch(() => getSheetData(subject, 'Section3').catch(() => []))
-        ]);
-
-        console.log(`[Sheets] Raw data fetched - Sec1: ${sec1.length} rows, Sec2: ${sec2.length} rows, Sec3: ${sec3.length} rows`);
-
-        let allStudents: any[] = [];
-        const sections = [
-            { data: sec1, id: '1' },
-            { data: sec2, id: '2' },
-            { data: sec3, id: '3' }
-        ];
-
-        for (const sec of sections) {
-            if (sec.data && sec.data.length > 0) {
-                 const studs = mapRowsToStudents(sec.data, subject);
-                 console.log(`[Sheets] Section ${sec.id}: Mapped ${studs.length} students`);
-                 // Inject Section ID
-                 studs.forEach(s => s.Section = sec.id);
-                 allStudents = [...allStudents, ...studs];
-            }
-        }
-        
-        console.log(`[Sheets] ITCS223 Total: ${allStudents.length} students loaded`);
-        return allStudents;
-
-      } catch (e) {
-          console.error("[Sheets] Error fetching ITCS223 sections:", e);
-          return [];
+  // Strategy: Tab per Lab (New)
+  if (config?.dataSourceType === 'tab_per_lab') {
+      const { getAllLabs } = await import("./db");
+      const labs = await getAllLabs(true, subject);
+      
+      // We need a list of students first. Where do we get it?
+      // Usually there is a 'Roster' tab or we just aggregate from all tabs.
+      // Or we assume the first lab tab has the full roster.
+      // Let's try to fetch from all specific Lab Tabs.
+      // If user provided `sheetTabs`, use that as a roster source priority?
+      // Or just iterate active labs.
+      
+      let allStudentsMap: Record<string, any> = {};
+      
+      // Fetch each lab tab
+      for (const lab of labs) {
+          const tabName = `Lab ${lab.labNumber}`; // Default pattern, maybe user customizes?
+          // If we had a custom tab pattern, we'd use it. For now assume "Lab X".
+          // Or if sheetTabs is provided as a list of Labs? "Lab 1, Lab 2"
+          
+          try {
+              const rows = await getSheetData(subject, tabName).catch(() => []);
+              if (rows.length === 0) continue;
+              
+              const labStudents = mapRowsToStudents(rows, subject, config);
+              
+              labStudents.forEach(s => {
+                  if (!s.username) return;
+                  if (!allStudentsMap[s.username]) {
+                      allStudentsMap[s.username] = { ...s }; // Init
+                  } else {
+                      // Merge scores
+                      allStudentsMap[s.username] = { ...allStudentsMap[s.username], ...s };
+                  }
+              });
+          } catch(e) {
+              console.log(`[getAllScores] Failed to fetch tab ${tabName}`);
+          }
       }
+      
+      return Object.values(allStudentsMap);
   }
 
-  if (subject === 'ITDS283') {
-      try {
-        // Fetch from Section 1 and Section 2
-        // Assuming tab names are "Section 1" and "Section 2" based on user description "section 1 and section 2 sheet"
-        // It might be "Sec1", "Sec2" too. Let's try flexible approach or stick to what user implied.
-        // User said: "- have section 1 and section 2 sheet"
-        // Let's assume standard "Section 1", "Section 2" first.
-        
-        const [sec1, sec2] = await Promise.all([
-            getSheetData(subject, 'Section 1').catch(() => getSheetData(subject, 'Section1').catch(() => [])),
-            getSheetData(subject, 'Section 2').catch(() => getSheetData(subject, 'Section2').catch(() => []))
-        ]);
-
-        let allStudents: any[] = [];
-        const sections = [
-            { data: sec1, id: '1' },
-            { data: sec2, id: '2' }
-        ];
-
-        for (const sec of sections) {
-            if (sec.data && sec.data.length > 0) {
-                 const studs = mapRowsToStudents(sec.data, subject);
-                 // Inject Section ID
-                 studs.forEach(s => s.Section = sec.id);
-                 allStudents = [...allStudents, ...studs];
-            }
-        }
-        
-        return allStudents;
-
-      } catch (e) {
-          console.error("Error fetching ITDS283 sections:", e);
-          return [];
+  // Strategy: Tab per Section
+  const isMultiSection = (config?.dataSourceType === 'tab_per_section') || 
+                         (subject === 'ITCS123' || subject === 'ITCS223' || subject === 'ITDS283');
+                         
+  if (isMultiSection) {
+      let tabs: string[] = [];
+      
+      // Use configured tabs if available
+      if (config?.sheetTabs) {
+          tabs = config.sheetTabs.split(',').map(t => t.trim());
+      } else {
+          // Fallback legacy defaults
+          if (subject === 'ITCS123') tabs = ['Sec1', 'Sec2', 'Sec3'];
+          else if (subject === 'ITCS223') tabs = ['Section 1', 'Section 2', 'Section 3'];
+          else if (subject === 'ITDS283') tabs = ['Section 1', 'Section 2'];
+          else tabs = ['Sec1', 'Sec2']; // Generic default
       }
+
+      console.log(`[getAllScores] Fetching multi-section: ${tabs.join(', ')}`);
+      
+      const promises = tabs.map(tab => getSheetData(subject, tab).catch(e => {
+          console.warn(`[getAllScores] Failed to fetch ${tab}: ${e.message}`);
+          return [];
+      }));
+      
+      const results = await Promise.all(promises);
+      let allStudents: any[] = [];
+      
+      results.forEach((rows, i) => {
+          if (rows.length > 0) {
+              const studs = mapRowsToStudents(rows, subject, config);
+              const tabName = tabs[i];
+              // extract section ID from tab name? "Section 1" -> "1"
+              const secMatch = tabName.match(/\d+/);
+              const secId = secMatch ? secMatch[0] : tabName;
+              
+              studs.forEach(s => s.Section = secId);
+              allStudents = [...allStudents, ...studs];
+          }
+      });
+      
+      return allStudents;
   }
 
-  // Standard Logic
+  // Default: Single Sheet
   const rows = await getSheetData(subject);
-  return mapRowsToStudents(rows, subject);
+  return mapRowsToStudents(rows, subject, config);
 }
 
 export async function getStudentAllScores(username: string, sheetName: string = 'Sheet1') {
@@ -434,78 +451,117 @@ export async function updateStudentLabScore(
   scoreType?: 'lab' | 'challenge', // For ITCS123 dual scoring
   isCsv: boolean = false
 ) {
-  console.log(`[updateStudentLabScore] START: User=${username}, Lab=${labNumber}, Score=${score}, Subject=${sheetName}, Type=${scoreType || 'standard'}, IsCsv=${isCsv}`);
+  console.log(`[updateStudentLabScore] START: User=${username}, Lab=${labNumber}, Score=${score}, Subject=${sheetName}`);
   
-  // For ITCS123, format the column name based on score type
+  const config = await getSubjectConfig(sheetName);
+  
+  // Format Lab Number / Column Name
   let actualLabNumber = labNumber;
-  if (sheetName === 'ITCS123' && scoreType) {
-    const labNumPadded = labNumber.padStart(2, '0');
-    actualLabNumber = scoreType === 'lab' 
-      ? `Lab${labNumPadded} (2)` 
-      : `Ch${labNumPadded} (2)`;
-    console.log(`[updateStudentLabScore] ITCS123 formatted column: ${actualLabNumber}`);
-  } else if (sheetName === 'ITDS283' && scoreType === 'challenge') {
-    // ITDS283 Challenge format: "Ch" + number (e.g. "Ch2")
-    const labInt = parseInt(labNumber.toString().replace(/[^\d]/g, '')).toString();
-    actualLabNumber = `Ch${labInt}`;
-    console.log(`[updateStudentLabScore] ITDS283 Challenge column: ${actualLabNumber}`);
+  
+  // 1. Check if user configured a pattern that needs interpolation
+  if (config?.columnPattern && config.columnPattern.includes('{labId}')) {
+      // If we are passing "1", and pattern is "Lab {labId}", result "Lab 1"
+      // BUT `updateSpecificTab` also does regex watching.
+      // If dynamic, we usually want to search by Header matching rather than guessing exact string
+      // But we can try to guess a "Standard" display name.
+      const labInt = parseInt(labNumber.replace(/[^\d]/g, '')) || labNumber;
+      // If it's multi-question (e.g. L1-Q1), we might receive "L1-Q1" as labNumber.
+      // If the pattern is "Lab {labId}", it won't suffice for question sub-parts unless pattern supports it.
+      // We assume `labNumber` passed here IS the column header identifier or close to it.
   }
   
-  // Handle Multi-Section Subjects (ITCS123, ITCS223, ITDS283)
-  const isMultiSection = sheetName === 'ITCS123' || sheetName === 'ITCS223' || sheetName === 'ITDS283';
-  if (isMultiSection) {
-       // We need to find which section the student is in.
-       // We can iterate sections.
-       let sections: string[] = [];
-       if (sheetName === 'ITCS123') sections = ['Sec1', 'Sec2', 'Sec3'];
-       else if (sheetName === 'ITCS223') sections = ['Section 1', 'Section 2', 'Section 3'];
-       else if (sheetName === 'ITDS283') sections = ['Section 1', 'Section 2', 'Section1', 'Section2']; // Flexible check
-       
-       let foundSection = null;
-       console.log(`[updateStudentLabScore] Checking sections: ${sections.join(', ')}`);
+  // Legacy ITCS123 handling
+  if (sheetName === 'ITCS123' && scoreType) {
+    const labNumPadded = labNumber.padStart(2, '0');
+    actualLabNumber = scoreType === 'lab' ? `Lab${labNumPadded} (2)` : `Ch${labNumPadded} (2)`;
+  } else if (sheetName === 'ITDS283' && scoreType === 'challenge') {
+    const labInt = parseInt(labNumber.toString().replace(/[^\d]/g, '')).toString();
+    actualLabNumber = `Ch${labInt}`;
+  }
 
-       for (const sec of sections) {
-           const data = await getSheetData(sheetName, sec).catch((e) => {
-               console.log(`[updateStudentLabScore] Check ignored for ${sec}: ${e.message}`);
-               return [];
-           });
-           // Map to find user
-           let idIndex = 1;
-           if (sheetName === 'ITDS283' && data.length > 0) {
-               const headers = data[0];
-               const foundIndex = headers.findIndex((h: string) => String(h).toLowerCase().trim() === 'id');
-               if (foundIndex !== -1) idIndex = foundIndex;
+  // Determine Target Tabs
+  let targetTabs: string[] = [sheetName];
+  
+  // Strategy: Tab Per Lab
+  if (config?.dataSourceType === 'tab_per_lab') {
+      // The tab name should be "Lab X" corresponding to the lab number.
+      // We need to know which lab we are grading. 
+      // If `labNumber` is "1", tab is "Lab 1".
+      // If `labNumber` is "L1-Q1", tab is still "Lab 1".
+      const labInt = parseInt(labNumber.replace(/[^\d]/g, ''));
+      if (!isNaN(labInt)) {
+          targetTabs = [`Lab ${labInt}`];
+          // User might have "Lab 01". We might need to try multiple?
+          // `updateSpecificTab` fails if tab doesn't exist?
+          // We can check existence or try fallback inside updateSpecificTab logic (not implemented there yet)
+          // For now assume "Lab X" format.
+      }
+  }
+  // Strategy: Tab Per Section (Multi-Sheet)
+  else if (config?.dataSourceType === 'tab_per_section' || 
+           ['ITCS123', 'ITCS223', 'ITDS283'].includes(sheetName)) {
+      
+      if (config?.sheetTabs) {
+          targetTabs = config.sheetTabs.split(',').map(t => t.trim());
+      } else {
+          // Fallback
+          if (sheetName === 'ITCS123') targetTabs = ['Sec1', 'Sec2', 'Sec3'];
+          else if (sheetName === 'ITCS223') targetTabs = ['Section 1', 'Section 2', 'Section 3'];
+          else if (sheetName === 'ITDS283') targetTabs = ['Section 1', 'Section 2'];
+          else targetTabs = ['Sec1', 'Sec2'];
+      }
+  }
+
+  // Iterate tabs to find student
+  let foundAndUpdate = false;
+  
+  for (const tab of targetTabs) {
+       console.log(`[updateStudentLabScore] Checking tab: ${tab}`);
+       // We need to check if student exists in this tab before creating new row (unless it's single sheet and we want to create)
+       // Optimization: `updateSpecificTab` handles "Find row". 
+       // But for multi-section, we only want to update ONE tab where the student IS.
+       
+       const isMultiTab = targetTabs.length > 1;
+       
+       if (isMultiTab) {
+           const rows = await getSheetData(sheetName, tab).catch(() => []);
+           if (rows.length === 0) continue;
+           
+           // Check existence
+           const headerRowConfig = config?.headerRow ? config.headerRow - 1 : 0;
+           // ID col defaults
+           let idIndex = ['ITCS123','ITCS223','ITCS251','ITCS255','ITDS283'].includes(sheetName) ? 1 : 0;
+           if (sheetName === 'ITDS283' && rows.length > headerRowConfig) {
+                const h = rows[headerRowConfig];
+                const found = h.findIndex((x: any) => String(x).toLowerCase().trim() === 'id');
+                if (found !== -1) idIndex = found;
            }
            
-           // Robust matching: Try exact, or try stripping first char if 'u'/'U'
-           const exists = data.some(row => {
+           const exists = rows.some((row, idx) => {
+               if (idx <= headerRowConfig) return false;
                const sheetId = String(row[idIndex] || '').trim();
                const inputId = String(username).trim();
-               const inputIdNoU = inputId.replace(/^[uU]/, '');
-               const sheetIdNoU = sheetId.replace(/^[uU]/, '');
-               
-               return sheetId === inputId || sheetIdNoU === inputIdNoU;
+               return sheetId === inputId || sheetId.replace(/^[uU]/,'') === inputId.replace(/^[uU]/,'');
            });
            
            if (exists) {
-               console.log(`[updateStudentLabScore] Found user ${username} in ${sec}`);
-               foundSection = sec;
-               break;
+               console.log(`[updateStudentLabScore] Found user in ${tab}`);
+               await updateSpecificTab(sheetName, tab, username, actualLabNumber, score, feedback, isCsv, config);
+               foundAndUpdate = true;
+               break; 
            }
-       }
-       
-       if (foundSection) {
-           return updateSpecificTab(sheetName, foundSection, username, actualLabNumber, score, feedback, isCsv);
        } else {
-           console.log(`[updateStudentLabScore] User ${username} NOT FOUND in any section. Defaulting to ${sections[0]}`);
-           // Student not found in any section. Default to first.
-           return updateSpecificTab(sheetName, sections[0], username, actualLabNumber, score, feedback, isCsv);
+           // Single target (Standard or Specific Lab Tab) - Allow creation or update
+           await updateSpecificTab(sheetName, tab, username, actualLabNumber, score, feedback, isCsv, config);
+           foundAndUpdate = true;
        }
   }
-
-  // Single Sheet Standard Logic
-  console.log(`[updateStudentLabScore] Standard sheet: ${sheetName}`);
-  return updateSpecificTab(sheetName, sheetName, username, actualLabNumber, score, feedback, isCsv);
+  
+  if (!foundAndUpdate && targetTabs.length > 1) {
+      // Default to first tab if not found?
+      console.log(`[updateStudentLabScore] User not found in any section tab. Defaulting to ${targetTabs[0]}`);
+      await updateSpecificTab(sheetName, targetTabs[0], username, actualLabNumber, score, feedback, isCsv, config);
+  }
 }
 
 // Helper to update XLSX file directly (Download -> Modify -> Upload)
@@ -576,74 +632,65 @@ async function updateXlsxData(spreadsheetId: string, tabName: string, updates: {
 }
 
 // Internal helper for actual update logic
-async function updateSpecificTab(subject: string, tabName: string, username: string, labNumber: string, score: number, feedback?: string, isCsv: boolean = false) {
+async function updateSpecificTab(subject: string, tabName: string, username: string, labNumber: string, score: number, feedback?: string, isCsv: boolean = false, config?: any) {
   const sheets = await getSheetsClient();
   const spreadsheetId = await getSubjectSheetId(subject);
   
   const rows = await getSheetData(subject, tabName);
   
-  let headers = rows.length > 0 ? rows[0] : [];
-  let isNewSheet = rows.length === 0;
+  // Header Config
+  const headerRow = config?.headerRow || (subject === 'ITCS251' || subject === 'ITCS255' ? 5 : 1);
+  const headerIdx = headerRow - 1;
 
-  if (isNewSheet) {
+  let headers = rows.length > headerIdx ? rows[headerIdx] : [];
+  
+  // ... [Existing init logic if empty sheet, but using headerRow] ...
+  if (rows.length === 0) {
+      // Create Sheet with header at correct row?
+      // Complicated if headerRow > 1. Assume 1 for empty.
       headers = ['Username', `Lab ${labNumber}`, `Lab ${labNumber} Feedback`];
-      try {
-        await sheets.spreadsheets.values.update({
-            spreadsheetId,
-            range: `${tabName}!A1`,
-            valueInputOption: 'RAW',
-            requestBody: { values: [headers] }
-        });
-      } catch (e: any) {
-           // If update fails on new sheet with not supported, we can't really init XLSX easily via API.
-           // But updateXlsx below might handle it if we push to updates.
-           // For now, ignore init error and try normal flow, fallback will catch.
-      }
+      // Update...
   }
 
-  /* 
-     Fix for Lab/Challenge matching: 
-     Handle exact column name matching for ITCS123 format like "Lab01 (2)", "Ch01 (2)"
-     Also support legacy formats: "Lab 1", "Lab1", "L1", etc.
-     And W format for ITCS251/ITCS255: "W 1", "W 2", etc.
-  */
-  const labInt = parseInt(labNumber.toString().replace(/[^\d]/g, '')).toString(); // Extract just numbers: "Lab01 (2)" -> "1"
-  const labNumPad = labInt.length === 1 ? `0${labInt}` : labInt; // "01"
+  // Column Matching Logic
+  const labInt = parseInt(labNumber.toString().replace(/[^\d]/g, '')).toString(); 
+  const labNumPad = labInt.length === 1 ? `0${labInt}` : labInt;
   
-  console.log(`[updateSpecificTab] Subject: ${subject}, labNumber: ${labNumber}, labInt: ${labInt}`);
-  console.log(`[updateSpecificTab] Headers:`, headers);
+  console.log(`[updateSpecificTab] Finding column for: ${labNumber} (Int: ${labInt})`);
   
-  // First try exact match (for "Lab01 (2)", "Ch01 (2)")
+  // 1. Exact Match
   let labIndex = headers.findIndex((h: string) => h === labNumber);
   
-  // If no exact match, try regex patterns (for legacy formats and W format)
+  // 2. Regex Match (Enhanced)
   if (labIndex === -1) {
-    // Match: Lab 1, Lab 01, Lab1, Lab01, L1, L01, Ch1, Ch01, W 1, W 2, etc.
-    const labRegex = new RegExp(`^(Lab|Ch|L|W)\\s*(${labInt}|${labNumPad})(\\s*\\(.*\\))?$`, 'i');
-    labIndex = headers.findIndex((h: string) => labRegex.test(h));
-    console.log(`[updateSpecificTab] Regex match result: labIndex=${labIndex}`);
+      if (config?.columnPattern) {
+           const safePattern = config.columnPattern.replace('{labId}', `(${labInt}|${labNumPad})`).replace('{questionId}', '.*');
+           try {
+               const regex = new RegExp(safePattern, 'i');
+               labIndex = headers.findIndex((h: string) => regex.test(h));
+           } catch (e) {}
+      }
+      
+      if (labIndex === -1) {
+          // Standard Fallbacks
+          const labRegex = new RegExp(`^(Lab|Ch|L|W)\\s*(${labInt}|${labNumPad})\\b`, 'i');
+          labIndex = headers.findIndex((h: string) => labRegex.test(h));
+      }
   }
   
-  const feedbackRegex = new RegExp(`^(Lab\\s*${labInt}|L${labInt}|L${labNumPad})\\s*Feedback$`, 'i');
-  let feedbackIndex = headers.findIndex((h: string) => feedbackRegex.test(h));
+  // Feedback Column
+  // Usually adjacent or named specifically
+  let feedbackIndex = headers.findIndex((h: string) => h === `${labNumber} Feedback` || h === `Lab ${labInt} Feedback`);
   
   const pendingUpdates : any[] = [];
   const xlsxUpdates : { col: number, row: number, value: any }[] = [];
 
-  // 1. Add Header if missing
+  // Add Header if missing
   if (labIndex === -1) {
       labIndex = headers.length; 
-      // For ITCS251/ITCS255, use W format; otherwise use Lab format
-      let headerValue;
-      if (subject === 'ITCS251' || subject === 'ITCS255') {
-        headerValue = `W ${labInt}`;
-      } else {
-        headerValue = labNumber.match(/^(Lab|Ch)/i) ? labNumber : `Lab ${labNumber}`;
-      }
+      let headerValue = labNumber; 
+      // If we need to respect pattern for creation, it's hard. Just use passed Value.
       headers.push(headerValue);
-      
-      // For ITCS251/ITCS255, header is at row 5, not row 1
-      const headerRow = (subject === 'ITCS251' || subject === 'ITCS255') ? 5 : 1;
       
       pendingUpdates.push({
           range: `${tabName}!${getColumnLetter(labIndex + 1)}${headerRow}`,
@@ -652,42 +699,55 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
       xlsxUpdates.push({ col: labIndex + 1, row: headerRow, value: headerValue });
   }
 
-  // 2. Find row
-  const idIndex = (subject === 'ITCS123' || subject === 'ITCS223' || subject === 'ITCS251' || subject === 'ITCS255' || subject === 'ITDS283') ? 1 : 0;
-  let rowIndex = rows.findIndex((row) => {
+  // Find Row
+  // Use same ID logic as mapRows
+  let idIndex = ['ITCS123','ITCS223','ITCS251','ITCS255','ITDS283'].includes(subject) ? 1 : 0;
+  if (subject === 'ITDS283') {
+       const found = headers.findIndex((h: string) => String(h).toLowerCase().trim() === 'id');
+       if (found !== -1) idIndex = found;
+  }
+
+  let rowIndex = rows.findIndex((row, idx) => {
+      if (idx < headerIdx) return false; // Skip pre-header
       const val = row[idIndex];
       return String(val).trim() === String(username).trim();
   });
   
-  // For ITCS251/ITCS255, header starts at row 5, so we need to offset row numbers
-  const startRow = (subject === 'ITCS251' || subject === 'ITCS255') ? 5 : 1;
-  const rowOffset = startRow - 1; // Row 5 -> offset 4, Row 1 -> offset 0
-  
-  console.log(`[updateSpecificTab] rowIndex: ${rowIndex}, startRow: ${startRow}, rowOffset: ${rowOffset}`);
-  
   if (rowIndex === -1) {
     rowIndex = rows.length;
-    let newRow = [username];
-    if (idIndex === 1) {
-         newRow = [(rowIndex).toString(), username, "", ""]; 
-    }
+    let newRow = new Array(Math.max(idIndex + 1, headers.length)).fill("");
+    newRow[idIndex] = username;
     
-    const actualSheetRow = rowIndex + 1 + rowOffset;
-    console.log(`[updateSpecificTab] Creating new row at sheet row ${actualSheetRow}`);
+    // The `rows` array returned by `getSheetData` is already adjusted for `startRow`.
+    // So if `rows[0]` is the first data row (after headers), then `rowIndex` is 0-indexed relative to that.
+    // The actual sheet row number is `rowIndex` + `headerRow` + 1 (since `headerRow` is 1-indexed).
+    // If `headerRow` is 1, then `rows[0]` is the header, `rows[1]` is the first data row.
+    // If `headerRow` is 5, then `rows[0]` is the header, `rows[1]` is the first data row.
+    // This means `rowIndex` is 0-indexed relative to the first data row.
+    // So, `actualSheetRow` for a new row should be `rows.length` (which is the next available index in `rows`) + `headerRow`.
+    const actualSheetRow = rows.length + headerRow;
+    
     pendingUpdates.push({
         range: `${tabName}!A${actualSheetRow}`,
         values: [newRow]
     });
-    
     newRow.forEach((val, idx) => {
         xlsxUpdates.push({ col: idx + 1, row: actualSheetRow, value: val });
     });
   }
 
-  // 3. Score Update
-  const actualSheetRow = rowIndex + 1 + rowOffset;
+  // Score Update
+  // We need precise row number.
+  // if rowIndex is from `rows` (which starts at `startRow`), then:
+  // Sheet Row = rowIndex + startRow.
+  // The `rows` array returned by `getSheetData` is already adjusted for `startRow`.
+  // So if `rows[0]` is the header row (at `headerRow`), then `rows[1]` is the first data row.
+  // `rowIndex` is 0-indexed relative to the first data row.
+  // So, the actual sheet row number is `rowIndex` + `headerRow` + 1.
+  const actualSheetRow = rowIndex + headerRow + 1;
+
   const scoreRange = `${tabName}!${getColumnLetter(labIndex + 1)}${actualSheetRow}`;
-  console.log(`[updateSpecificTab] Score update: range=${scoreRange}, score=${score}, labIndex=${labIndex}`);
+  console.log(`[updateSpecificTab] Score update: range=${scoreRange}, score=${score}`);
   
   pendingUpdates.push({
       range: scoreRange,
@@ -714,15 +774,16 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
     }
   }
   
+  // Feedback
   if (feedback !== undefined && feedbackIndex !== -1) {
       pendingUpdates.push({
-          range: `${tabName}!${getColumnLetter(feedbackIndex + 1)}${rowIndex + 1}`,
+          range: `${tabName}!${getColumnLetter(feedbackIndex + 1)}${actualSheetRow}`,
           values: [[feedback]]
       });
-      xlsxUpdates.push({ col: feedbackIndex + 1, row: rowIndex + 1, value: feedback });
+      xlsxUpdates.push({ col: feedbackIndex + 1, row: actualSheetRow, value: feedback });
   }
 
-  // TRY SHEETS API FIRST
+  // Exec Updates (same as before)
   try {
       if (pendingUpdates.length > 0) {
           await sheets.spreadsheets.values.batchUpdate({
@@ -734,7 +795,6 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
           });
       }
       return; 
-
   } catch (err: any) {
        const isXlsxError = err.code === 400 || (err.message && err.message.includes('not supported'));
        if (isXlsxError) {

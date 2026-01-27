@@ -45,7 +45,11 @@ export async function POST(request: NextRequest) {
       hasGradingInterface,
       hasQuizManagement,
       hasTestCases,
-      gradingType
+      gradingType,
+      headerRow,
+      columnPattern,
+      dataSourceType,
+      sheetTabs
     } = body;
 
     if (!code || !title) {
@@ -84,7 +88,11 @@ export async function POST(request: NextRequest) {
         hasGradingInterface: hasGradingInterface || false,
         hasQuizManagement: hasQuizManagement || false,
         hasTestCases: hasTestCases || false,
-        gradingType: gradingType || null
+        gradingType: gradingType || null,
+        headerRow: headerRow || 1,
+        columnPattern: columnPattern || '',
+        dataSourceType: dataSourceType || 'single_sheet',
+        sheetTabs: sheetTabs || ''
       });
     }
 

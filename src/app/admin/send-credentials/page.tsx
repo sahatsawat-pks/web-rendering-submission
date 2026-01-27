@@ -183,7 +183,7 @@ export default function SendCredentialsPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg">
               <Mail className="h-5 w-5" />
             </div>
-            <span className="text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 hidden sm:inline">
+            <span className="text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-200 hidden sm:inline">
               Send Credential Emails
             </span>
           </div>
@@ -198,7 +198,7 @@ export default function SendCredentialsPage() {
       <main className="container mx-auto max-w-5xl px-4 py-8">
         {/* Header */}
         <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-2">
+          <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-200 mb-2">
             Send Credential Emails
           </h1>
           <p className="text-slate-600 dark:text-slate-400">
@@ -208,7 +208,7 @@ export default function SendCredentialsPage() {
 
         {/* Test Email Section */}
         <div className="glass-card p-6 mb-6">
-          <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-200 mb-4 flex items-center gap-2">
             <TestTube className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
             Test Email
           </h2>
@@ -218,7 +218,7 @@ export default function SendCredentialsPage() {
               placeholder="your.email@example.com"
               value={testEmail}
               onChange={(e) => setTestEmail(e.target.value)}
-              className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <button
               onClick={handleSendTest}
@@ -237,7 +237,7 @@ export default function SendCredentialsPage() {
 
         {/* Subject Filter (Optional) */}
         <div className="glass-card p-6 mb-6">
-          <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-200 mb-4">
             Optional Settings
           </h2>
           <div>
@@ -249,7 +249,7 @@ export default function SendCredentialsPage() {
               placeholder="e.g., ITCS223"
               value={subject}
               onChange={(e) => setSubject(e.target.value.toUpperCase())}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
         </div>
@@ -257,7 +257,7 @@ export default function SendCredentialsPage() {
         {/* Student List Section */}
         <div className="glass-card p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2">
               <Upload className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               Student List
             </h2>
@@ -279,7 +279,7 @@ export default function SendCredentialsPage() {
               type="file"
               accept=".csv,.tsv,.txt"
               onChange={handleFileUpload}
-              className="w-full px-4 py-3 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+              className="w-full px-4 py-3 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200"
             />
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
               Format: studentId, name, email (one student per line)
@@ -295,7 +295,7 @@ export default function SendCredentialsPage() {
               placeholder="6788xxxxx, John Doe, john.doe@student.mahidol.ac.th&#10;6788yyyyy, Jane Smith, jane.smith@student.mahidol.ac.th"
               onChange={handlePasteData}
               rows={6}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
             />
           </div>
 

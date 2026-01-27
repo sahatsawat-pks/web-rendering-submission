@@ -366,7 +366,7 @@ export default function QuizManagementPage({
             >
               ← Back to {subjectCode.toUpperCase()}
             </button>
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-slate-200">
               Quiz Management - {subjectCode.toUpperCase()}
             </h1>
           </div>
@@ -386,7 +386,7 @@ export default function QuizManagementPage({
           <select
             value={selectedLab}
             onChange={(e) => setSelectedLab(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200"
           >
             <option value="">-- Select a Lab --</option>
             {labs.filter(lab => lab.labType !== 'Challenge').map(lab => (
@@ -401,7 +401,7 @@ export default function QuizManagementPage({
           <>
             {/* Quiz Settings */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-              <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">Quiz Settings</h2>
+              <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-slate-200">Quiz Settings</h2>
               <div className="space-y-4">
                 <label className="flex items-center gap-2">
                   <input
@@ -434,7 +434,7 @@ export default function QuizManagementPage({
                         value={timeLimit}
                         onChange={(e) => setTimeLimit(parseInt(e.target.value) || 0)}
                         min="0"
-                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200"
                       />
                     </div>
                   )}
@@ -452,7 +452,7 @@ export default function QuizManagementPage({
             {/* Categories Management */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-800 dark:text-white">Categories</h2>
+                <h2 className="text-xl font-bold text-gray-800 dark:text-slate-200">Categories</h2>
                 <button
                   onClick={() => {
                     setEditingCategory(null)
@@ -477,7 +477,7 @@ export default function QuizManagementPage({
                       className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
                     >
                       <div>
-                        <span className="font-medium text-gray-800 dark:text-white">{category.name}</span>
+                        <span className="font-medium text-gray-800 dark:text-slate-200">{category.name}</span>
                         <span className="ml-3 text-sm text-gray-500 dark:text-gray-400">
                           ({questions.filter(q => q.category === category.id).length} questions)
                         </span>
@@ -505,7 +505,7 @@ export default function QuizManagementPage({
             {/* Questions Management */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-800 dark:text-white">Questions</h2>
+                <h2 className="text-xl font-bold text-gray-800 dark:text-slate-200">Questions</h2>
                 <div className="flex gap-2 items-center">
                   {saveStatus && (
                     <span className="text-sm text-green-600 dark:text-green-400">{saveStatus}</span>
@@ -549,7 +549,7 @@ export default function QuizManagementPage({
 
                     return (
                       <div key={category.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                        <h3 className="font-semibold text-lg mb-3 text-gray-800 dark:text-white">{category.name}</h3>
+                        <h3 className="font-semibold text-lg mb-3 text-gray-800 dark:text-slate-200">{category.name}</h3>
                         <div className="space-y-3">
                           {categoryQuestions.map((question, idx) => (
                             <div
@@ -628,7 +628,7 @@ export default function QuizManagementPage({
       {showCategoryModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md">
-            <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">
+            <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-slate-200">
               {editingCategory ? 'Edit Category' : 'Add Category'}
             </h3>
             <input
@@ -636,7 +636,7 @@ export default function QuizManagementPage({
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
               placeholder="Category name"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white mb-4"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200 mb-4"
               onKeyPress={(e) => e.key === 'Enter' && (editingCategory ? updateCategory() : addCategory())}
             />
             <div className="flex gap-2 justify-end">
@@ -646,7 +646,7 @@ export default function QuizManagementPage({
                   setNewCategoryName("")
                   setEditingCategory(null)
                 }}
-                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-slate-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
               >
                 Cancel
               </button>
@@ -665,7 +665,7 @@ export default function QuizManagementPage({
       {showQuestionModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-2xl my-8">
-            <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">
+            <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-slate-200">
               {editingQuestion ? 'Edit Question' : 'Add Question'}
             </h3>
             
@@ -675,7 +675,7 @@ export default function QuizManagementPage({
                 <select
                   value={questionFormData.category}
                   onChange={(e) => setQuestionFormData({ ...questionFormData, category: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200"
                 >
                   {categories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
@@ -692,7 +692,7 @@ export default function QuizManagementPage({
                     type: e.target.value as 'multiple-choice' | 'short-answer',
                     options: e.target.value === 'multiple-choice' ? ["", "", "", ""] : []
                   })}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200"
                 >
                   <option value="multiple-choice">Multiple Choice</option>
                   <option value="short-answer">Short Answer</option>
@@ -722,7 +722,7 @@ export default function QuizManagementPage({
                         setQuestionFormData({ ...questionFormData, options: newOptions })
                       }}
                       placeholder={`Option ${String.fromCharCode(65 + idx)}`}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white mb-2"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200 mb-2"
                     />
                   ))}
                 </div>
@@ -734,7 +734,7 @@ export default function QuizManagementPage({
                   <select
                     value={questionFormData.correctAnswer}
                     onChange={(e) => setQuestionFormData({ ...questionFormData, correctAnswer: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200"
                   >
                     <option value="">-- Select Correct Answer --</option>
                     {questionFormData.options.filter(opt => opt.trim()).map((opt, idx) => (
@@ -747,7 +747,7 @@ export default function QuizManagementPage({
                     value={questionFormData.correctAnswer}
                     onChange={(e) => setQuestionFormData({ ...questionFormData, correctAnswer: e.target.value })}
                     placeholder="Enter the correct answer"
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200"
                   />
                 )}
               </div>
@@ -768,7 +768,7 @@ export default function QuizManagementPage({
                   setShowQuestionModal(false)
                   setEditingQuestion(null)
                 }}
-                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-slate-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
               >
                 Cancel
               </button>
