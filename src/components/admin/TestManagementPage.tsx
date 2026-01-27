@@ -458,7 +458,7 @@ export default function TestManagementPage({
                                 onClick={() => handleSelectLab(lab)}
                                 className={`w-full text-left p-4 rounded-xl transition-all border ${
                                     selectedLab?.id === lab.id 
-                                    ? `bg-${colorTheme.accent}-50 dark:bg-${colorTheme.accent}-500/20 border-${colorTheme.accent}-200 dark:border-${colorTheme.accent}-500/50 text-slate-900 dark:text-slate-200`
+                                    ? `bg-${colorTheme.accent}-50 dark:bg-${colorTheme.accent}-50 border-${colorTheme.accent}-200 dark:border-${colorTheme.accent}-500/50 text-slate-900 dark:text-slate-900`
                                     : "bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600"
                                 }`}
                             >
