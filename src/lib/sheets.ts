@@ -819,9 +819,17 @@ export async function fillMissingScores(subject: string, labNumber: string, valu
   const isSingleSubjectTab = subject === 'ITCS251' || subject === 'ITCS255' || subject === 'ITCS227';
   let tabs: string[] = [];
   if (isMultiSection) {
-      if (subject === 'ITCS123') tabs = ['Sec1', 'Sec2', 'Sec3'];
-      else if (subject === 'ITCS223') tabs = ['Section 1', 'Section 2', 'Section 3'];
-      else if (subject === 'ITDS283') tabs = ['Section 1', 'Section 2'];
+      let allTabs: string[] = [];
+      if (subject === 'ITCS123') allTabs = ['Sec1', 'Sec2', 'Sec3'];
+      else if (subject === 'ITCS223') allTabs = ['Section 1', 'Section 2', 'Section 3'];
+      else if (subject === 'ITDS283') allTabs = ['Section 1', 'Section 2'];
+
+      if (section && section !== 'all') {
+         const target = allTabs.find(t => t.includes(section) || t.endsWith(section));
+         tabs = target ? [target] : allTabs;
+      } else {
+         tabs = allTabs;
+      }
   } else {
       tabs = isSingleSubjectTab ? [subject] : [subject];
   } 
@@ -854,7 +862,7 @@ export async function fillMissingScores(subject: string, labNumber: string, valu
               const row = rows[i];
               
               // If section filtering is enabled for ITCS227, check section match
-              if (subject === 'ITCS227' && section && sectionIndex !== -1) {
+              if (subject === 'ITCS227' && section && section !== 'all' && sectionIndex !== -1) {
                   const rowSection = String(row[sectionIndex] || '').trim();
                   if (rowSection !== section) {
                       continue; // Skip rows not in selected section

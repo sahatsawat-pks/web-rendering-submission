@@ -808,7 +808,7 @@ export default function LabChallengeGrading({
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">File Name</label>
+                <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">File Name (Optional)</label>
                 <input
                   type="text"
                   value={newLabData.fileName}

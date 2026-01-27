@@ -42,6 +42,7 @@ export default function SimpleScoreGrading({
   const [togglingQuiz, setTogglingQuiz] = useState<number | null>(null)
   const [localQuizSectionEnabled, setLocalQuizSectionEnabled] = useState(quizSectionEnabled)
   const [togglingQuizSection, setTogglingQuizSection] = useState(false)
+  const [fillAllSections, setFillAllSections] = useState(false)
   
   const [showNewLabDialog, setShowNewLabDialog] = useState(false)
   const [newLabData, setNewLabData] = useState({
@@ -173,11 +174,19 @@ export default function SimpleScoreGrading({
           alert("Please select a lab first.");
           return;
       }
-      if (!selectedSection) {
+      
+      const effectiveSection = fillAllSections ? 'all' : selectedSection;
+      
+      if (!effectiveSection) {
           alert("Please select a section first.");
           return;
       }
-      if (!confirm(`Are you sure you want to fill ALL missing scores for Lab ${selectedLab} Section ${selectedSection} with 0?`)) {
+      
+      const confirmMsg = fillAllSections 
+        ? `Are you sure you want to fill ALL missing scores for Lab ${selectedLab} across ALL SECTIONS with 0?`
+        : `Are you sure you want to fill ALL missing scores for Lab ${selectedLab} Section ${selectedSection} with 0?`;
+
+      if (!confirm(confirmMsg)) {
           return;
       }
 
@@ -189,7 +198,7 @@ export default function SimpleScoreGrading({
               body: JSON.stringify({
                   action: 'fill_missing',
                   labNumber: selectedLab,
-                  section: selectedSection,
+                  section: effectiveSection,
                   subject: subjectCode
               })
           });
@@ -346,6 +355,18 @@ export default function SimpleScoreGrading({
                   <option value="2">Section 2</option>
                   <option value="3">Section 3</option>
                 </select>
+                <div className="flex items-center gap-2 mt-2">
+                  <input
+                    type="checkbox"
+                    id="fillAllSections"
+                    checked={fillAllSections}
+                    onChange={(e) => setFillAllSections(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                  />
+                  <label htmlFor="fillAllSections" className="text-xs text-slate-600 dark:text-slate-400 cursor-pointer select-none">
+                    Fill All Sections (Subject with 1 section)
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -409,7 +430,7 @@ export default function SimpleScoreGrading({
               <button
                 type="button"
                 onClick={handleFillMissing}
-                disabled={isFilling || !selectedLab || !selectedSection}
+                disabled={isFilling || !selectedLab || (!selectedSection && !fillAllSections)}
                 className="px-6 py-3 text-sm font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-xl border border-amber-200 dark:border-amber-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                  {isFilling ? (
@@ -670,7 +691,7 @@ export default function SimpleScoreGrading({
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">File Name</label>
+                <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">File Name (Optional)</label>
                 <input
                   type="text"
                   value={newLabData.fileName}
