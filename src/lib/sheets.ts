@@ -744,7 +744,7 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
   // So if `rows[0]` is the header row (at `headerRow`), then `rows[1]` is the first data row.
   // `rowIndex` is 0-indexed relative to the first data row.
   // So, the actual sheet row number is `rowIndex` + `headerRow` + 1.
-  const actualSheetRow = rowIndex + headerRow + 1;
+  const actualSheetRow = rowIndex + headerRow;
 
   const scoreRange = `${tabName}!${getColumnLetter(labIndex + 1)}${actualSheetRow}`;
   console.log(`[updateSpecificTab] Score update: range=${scoreRange}, score=${score}`);
