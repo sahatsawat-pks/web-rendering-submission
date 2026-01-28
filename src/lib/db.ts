@@ -740,7 +740,8 @@ export async function getLabByNumber(labNumber: string, subject?: string): Promi
         
         if (subject) {
             query += ' AND subject = $2';
-            params.push(subject);
+            // Convert to uppercase for case-insensitive matching (DB stores uppercase)
+            params.push(subject.toUpperCase());
         }
         
         query += ' LIMIT 1';

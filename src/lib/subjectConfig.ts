@@ -490,7 +490,8 @@ const subjectConfigs: Record<string, SubjectConfig> = {
     ],
     grading: {
       showCumulativeScore: true,
-      labWeight: 20
+      labWeight: 20,
+      hasChallenge: true
     },
     blobColors: {
       one: "bg-rose-300 dark:bg-rose-900",
