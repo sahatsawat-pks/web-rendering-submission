@@ -1,45 +1,31 @@
 import { google } from 'googleapis';
 
-const DEFAULT_SPREADSHEET_ID = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+// Google Sheets API authentication (credentials still from environment)
+
 const GOOGLE_CLIENT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL!;
 const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')!;
 
-// Helper to determine spreadsheet ID based on subject
-// Helper to determine spreadsheet ID based on subject
+// Helper to get Google Sheets ID from database
 async function getSubjectSheetId(subject: string): Promise<string> {
-    // 1. Try DB first
     try {
         const { getSubjects } = await import("./db");
-        // We need an efficient way to get one subject. getSubjects gets all.
-        // For now, it's acceptable volume.
         const subjects = await getSubjects(); 
         const target = subjects.find(s => s.code === subject);
         
         if (target && target.googleSheetId) {
-            console.log(`[getSubjectSheetId] Found ID in DB for ${subject}: ${target.googleSheetId.substring(0, 5)}...`);
             return target.googleSheetId;
         }
     } catch (e) {
-        console.error(`[getSubjectSheetId] DB lookup failed for ${subject}, falling back to env.`);
+        console.error(`[getSubjectSheetId] DB lookup failed for ${subject}:`, e);
     }
 
-    // 2. Fallback to Env Var (Legacy)
-    // Normalize subject to uppercase to match env convention (e.g. ITGE162 -> GOOGLE_SHEETS_ID_ITGE162)
-    const upperSubject = subject.toUpperCase();
-    const envVar = `GOOGLE_SHEETS_ID_${upperSubject}`;
-    const specificId = process.env[envVar];
-    
-    console.log(`[getSubjectSheetId] Subject: ${subject}, EnvVar: ${envVar}, ID found: ${specificId ? 'Yes' : 'No'}`);
-
-    if (specificId) {
-        return specificId;
-    }
-    
-    if (!DEFAULT_SPREADSHEET_ID) {
-         throw new Error('Missing Google Sheets environment variables');
-    }
-    return DEFAULT_SPREADSHEET_ID;
+    // No fallback - Sheet ID must be configured in database via Admin UI
+    throw new Error(
+        `Google Sheets ID not configured for subject: ${subject}. ` +
+        `Please configure it in the Admin UI at /admin/subjects`
+    );
 }
+
 
 import * as XLSX from 'xlsx';
 
@@ -71,7 +57,7 @@ async function getDriveClient() {
 }
 
 async function getXlsxData(spreadsheetId: string, tabName: string) {
-    console.log(`[getXlsxData] Fallback for XLSX: ${spreadsheetId}, Tab: ${tabName}`);
+    // console.log(`[getXlsxData] Fallback for XLSX: ${spreadsheetId}, Tab: ${tabName}`);
     try {
         const drive = await getDriveClient();
         const res = await drive.files.get({
@@ -95,11 +81,11 @@ async function getXlsxData(spreadsheetId: string, tabName: string) {
                  // For now, assume exact match or fail unless it's the "Subject" fallback which might map to "Sheet1"
                  
                  if (workbook.Sheets['Sheet1']) {
-                     console.log(`[getXlsxData] Tab '${tabName}' not found, trying 'Sheet1' fallback.`);
+                     // console.log(`[getXlsxData] Tab '${tabName}' not found, trying 'Sheet1' fallback.`);
                      targetSheet = 'Sheet1';
                  } else {
                      // Last resort: First sheet
-                     console.log(`[getXlsxData] Tab '${tabName}' not found, using first sheet '${workbook.SheetNames[0]}'.`);
+                     // console.log(`[getXlsxData] Tab '${tabName}' not found, using first sheet '${workbook.SheetNames[0]}'.`);
                      targetSheet = workbook.SheetNames[0];
                  }
             }
@@ -138,7 +124,7 @@ export async function getSheetData(subject: string = 'Sheet1', tabName?: string)
       const isXlsxError = err.code === 400 || (err.message && err.message.includes('not supported'));
       
       if (isXlsxError) {
-          console.log(`[getSheetData] Detected potential XLSX file (Error ${err.code}), attempting fallback.`);
+          // console.log(`[getSheetData] Detected potential XLSX file (Error ${err.code}), attempting fallback.`);
           return await getXlsxData(spreadsheetId, targetTab);
       }
 
@@ -263,14 +249,12 @@ function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] 
          if (customRegex) {
              const match = String(header).match(customRegex);
              if (match && match[1]) {
-                 // Assumes capture group 1 is the lab number/id
-                 // If there is a second capture group, it might be sub-question
-                 const labId = match[1];
-                 const subId = match[2];
+                 // Store with original header format to maintain consistency
+                 // This ensures "l1-q1" stays as "l1-q1" instead of becoming "Lab 1 q1"
+                 student[header] = cellValue;
                  
-                 const key = subId ? `Lab ${labId} ${subId}` : `Lab ${labId}`;
-                 student[key] = cellValue;
-                 lastLabNumber = labId;
+                 // Extract lab number for potential in-class tracking
+                 lastLabNumber = match[1];
                  return;
              }
          }
@@ -292,6 +276,10 @@ function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] 
             const chNum = parseInt(chMatch[1]).toString();
             student[`Challenge ${chNum}`] = cellValue;
             lastLabNumber = null; 
+        } else if (header.match(/^l(\d+)-q(\d+)$/i)) {
+             // Support for l1-q1 format
+             student[header] = cellValue;
+             // Also optionally map to Lab X if needed, but keeping original key is safer for now
         } else if (header.match(/Feedback/i)) {
              student[header] = cellValue;
         } else if (header.match(/^\s*(name|firstname)\s*$/i)) {
@@ -368,7 +356,7 @@ export async function getAllScores(subject: string = 'Sheet1') {
                   }
               });
           } catch(e) {
-              console.log(`[getAllScores] Failed to fetch tab ${tabName}`);
+              // console.log(`[getAllScores] Failed to fetch tab ${tabName}`);
           }
       }
       
@@ -393,7 +381,7 @@ export async function getAllScores(subject: string = 'Sheet1') {
           else tabs = ['Sec1', 'Sec2']; // Generic default
       }
 
-      console.log(`[getAllScores] Fetching multi-section: ${tabs.join(', ')}`);
+      // console.log(`[getAllScores] Fetching multi-section: ${tabs.join(', ')}`);
       
       const promises = tabs.map(tab => getSheetData(subject, tab).catch(e => {
           console.warn(`[getAllScores] Failed to fetch ${tab}: ${e.message}`);
@@ -451,7 +439,7 @@ export async function updateStudentLabScore(
   scoreType?: 'lab' | 'challenge', // For ITCS123 dual scoring
   isCsv: boolean = false
 ) {
-  console.log(`[updateStudentLabScore] START: User=${username}, Lab=${labNumber}, Score=${score}, Subject=${sheetName}`);
+  // console.log(`[updateStudentLabScore] START: User=${username}, Lab=${labNumber}, Score=${score}, Subject=${sheetName}`);
   
   const config = await getSubjectConfig(sheetName);
   
@@ -516,7 +504,7 @@ export async function updateStudentLabScore(
   let foundAndUpdate = false;
   
   for (const tab of targetTabs) {
-       console.log(`[updateStudentLabScore] Checking tab: ${tab}`);
+       // console.log(`[updateStudentLabScore] Checking tab: ${tab}`);
        // We need to check if student exists in this tab before creating new row (unless it's single sheet and we want to create)
        // Optimization: `updateSpecificTab` handles "Find row". 
        // But for multi-section, we only want to update ONE tab where the student IS.
@@ -545,7 +533,7 @@ export async function updateStudentLabScore(
            });
            
            if (exists) {
-               console.log(`[updateStudentLabScore] Found user in ${tab}`);
+               // console.log(`[updateStudentLabScore] Found user in ${tab}`);
                await updateSpecificTab(sheetName, tab, username, actualLabNumber, score, feedback, isCsv, config);
                foundAndUpdate = true;
                break; 
@@ -559,14 +547,14 @@ export async function updateStudentLabScore(
   
   if (!foundAndUpdate && targetTabs.length > 1) {
       // Default to first tab if not found?
-      console.log(`[updateStudentLabScore] User not found in any section tab. Defaulting to ${targetTabs[0]}`);
+      // console.log(`[updateStudentLabScore] User not found in any section tab. Defaulting to ${targetTabs[0]}`);
       await updateSpecificTab(sheetName, targetTabs[0], username, actualLabNumber, score, feedback, isCsv, config);
   }
 }
 
 // Helper to update XLSX file directly (Download -> Modify -> Upload)
 async function updateXlsxData(spreadsheetId: string, tabName: string, updates: { col: number, row: number, value: any }[]) {
-    console.log(`[updateXlsxData] Fallback for XLSX Write: ${spreadsheetId}, Tab: ${tabName}, Updates: ${updates.length}`);
+    // console.log(`[updateXlsxData] Fallback for XLSX Write: ${spreadsheetId}, Tab: ${tabName}, Updates: ${updates.length}`);
     try {
         const drive = await getDriveClient();
         
@@ -622,7 +610,7 @@ async function updateXlsxData(spreadsheetId: string, tabName: string, updates: {
             }
         });
         
-        console.log("[updateXlsxData] Successfully updated XLSX file.");
+        // console.log("[updateXlsxData] Successfully updated XLSX file.");
         return true;
 
     } catch (e: any) {
@@ -656,10 +644,14 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
   const labInt = parseInt(labNumber.toString().replace(/[^\d]/g, '')).toString(); 
   const labNumPad = labInt.length === 1 ? `0${labInt}` : labInt;
   
-  console.log(`[updateSpecificTab] Finding column for: ${labNumber} (Int: ${labInt})`);
+  // console.log(`[updateSpecificTab] Finding column for: ${labNumber} (Int: ${labInt})`);
   
   // 1. Exact Match
   let labIndex = headers.findIndex((h: string) => h === labNumber);
+  
+  if (labIndex === -1) {
+      labIndex = headers.findIndex((h: string) => h.toLowerCase() === labNumber.toLowerCase());
+  }
   
   // 2. Regex Match (Enhanced)
   if (labIndex === -1) {
@@ -747,7 +739,7 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
   const actualSheetRow = rowIndex + headerRow;
 
   const scoreRange = `${tabName}!${getColumnLetter(labIndex + 1)}${actualSheetRow}`;
-  console.log(`[updateSpecificTab] Score update: range=${scoreRange}, score=${score}`);
+  // console.log(`[updateSpecificTab] Score update: range=${scoreRange}, score=${score}`);
   
   pendingUpdates.push({
       range: scoreRange,
@@ -798,7 +790,7 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
   } catch (err: any) {
        const isXlsxError = err.code === 400 || (err.message && err.message.includes('not supported'));
        if (isXlsxError) {
-           console.log(`[updateSpecificTab] Detected XLSX Write Error. Switching to Drive API update.`);
+           // console.log(`[updateSpecificTab] Detected XLSX Write Error. Switching to Drive API update.`);
            return await updateXlsxData(spreadsheetId, tabName, xlsxUpdates);
        }
        throw err; 
@@ -894,7 +886,7 @@ export async function fillMissingScores(subject: string, labNumber: string, valu
               } catch (err: any) {
                    const isXlsxError = err.code === 400 || (err.message && err.message.includes('not supported'));
                    if (isXlsxError) {
-                       console.log(`[fillMissingScores] XLSX Write Fallback for ${tabName}`);
+                       // console.log(`[fillMissingScores] XLSX Write Fallback for ${tabName}`);
                        await updateXlsxData(spreadsheetId, tabName, xlsxUpdates);
                    } else {
                        throw err;

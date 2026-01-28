@@ -5,7 +5,7 @@ export async function POST(req: Request) {
   try {
     const { subjectCode, enabled } = await req.json()
     
-    console.log('📝 Toggle request:', { subjectCode, enabled })
+    // console.log('📝 Toggle request:', { subjectCode, enabled })
 
     if (!subjectCode || typeof enabled !== 'boolean') {
       return NextResponse.json(
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
 
     const quizSectionEnabled = await updateSubjectQuizSection(subjectCode, enabled)
     
-    console.log('✅ Updated quiz section:', { subjectCode, quizSectionEnabled })
+    // console.log('✅ Updated quiz section:', { subjectCode, quizSectionEnabled })
 
     return NextResponse.json({
       success: true,

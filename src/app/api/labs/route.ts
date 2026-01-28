@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const activeOnly = searchParams.get("activeOnly") === "true";
-    const subject = searchParams.get("subject") || undefined;
+    const subject = searchParams.get("subject")?.toUpperCase() || undefined;
 
     const labs = await getAllLabs(activeOnly, subject);
 

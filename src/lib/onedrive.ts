@@ -66,7 +66,7 @@ function parseSharePointUrl(url: string) {
 
 export async function getOneDriveScores(fileUrl: string): Promise<StudentScore[]> {
   try {
-    console.log("Initializing Graph Client...");
+    // console.log("Initializing Graph Client...");
     const client = await getGraphClient();
 
     // Strategy 1: Use Drive Item ID directly if ENV is set
@@ -75,14 +75,14 @@ export async function getOneDriveScores(fileUrl: string): Promise<StudentScore[]
 
     // Strategy 2: URL Traversal (As described in blog)
     if (!activeItemId) {
-        console.log("Resolving path from URL...");
+        // console.log("Resolving path from URL...");
         const { host, sitePath } = parseSharePointUrl(fileUrl);
         
         // 1. Get Site ID
         // GET /sites/{host}:{server-relative-path}
         const siteReq = await client.api(`/sites/${host}:${sitePath}`).select('id').get();
         const siteId = siteReq.id;
-        console.log(`Found Site ID: ${siteId}`);
+        // console.log(`Found Site ID: ${siteId}`);
 
         // 2. Get Drives (Document Libraries)
         const drivesReq = await client.api(`/sites/${siteId}/drives`).select('id,name').get();
@@ -91,7 +91,7 @@ export async function getOneDriveScores(fileUrl: string): Promise<StudentScore[]
         
         if (!targetDrive) throw new Error("Could not find 'Documents' drive.");
         activeDriveId = targetDrive.id;
-        console.log(`Found Drive ID: ${activeDriveId}`);
+        // console.log(`Found Drive ID: ${activeDriveId}`);
 
         // 3. Find File by Name (Traversal) or Search
         // We know the filename from URL "682_ITCS223_LabScore.xlsx"
@@ -103,7 +103,7 @@ export async function getOneDriveScores(fileUrl: string): Promise<StudentScore[]
         const searchReq = await client.api(`/drives/${activeDriveId}/root/search(q='${filename}')`).select('id,name').get();
         if (searchReq.value && searchReq.value.length > 0) {
             activeItemId = searchReq.value[0].id;
-            console.log(`Found File ID via Search: ${activeItemId}`);
+            // console.log(`Found File ID via Search: ${activeItemId}`);
         } else {
             throw new Error(`Could not find file '${filename}' in drive.`);
         }
@@ -113,7 +113,7 @@ export async function getOneDriveScores(fileUrl: string): Promise<StudentScore[]
          throw new Error("Unable to resolve Drive ID or Item ID.");
     }
 
-    console.log(`Fetching Excel Data from Item: ${activeItemId}`);
+    // console.log(`Fetching Excel Data from Item: ${activeItemId}`);
     
     // 4. Use Excel API to read Range Used
     // GET /drives/{drive-id}/items/{item-id}/workbook/worksheets
@@ -125,7 +125,7 @@ export async function getOneDriveScores(fileUrl: string): Promise<StudentScore[]
     for (const sheet of worksheetsReq.value) {
         if (!targetSheets.includes(sheet.name)) continue;
         
-        console.log(`Processing Sheet: ${sheet.name}`);
+        // console.log(`Processing Sheet: ${sheet.name}`);
         
         // Read Used Range
         const rangeReq = await client.api(`/drives/${activeDriveId}/items/${activeItemId}/workbook/worksheets('${sheet.name}')/usedRange(valuesOnly=true)`).get();

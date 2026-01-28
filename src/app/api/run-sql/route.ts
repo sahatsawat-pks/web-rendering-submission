@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
                     } catch (e: any) {
                         // ignore if database already exists error
                         if (e.code !== '42P04') { // 42P04 is duplicate_database
-                             console.log("DB Create info:", e.message);
+                             // console.log("DB Create info:", e.message);
                         }
                     }
                     

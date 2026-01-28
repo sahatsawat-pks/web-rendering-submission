@@ -99,7 +99,7 @@ export default function LabManagement() {
       const response = await fetch(`/api/admin/permissions?userId=${userId}`)
       if (response.ok) {
         const data = await response.json()
-        console.log("Permissions data:", data)
+        // console.log("Permissions data:", data)
         // Convert array format to object format if needed
         if (Array.isArray(data.permissions)) {
           const permissionsObj: {[key: string]: boolean} = {}
@@ -108,7 +108,7 @@ export default function LabManagement() {
               permissionsObj[perm.subjectCode.toLowerCase()] = true
             }
           })
-          console.log("Converted permissions:", permissionsObj)
+          // console.log("Converted permissions:", permissionsObj)
           setUserPermissions(permissionsObj)
         } else {
           setUserPermissions(data.permissions || {})
@@ -255,10 +255,10 @@ export default function LabManagement() {
         .filter(subject => userPermissions[subject])
         .map(subject => subject.toUpperCase())
 
-  console.log("Current user:", currentUser)
-  console.log("Is main admin:", isMainAdmin)
-  console.log("User permissions:", userPermissions)
-  console.log("Allowed subjects:", allowedSubjects)
+  // console.log("Current user:", currentUser)
+  // console.log("Is main admin:", isMainAdmin)
+  // console.log("User permissions:", userPermissions)
+  // console.log("Allowed subjects:", allowedSubjects)
 
   // Filter labs based on user permissions and sort by subject and lab number
   const filteredLabs = (isMainAdmin 

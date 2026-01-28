@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     // Credential Resolution Logic (Universal)
     // Check if targetUsername is a credential code (6 alphanumeric chars)
     if (targetUsername && /^[A-Z0-9]{6}$/.test(targetUsername)) {
-        console.log(`[Scores API] Credential code detected: ${targetUsername}, Subject: ${subject || 'not specified'}`);
+        // console.log(`[Scores API] Credential code detected: ${targetUsername}, Subject: ${subject || 'not specified'}`);
         
         // Look up credential to get actual student ID
         // Note: We can pass subject to refine search, or omit to search globally.
@@ -62,19 +62,19 @@ export async function GET(request: NextRequest) {
         const apiUrl = request.url.split('/api')[0];
         const credResponse = await fetch(`${apiUrl}/api/credentials?credential=${targetUsername}`);
         
-        console.log(`[Scores API] Credential lookup response status: ${credResponse.status}`);
+        // console.log(`[Scores API] Credential lookup response status: ${credResponse.status}`);
         
         if (credResponse.ok) {
             const credData = await credResponse.json();
-            console.log(`[Scores API] Credential lookup result:`, credData);
+            // console.log(`[Scores API] Credential lookup result:`, credData);
             
             if (credData.success && credData.studentId) {
                 // Use the actual student ID for lookup
-                console.log(`[Scores API] Credential found! Mapped to student ID: ${credData.studentId}`);
+                // console.log(`[Scores API] Credential found! Mapped to student ID: ${credData.studentId}`);
                 targetUsername = credData.studentId;
             } else {
                 // Credential verification failed (not found)
-                console.log(`[Scores API] Credential not found in database: ${targetUsername}`);
+                // console.log(`[Scores API] Credential not found in database: ${targetUsername}`);
                 return NextResponse.json({ 
                     success: false, 
                     error: "Credential not found in database. Please check your credential code or contact your instructor." 

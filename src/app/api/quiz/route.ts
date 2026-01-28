@@ -3,7 +3,7 @@ import { getAllLabs, updateLab, getLabByNumber } from '@/lib/db'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
-  const subject = searchParams.get('subject')
+  const subject = searchParams.get('subject')?.toUpperCase()
   const labNumber = searchParams.get('labNumber')
   const action = searchParams.get('action')
 
@@ -91,7 +91,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { action, subject, labNumber, questions, categories, quizEnabled, quizTimeLimit, quizTimeLimitEnabled } = body
+    let { action, subject, labNumber, questions, categories, quizEnabled, quizTimeLimit, quizTimeLimitEnabled } = body
+    subject = subject?.toUpperCase()
 
     if (!subject || !labNumber) {
       return NextResponse.json({ error: 'Subject and lab number are required' }, { status: 400 })

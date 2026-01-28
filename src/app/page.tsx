@@ -49,7 +49,8 @@ export default function LandingPage() {
             'ITCS123': <Terminal className="w-6 h-6" />,
             'ITCS251': <Code className="w-6 h-6" />,
             'ITCS255': <Database className="w-6 h-6" />,
-            'ITDS283': <Smartphone className="w-6 h-6" />
+            'ITDS283': <Smartphone className="w-6 h-6" />,
+            'ITCS113': <Terminal className="w-6 h-6" />
           }
           
           const colorMap: Record<string, string> = {
@@ -59,7 +60,8 @@ export default function LandingPage() {
             'ITCS123': 'from-orange-500 to-amber-500',
             'ITCS251': 'from-blue-500 to-sky-500',
             'ITCS255': 'from-purple-500 to-pink-500',
-            'ITDS283': 'from-rose-500 to-red-500'
+            'ITDS283': 'from-rose-500 to-red-500',
+            'ITCS113': 'from-yellow-500 to-orange-500'
           }
           
           const shadowMap: Record<string, string> = {
@@ -69,7 +71,8 @@ export default function LandingPage() {
             'ITCS123': 'shadow-orange-500/30',
             'ITCS251': 'shadow-blue-500/30',
             'ITCS255': 'shadow-purple-500/30',
-            'ITDS283': 'shadow-rose-500/30'
+            'ITDS283': 'shadow-rose-500/30',
+            'ITCS113': 'shadow-yellow-500/30'
           }
 
           const descriptionMap: Record<string, string> = {
@@ -79,7 +82,8 @@ export default function LandingPage() {
             'ITCS123': 'Java JUnit test runner and code validator.',
             'ITCS251': 'Python code execution and test validation.',
             'ITCS255': 'SQL score tracking and grading system.',
-            'ITDS283': 'Mobile dev labs gradebook and score tracking.'
+            'ITDS283': 'Mobile dev labs gradebook and score tracking.',
+            'ITCS113': 'Python fundamentals with automated testing.'
           }
 
           const mappedSubjects = data.subjects

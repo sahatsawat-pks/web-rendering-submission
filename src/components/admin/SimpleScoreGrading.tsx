@@ -223,7 +223,7 @@ export default function SimpleScoreGrading({
       const res = await fetch('/api/admin/quiz-management', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ labId, enabled: !currentStatus })
+        body: JSON.stringify({ labId, quizEnabled: !currentStatus })
       })
       const data = await res.json()
       if (data.success) {
@@ -493,17 +493,11 @@ export default function SimpleScoreGrading({
           </h3>
           <div className="flex gap-2">
             {/* Badge */}
-            {(() => {
-                const textGradient = getGradientStyleProps(color); // Reuse logic but apply to text
-                return (
-                    <span className="px-3 py-1.5 bg-white dark:bg-slate-700 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 shadow-sm">
-                        <span className={textGradient.className ? textGradient.className.replace('bg-', 'text-').replace('from-', 'text-transparent bg-clip-text bg-gradient-to-r from-') : ''} 
-                              style={textGradient.style ? { ...textGradient.style, backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' } : undefined}>
-                        {labs.length} Total
-                        </span>
-                    </span>
-                );
-            })()}
+            <span className={`px-3 py-1.5 rounded-lg text-xs font-bold border shadow-md text-white ${getGradientStyleProps(color).className}`}
+                  style={getGradientStyleProps(color).style}
+            >
+              {labs.length} Total
+            </span>
 
             {hasQuizManagement && ['Lecturer', 'Main Admin'].includes(role) && (
               <a href={`/admin/${subjectCode.toLowerCase()}/quiz`} className="px-3 py-1.5 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded-lg text-xs font-medium border border-pink-200 dark:border-pink-800 shadow-sm hover:bg-pink-200 dark:hover:bg-pink-900/50 transition-colors">

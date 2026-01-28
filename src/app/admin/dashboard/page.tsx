@@ -1,12 +1,13 @@
 "use client"
 
-import { Code2, BarChart3, Layers, Terminal, ArrowRight, Shield, Key, Home, BookOpen, Database, Smartphone, ClipboardList } from "lucide-react"
+import { Code2, BarChart3, Layers, Terminal, ArrowRight, Shield, Key, Home, BookOpen, Database, Smartphone, ClipboardList, Blocks, Workflow, Network, Laptop, Component, Layout, Box, AppWindow, Braces } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import Footer from "@/components/Footer"
 import { getGradientStyleProps, getTextGradientStyle } from "@/lib/colors"
+import { getSubjectConfig } from "@/lib/subjectConfig"
 
 export default function AdminHub() {
   const [subjects, setSubjects] = useState<any[]>([])
@@ -104,7 +105,16 @@ export default function AdminHub() {
       'Smartphone': Smartphone,
       'BookOpen': BookOpen,
       'ClipboardList': ClipboardList,
-      'Shield': Shield
+      'Shield': Shield,
+      'Blocks': Blocks,
+      'Workflow': Workflow,
+      'Network': Network,
+      'Laptop': Laptop,
+      'Component': Component,
+      'Layout': Layout,
+      'Box': Box,
+      'AppWindow': AppWindow,
+      'Braces': Braces
     }
     
     const Icon = iconMap[iconName] || Code2 // Default to Code2 if not found
@@ -159,6 +169,16 @@ export default function AdminHub() {
                     <Key className="w-5 h-5" />
                 </button>
             </div>
+            {username && (
+                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-[10px] text-white font-bold">
+                        {username.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        {username}
+                    </span>
+                </div>
+            )}
             <LogoutButton />
            </div>
         </div>
@@ -246,25 +266,33 @@ export default function AdminHub() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-5xl mx-auto animate-scale-in">
             {visibleModules.map((mod, idx) => {
-                const gradientProps = getGradientStyleProps(mod.color)
-                const textGradient = getTextGradientStyle(mod.color)
+                // Dynamic color retrieval from subjectConfig
+                const config = getSubjectConfig(mod.code)
+                const gradientClass = config 
+                  ? `bg-gradient-to-r ${config.gradientFrom} ${config.gradientTo}`
+                  : `bg-gradient-to-r ${mod.color}`
+                
+                // Extract base color from gradientFrom for shadow (e.g., "from-teal-500" -> "teal")
+                const baseColor = config?.gradientFrom?.match(/from-(\w+)-/)?.[1] || 'slate'
+                const shadowClass = `shadow-${baseColor}-500/30`
+                
+                const colorForText = config ? `${config.gradientFrom} ${config.gradientTo}` : mod.color
+                const textGradient = getTextGradientStyle(colorForText)
                 const icon = getIconComponent(mod.icon)
-                const href = `/admin/${mod.code.toLowerCase()}` // Generate href dynamically
+                const href = `/admin/${mod.code.toLowerCase()}`
                 
                 return (
                 <Link 
                     key={mod.code} 
                     href={href}
-                    className="group relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+                    className={`group relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg hover:shadow-2xl ${shadowClass} transition-all duration-300 hover:-translate-y-1`}
                 >
                     <div 
-                        className={`h-2 animate-pulse ${gradientProps.className}`}
-                        style={gradientProps.style}
+                        className={`h-2 animate-pulse ${gradientClass}`}
                     ></div>
                     <div className="p-8 flex items-start gap-6">
                         <div 
-                            className={`flex-shrink-0 h-16 w-16 rounded-2xl flex items-center justify-center text-white shadow-lg ${gradientProps.className}`}
-                            style={gradientProps.style}
+                            className={`flex-shrink-0 h-16 w-16 rounded-2xl flex items-center justify-center text-white shadow-lg ${gradientClass}`}
                         >
                             {icon}
                         </div>

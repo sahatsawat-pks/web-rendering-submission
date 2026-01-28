@@ -221,7 +221,7 @@ export default function PythonGrading({
       const res = await fetch('/api/admin/quiz-management', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ labId, enabled: !currentStatus })
+        body: JSON.stringify({ labId, quizEnabled: !currentStatus })
       })
       const data = await res.json()
       if (data.success) {
@@ -608,8 +608,8 @@ export default function PythonGrading({
             Labs
           </h3>
           <div className="flex gap-2">
-            <span className={`px-3 py-1.5 bg-white dark:bg-slate-700 rounded-lg text-xs font-medium border shadow-sm ${getGradientStyleProps(color).className && !getGradientStyleProps(color).style ? 'text-blue-600 border-blue-200' : ''}`}
-                  style={{ ...getGradientStyleProps(color).style, opacity: 0.8 }}
+            <span className={`px-3 py-1.5 rounded-lg text-xs font-bold border shadow-md text-white ${getGradientStyleProps(color).className}`}
+                  style={getGradientStyleProps(color).style}
             >
               {labs.length} Total
             </span>

@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
             pythonCmd = await getPythonCommand();
             console.log('Using Python Command:', pythonCmd);
         } catch (detectionError) {
-             console.warn('Local Python not found, switching to remote execution.', detectionError);
+             // console.warn('Local Python not found, switching to remote execution.', detectionError);
              return await runRemoteExecution(code, input, verificationCode);
         }
 

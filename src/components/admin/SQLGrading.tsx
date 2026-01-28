@@ -221,7 +221,7 @@ export default function SQLGrading({
       const res = await fetch('/api/admin/quiz-management', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ labId, enabled: !currentStatus })
+        body: JSON.stringify({ labId, quizEnabled: !currentStatus })
       })
       const data = await res.json()
       if (data.success) {

@@ -14,6 +14,7 @@ import PythonGrading from "@/components/admin/PythonGrading"
 import CriteriaGrading from "@/components/admin/CriteriaGrading"
 import MultiQuestionGrading from "@/components/admin/MultiQuestionGrading"
 import { getGradientStyleProps } from "@/lib/colors"
+import { getSubjectConfig } from "@/lib/subjectConfig"
 
 interface Subject {
   code: string
@@ -53,6 +54,12 @@ export default function DynamicAdminDashboard() {
           setError(`Subject ${subjectCode} not found`)
           setLoading(false)
           return
+        }
+
+        // Override DB color with subjectConfig color if available (Source of Truth)
+        const config = getSubjectConfig(subjectCode)
+        if (config) {
+            subjectData.subjects[0].color = `${config.gradientFrom} ${config.gradientTo}`
         }
 
         setSubject(subjectData.subjects[0])
@@ -177,6 +184,19 @@ export default function DynamicAdminDashboard() {
               </Link>
             )}
             <ModeToggle />
+            {username && (
+              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 mr-2">
+                <div 
+                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-white font-bold ${gradientProps.className}`}
+                  style={gradientProps.style}
+                >
+                  {username.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  {username}
+                </span>
+              </div>
+            )}
             <LogoutButton />
           </div>
         </div>

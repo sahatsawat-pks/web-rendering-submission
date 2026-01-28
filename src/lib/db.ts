@@ -375,7 +375,7 @@ async function ensureTables() {
                 ('ITCS251', 'Programming in Python', 'Python code execution and test validation.', 'Code', 'from-blue-600 to-sky-600 dark:from-blue-400 dark:to-sky-400', true, 6),
                 ('ITCS255', 'Structured Query Language Essentials', 'SQL query execution and validation.', 'Database', 'from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400', true, 7);
             `);
-            console.log('✅ Seeded subjects table');
+            // console.log('✅ Seeded subjects table');
         }
 
         // Seed labs if table is empty
@@ -429,7 +429,7 @@ async function ensureTables() {
                 ('2', 'Physics Simulations', 'index.html', 'ITGE162', true, 'Lab'),
                 ('3', 'Data Analysis in Science', 'index.html', 'ITGE162', true, 'Lab');
             `);
-            console.log('✅ Seeded labs table with sample data');
+            // console.log('✅ Seeded labs table with sample data');
         }
 
         // Create quiz_progress table for storing student quiz answers
@@ -448,7 +448,7 @@ async function ensureTables() {
 
         // --- MIGRATION: Backfill legacy subject configuration ---
         // Ensuring these subjects work with the new dynamic routing directly
-        console.log('🔄 Running legacy subject migration...');
+        // console.log('🔄 Running legacy subject migration...');
         
         await client.query(`
             UPDATE subjects SET has_grading_interface=true, grading_type='lab_challenge', has_quiz_management=true, has_test_cases=true WHERE code='ITCS123' AND grading_type IS NULL;
@@ -463,10 +463,10 @@ async function ensureTables() {
             UPDATE subjects SET has_test_cases=true, has_quiz_management=true WHERE code='ITCS251';
             UPDATE subjects SET has_test_cases=true, has_quiz_management=true WHERE code='ITCS255';
         `);
-        console.log('✅ Legacy subjects migrated to dynamic routing');
+        // console.log('✅ Legacy subjects migrated to dynamic routing');
 
         // --- MIGRATION: Backfill Google Sheet IDs ---
-        console.log('🔄 Running Google Sheets ID backfill...');
+        // console.log('🔄 Running Google Sheets ID backfill...');
         await client.query(`
             UPDATE subjects SET google_sheet_id='1b3BdHlzBc5jVcaaldRkdUVLAVicTG5hqKDYEModLraA' WHERE code='ITGE162' AND google_sheet_id IS NULL;
             UPDATE subjects SET google_sheet_id='1LnPggDqEnvGZ7LSEhZZf0TSE8bnbX_3zuoZFeIpJD_g' WHERE code='ITCS227' AND google_sheet_id IS NULL;
@@ -476,12 +476,12 @@ async function ensureTables() {
             UPDATE subjects SET google_sheet_id='1x29jzhrMCzr7MazNWoLZ2XSn77hk33bu5ltuGmLSVtE' WHERE code='ITCS251' AND google_sheet_id IS NULL;
             UPDATE subjects SET google_sheet_id='154LairckAZ5jF33dZ4cRAuP54cbv_42Inv-gZTNxSro' WHERE code='ITCS255' AND google_sheet_id IS NULL;
         `);
-        console.log('✅ Google Sheets IDs backfilled');
+        // console.log('✅ Google Sheets IDs backfilled');
 
         // --- MIGRATION: Contrast Fix (Adaptive Dark/Light) ---
         // Ensure all subjects use 600 weight for light mode (contrast against white)
         // and 400 weight for dark mode (contrast against slate-900)
-        console.log('🔄 Running Color Contrast Fix (Adaptive)...');
+        // console.log('🔄 Running Color Contrast Fix (Adaptive)...');
         await client.query(`
             -- ITCS123 (Orange/Amber)
             UPDATE subjects SET color = 'from-orange-600 to-amber-600 dark:from-orange-400 dark:to-amber-400' 
@@ -511,7 +511,7 @@ async function ensureTables() {
             UPDATE subjects SET color = 'from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400' 
             WHERE code = 'ITCS255';
         `);
-        console.log('✅ Color contrast improved with adaptive dark mode support');
+        // console.log('✅ Color contrast improved with adaptive dark mode support');
 
         // Index for faster lookups
         await client.query(`
@@ -519,7 +519,7 @@ async function ensureTables() {
             ON quiz_progress(student_id, subject, lab_number);
         `);
 
-        console.log('✅ Ensured quiz_progress table exists');
+        // console.log('✅ Ensured quiz_progress table exists');
 
 
         // Seed initial admin if needed
@@ -531,7 +531,7 @@ async function ensureTables() {
                 INSERT INTO users (username, password)
                 VALUES ($1, $2)
             `, [targetUsername, hashed]);
-            console.log(`✅ Created seed user: ${targetUsername}`);
+            // console.log(`✅ Created seed user: ${targetUsername}`);
         }
 
     } catch (err) {
@@ -1046,7 +1046,7 @@ export async function updateSubjectQuizSection(code: string, enabled: boolean): 
   const client = await pool.connect();
   
   try {
-    console.log('🔄 Updating subject quiz section:', { code, enabled });
+    // console.log('🔄 Updating subject quiz section:', { code, enabled });
     
     const result = await client.query(`
       UPDATE subjects 
@@ -1055,7 +1055,7 @@ export async function updateSubjectQuizSection(code: string, enabled: boolean): 
       RETURNING quiz_section_enabled
     `, [enabled, code]);
     
-    console.log('📊 Query result:', { rowCount: result.rows.length, rows: result.rows });
+    // console.log('📊 Query result:', { rowCount: result.rows.length, rows: result.rows });
     
     if (result.rows.length === 0) {
       throw new Error(`Subject with code '${code}' not found`);

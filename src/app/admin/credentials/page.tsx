@@ -75,7 +75,7 @@ export default function UniversalCredentialsPage() {
     setLoading(true)
     setMessage(null)
     try {
-      console.log('📡 Fetching credentials and student list...')
+      // console.log('📡 Fetching credentials and student list...')
       
       // 1. Fetch ALL credentials (to match existing students from other subjects)
       const credRes = await fetch('/api/credentials')

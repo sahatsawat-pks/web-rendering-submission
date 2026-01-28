@@ -43,7 +43,7 @@ export async function fetchRepositoryFile(
     // Construct repository name: 682-lab{number}-{username}
     const repoName = `682-lab${labNumber}-${username}`;
 
-    console.log(`Fetching ${fileName} from ${GITHUB_ORG}/${repoName}...`);
+    // console.log(`Fetching ${fileName} from ${GITHUB_ORG}/${repoName}...`);
 
     // Get the default branch first
     const { data: repo } = await octokit.repos.get({
@@ -52,7 +52,7 @@ export async function fetchRepositoryFile(
     });
 
     const defaultBranch = repo.default_branch;
-    console.log(`Default branch for ${repoName}: ${defaultBranch}`);
+    // console.log(`Default branch for ${repoName}: ${defaultBranch}`);
 
     try {
       // Try fetching the exact file first
@@ -66,7 +66,7 @@ export async function fetchRepositoryFile(
       return processFileData(data, fileName);
     } catch (err: any) {
       if (err.status === 404) {
-        console.log(`File ${fileName} not found. Attempting smart fallback...`);
+        // console.log(`File ${fileName} not found. Attempting smart fallback...`);
         
         // List root directory to find case-insensitive match or fallback
         const { data: files } = await octokit.repos.getContent({
@@ -80,7 +80,7 @@ export async function fetchRepositoryFile(
             // 1. Case-insensitive match
             const exactMatch = files.find(f => f.name.toLowerCase() === fileName.toLowerCase());
             if (exactMatch) {
-                console.log(`Found case-insensitive match: ${exactMatch.name}`);
+                // console.log(`Found case-insensitive match: ${exactMatch.name}`);
                 const { data } = await octokit.repos.getContent({
                     owner: GITHUB_ORG,
                     repo: repoName,
@@ -94,7 +94,7 @@ export async function fetchRepositoryFile(
             if (fileName.toLowerCase() === "index.html") {
                 const anyHtml = files.find(f => f.name.toLowerCase().endsWith(".html"));
                 if (anyHtml) {
-                     console.log(`Found alternative HTML: ${anyHtml.name}`);
+                     // console.log(`Found alternative HTML: ${anyHtml.name}`);
                      const { data } = await octokit.repos.getContent({
                         owner: GITHUB_ORG,
                         repo: repoName,
@@ -189,7 +189,7 @@ export async function fetchRawRepositoryFile(
         return { success: true, content };
     } catch (err: any) {
         if (err.status === 404) {
-            console.log(`Raw file ${filePath} not found. Fallback...`);
+            // console.log(`Raw file ${filePath} not found. Fallback...`);
             // List root (or parent dir) to find match. 
             // For simplicity, verify against root list if path has no slashes, or just fail for deep paths if complex.
             // Using the same root-list strategy is safest for "index.html" or simple labs.
@@ -280,7 +280,7 @@ export async function listRepositoryFiles(
     });
 
     if (treeData.truncated) {
-      console.warn(`Tree for ${repoName} was truncated`);
+      // console.warn(`Tree for ${repoName} was truncated`);
     }
 
     // Filter and map files

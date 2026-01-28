@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
-import { Eye, EyeOff, ArrowUp, ArrowDown, Plus, X, FolderPlus, Edit, Check, Settings, Beaker, Trash } from "lucide-react"
+import { Eye, EyeOff, ArrowUp, ArrowDown, Plus, X, FolderPlus, Edit, Check, Settings, Beaker, Trash, Copy, FileCode, AlertTriangle, Blocks, Workflow, Network, Laptop, Component, Layout, Box, AppWindow, Braces } from "lucide-react"
 import { getTextGradientStyle } from "@/lib/colors"
+import { generateQuickTemplate } from "@/lib/subjectConfigGenerator"
 
 interface Subject {
   id: number
@@ -31,7 +32,8 @@ interface Subject {
 
 const ICON_OPTIONS = [
   'Code', 'Code2', 'Database', 'Terminal', 'Smartphone', 'Layers', 
-  'BarChart3', 'Server', 'Globe', 'BookOpen', 'Cpu', 'Binary', 'FileJson', 'Monitor'
+  'BarChart3', 'Server', 'Globe', 'BookOpen', 'Cpu', 'Binary', 'FileJson', 'Monitor',
+  'Blocks', 'Workflow', 'Network', 'Laptop', 'Component', 'Layout', 'Box', 'AppWindow', 'Braces'
 ]
 
 const COLOR_OPTIONS = [
@@ -42,7 +44,12 @@ const COLOR_OPTIONS = [
   { name: 'Indigo-Violet', value: 'from-indigo-500 to-violet-500' },
   { name: 'Emerald-Green', value: 'from-emerald-500 to-green-500' },
   { name: 'Rose-Red', value: 'from-rose-500 to-red-500' },
-  { name: 'Slate-Gray', value: 'from-slate-500 to-gray-500' }
+  { name: 'Slate-Gray', value: 'from-slate-500 to-gray-500' },
+  { name: 'Fuchsia-Pink', value: 'from-fuchsia-500 to-pink-500' },
+  { name: 'Violet-Fuchsia', value: 'from-violet-500 to-fuchsia-500' },
+  { name: 'Cyan-Blue', value: 'from-cyan-500 to-blue-500' },
+  { name: 'Lime-Green', value: 'from-lime-500 to-green-500' },
+  { name: 'Yellow-Orange', value: 'from-yellow-400 to-orange-500' }
 ]
 
 const GRADING_TYPES = [
@@ -59,10 +66,14 @@ export default function SubjectManagementPage() {
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
+  const [username, setUsername] = useState('')
   
   // Modal State
   const [showSubjectDialog, setShowSubjectDialog] = useState(false)
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null)
+  const [showConfigTemplate, setShowConfigTemplate] = useState(false)
+  const [templateSubject, setTemplateSubject] = useState<Subject | null>(null)
+  const [copiedTemplate, setCopiedTemplate] = useState(false)
   
   // Form State
   const [formData, setFormData] = useState({
@@ -89,7 +100,22 @@ export default function SubjectManagementPage() {
 
   useEffect(() => {
     fetchSubjects()
+    fetchUser()
   }, [])
+
+  async function fetchUser() {
+    try {
+      const res = await fetch("/api/auth/me")
+      if (res.ok) {
+        const data = await res.json()
+        if (data.username) {
+          setUsername(data.username)
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch user")
+    }
+  }
 
   async function fetchSubjects() {
     try {
@@ -245,6 +271,23 @@ export default function SubjectManagementPage() {
       if (res.ok && data.success) {
         setShowSubjectDialog(false)
         await fetchSubjects()
+        
+        // Show config template for NEW subjects
+        if (!editingSubject) {
+          const newSubject: Subject = {
+            ...formData,
+            id: data.subject?.id || 0,
+            displayOrder: subjects.length,
+            hasGradingInterface: formData.hasGradingInterface,
+            hasQuizManagement: formData.hasQuizManagement,
+            hasTestCases: formData.hasTestCases,
+            gradingType: formData.gradingType as any,
+            isVisible: formData.isVisible,
+            dataSourceType: formData.dataSourceType as 'single_sheet' | 'tab_per_section' | 'tab_per_lab'
+          }
+          setTemplateSubject(newSubject)
+          setShowConfigTemplate(true)
+        }
       } else {
         alert(data.error || "Failed to save subject")
       }
@@ -277,6 +320,25 @@ export default function SubjectManagementPage() {
     } finally {
       setSaving(null)
     }
+  }
+
+  function handleCopyTemplate() {
+    if (!templateSubject) return
+    
+    const template = generateQuickTemplate(templateSubject)
+    navigator.clipboard.writeText(template).then(() => {
+      setCopiedTemplate(true)
+      setTimeout(() => setCopiedTemplate(false), 2000)
+    }).catch(err => {
+      console.error('Failed to copy:', err)
+      alert('Failed to copy to clipboard')
+    })
+  }
+
+  function openConfigTemplate(subject: Subject) {
+    setTemplateSubject(subject)
+    setShowConfigTemplate(true)
+    setCopiedTemplate(false)
   }
 
   if (loading) {
@@ -325,6 +387,16 @@ export default function SubjectManagementPage() {
 
           <div className="flex items-center gap-4">
             <ModeToggle />
+            {username && (
+              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-[10px] text-white font-bold">
+                  {username.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  {username}
+                </span>
+              </div>
+            )}
             <LogoutButton />
           </div>
         </div>
@@ -417,6 +489,7 @@ export default function SubjectManagementPage() {
                     </div>
                   </div>
                 </div>
+
 
                 <div className="flex items-center gap-2">
                   <button

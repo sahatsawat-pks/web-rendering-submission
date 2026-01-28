@@ -19,7 +19,9 @@ export async function GET(request: NextRequest) {
       ...s,
       name: s.title,
       is_visible: s.isVisible,
-      display_order: s.displayOrder
+      display_order: s.displayOrder,
+      column_pattern: s.columnPattern,
+      google_sheet_id: s.googleSheetId
     }));
     
     return NextResponse.json({ success: true, subjects: mappedSubjects });

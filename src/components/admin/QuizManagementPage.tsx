@@ -390,7 +390,7 @@ export default function QuizManagementPage({
           >
             <option value="">-- Select a Lab --</option>
             {labs.filter(lab => lab.labType !== 'Challenge').map(lab => (
-              <option key={lab.labNumber} value={lab.labNumber}>
+              <option key={lab.id} value={lab.labNumber}>
                 {lab.labNumber} - {lab.title}
               </option>
             ))}
