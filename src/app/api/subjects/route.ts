@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 
-export const dynamic = 'force-dynamic';
+// Performance optimization: Cache this API route
+export const revalidate = 3600; // Revalidate every hour
 import { getSubjects, updateSubjectVisibility, updateSubjectOrder, createSubject } from "@/lib/db";
 
 export async function GET(request: NextRequest) {

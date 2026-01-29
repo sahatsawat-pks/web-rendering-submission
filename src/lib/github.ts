@@ -25,6 +25,30 @@ export interface FetchResult {
   };
 }
 
+// In-memory cache for GitHub data to reduce API calls and improve performance
+interface GithubCacheEntry {
+  data: any;
+  timestamp: number;
+}
+const githubCache = new Map<string, GithubCacheEntry>();
+const GITHUB_CACHE_TTL = 5 * 60 * 1000; // 5 minutes for file content
+const REPO_INFO_TTL = 60 * 60 * 1000; // 1 hour for repo metadata
+
+/**
+ * Helper to get repo info with caching
+ */
+async function getRepoInfo(owner: string, repo: string) {
+  const cacheKey = `repo_${owner}_${repo}`;
+  const cached = githubCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp < REPO_INFO_TTL)) {
+    return cached.data;
+  }
+
+  const { data } = await octokit.repos.get({ owner, repo });
+  githubCache.set(cacheKey, { data, timestamp: Date.now() });
+  return data;
+}
+
 /**
  * Fetches a file from a private GitHub repository
  * Repository name pattern: 682-lab{labNumber}-{username}
@@ -39,19 +63,18 @@ export async function fetchRepositoryFile(
   labNumber: string,
   fileName: string = "index.html"
 ): Promise<FetchResult> {
+  const repoName = `682-lab${labNumber}-${username}`;
+  const cacheKey = `file_${repoName}_${fileName}`;
+  const cached = githubCache.get(cacheKey);
+  
+  if (cached && (Date.now() - cached.timestamp < GITHUB_CACHE_TTL)) {
+    return cached.data;
+  }
+
   try {
     // Construct repository name: 682-lab{number}-{username}
-    const repoName = `682-lab${labNumber}-${username}`;
-
-    // console.log(`Fetching ${fileName} from ${GITHUB_ORG}/${repoName}...`);
-
-    // Get the default branch first
-    const { data: repo } = await octokit.repos.get({
-      owner: GITHUB_ORG,
-      repo: repoName,
-    });
-
-    const defaultBranch = repo.default_branch;
+    const repoData = await getRepoInfo(GITHUB_ORG, repoName);
+    const defaultBranch = repoData.default_branch;
     // console.log(`Default branch for ${repoName}: ${defaultBranch}`);
 
     try {
@@ -63,7 +86,11 @@ export async function fetchRepositoryFile(
         ref: defaultBranch,
       });
 
-      return processFileData(data, fileName);
+      const result = processFileData(data, fileName);
+      if (result.success) {
+          githubCache.set(cacheKey, { data: result, timestamp: Date.now() });
+      }
+      return result;
     } catch (err: any) {
       if (err.status === 404) {
         // console.log(`File ${fileName} not found. Attempting smart fallback...`);
@@ -164,21 +191,23 @@ export async function fetchRawRepositoryFile(
   labNumber: string,
   filePath: string
 ): Promise<FetchRawResult> {
-  try {
-    const repoName = `682-lab${labNumber}-${username}`;
-    
-    // Get default branch
-    const { data: repo } = await octokit.repos.get({
-      owner: GITHUB_ORG,
-      repo: repoName,
-    });
+  const repoName = `682-lab${labNumber}-${username}`;
+  const cacheKey = `raw_${repoName}_${filePath}`;
+  const cached = githubCache.get(cacheKey);
 
+  if (cached && (Date.now() - cached.timestamp < GITHUB_CACHE_TTL)) {
+    return cached.data;
+  }
+
+  try {
+    const repoData = await getRepoInfo(GITHUB_ORG, repoName);
+    
     try {
         const { data } = await octokit.repos.getContent({
           owner: GITHUB_ORG,
           repo: repoName,
           path: filePath,
-          ref: repo.default_branch,
+          ref: repoData.default_branch,
         });
 
         if (Array.isArray(data) || data.type !== "file") {
@@ -186,7 +215,9 @@ export async function fetchRawRepositoryFile(
         }
 
         const content = Buffer.from(data.content, "base64");
-        return { success: true, content };
+        const result = { success: true, content };
+        githubCache.set(cacheKey, { data: result, timestamp: Date.now() });
+        return result;
     } catch (err: any) {
         if (err.status === 404) {
             // console.log(`Raw file ${filePath} not found. Fallback...`);
@@ -198,7 +229,7 @@ export async function fetchRawRepositoryFile(
                 owner: GITHUB_ORG,
                 repo: repoName,
                 path: "", 
-                ref: repo.default_branch,
+                ref: repoData.default_branch,
             });
 
             if (Array.isArray(files)) {
@@ -209,7 +240,7 @@ export async function fetchRawRepositoryFile(
                         owner: GITHUB_ORG,
                         repo: repoName,
                         path: match.path,
-                        ref: repo.default_branch,
+                        ref: repoData.default_branch,
                     });
                      if (!Array.isArray(data) && data.type === "file") {
                          return { success: true, content: Buffer.from(data.content, "base64") };
@@ -224,7 +255,7 @@ export async function fetchRawRepositoryFile(
                             owner: GITHUB_ORG,
                             repo: repoName,
                             path: anyHtml.path,
-                            ref: repo.default_branch,
+                            ref: repoData.default_branch,
                         });
                         if (!Array.isArray(data) && data.type === "file") {
                             return { success: true, content: Buffer.from(data.content, "base64") };

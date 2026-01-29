@@ -5,18 +5,33 @@ import { google } from 'googleapis';
 const GOOGLE_CLIENT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL!;
 const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')!;
 
-// Helper to get Google Sheets ID from database
-async function getSubjectSheetId(subject: string): Promise<string> {
+// Local cache for subjects to avoid redundant DB lookups
+let cachedSubjects: any[] | null = null;
+let subjectsCacheTimestamp = 0;
+const SUBJECTS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+async function getCachedSubjects() {
+    if (cachedSubjects && (Date.now() - subjectsCacheTimestamp < SUBJECTS_CACHE_TTL)) {
+        return cachedSubjects;
+    }
     try {
         const { getSubjects } = await import("./db");
-        const subjects = await getSubjects(); 
-        const target = subjects.find(s => s.code === subject);
-        
-        if (target && target.googleSheetId) {
-            return target.googleSheetId;
-        }
+        cachedSubjects = await getSubjects();
+        subjectsCacheTimestamp = Date.now();
+        return cachedSubjects;
     } catch (e) {
-        console.error(`[getSubjectSheetId] DB lookup failed for ${subject}:`, e);
+        console.error("[getCachedSubjects] Failed to fetch subjects:", e);
+        return cachedSubjects || []; // Return stale data if fetch fails
+    }
+}
+
+// Helper to get Google Sheets ID from database
+async function getSubjectSheetId(subject: string): Promise<string> {
+    const subjects = await getCachedSubjects(); 
+    const target = subjects.find(s => s.code === subject);
+    
+    if (target && target.googleSheetId) {
+        return target.googleSheetId;
     }
 
     // No fallback - Sheet ID must be configured in database via Admin UI
@@ -56,8 +71,21 @@ async function getDriveClient() {
     return google.drive({ version: 'v3', auth });
 }
 
+// Simple in-memory cache for Google Sheets data
+interface CacheEntry {
+    data: any[][];
+    timestamp: number;
+}
+const sheetsCache = new Map<string, CacheEntry>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
+
 async function getXlsxData(spreadsheetId: string, tabName: string) {
-    // console.log(`[getXlsxData] Fallback for XLSX: ${spreadsheetId}, Tab: ${tabName}`);
+    const cacheKey = `xlsx_${spreadsheetId}_${tabName}`;
+    const cached = sheetsCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+        return cached.data;
+    }
+
     try {
         const drive = await getDriveClient();
         const res = await drive.files.get({
@@ -68,24 +96,12 @@ async function getXlsxData(spreadsheetId: string, tabName: string) {
         const buffer = Buffer.from(res.data as ArrayBuffer);
         const workbook = XLSX.read(buffer, { type: 'buffer' });
 
-        // Determine sheet name
-        // "Sec1" might match "Sec1" in Excel.
-        // If tabName doesn't exist, maybe use first sheet?
         let targetSheet = tabName;
         if (!workbook.Sheets[targetSheet]) {
-            // Check if tabName is arguably the subject code like "ITGE162" but sheet is named "Sheet1"
             if (workbook.SheetNames.length > 0) {
-                 // But wait, ITCS123 has Sec1, Sec2. 
-                 // If we requested Sec1 and it's missing, we should fail or return empty.
-                 // However, we can try to be smart matching?
-                 // For now, assume exact match or fail unless it's the "Subject" fallback which might map to "Sheet1"
-                 
                  if (workbook.Sheets['Sheet1']) {
-                     // console.log(`[getXlsxData] Tab '${tabName}' not found, trying 'Sheet1' fallback.`);
                      targetSheet = 'Sheet1';
                  } else {
-                     // Last resort: First sheet
-                     // console.log(`[getXlsxData] Tab '${tabName}' not found, using first sheet '${workbook.SheetNames[0]}'.`);
                      targetSheet = workbook.SheetNames[0];
                  }
             }
@@ -94,8 +110,11 @@ async function getXlsxData(spreadsheetId: string, tabName: string) {
         const worksheet = workbook.Sheets[targetSheet];
         if (!worksheet) return [];
 
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-        return jsonData as any[][];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+        
+        // Cache the result
+        sheetsCache.set(cacheKey, { data: jsonData, timestamp: Date.now() });
+        return jsonData;
 
     } catch (e: any) {
         console.error(`[getXlsxData] Failed to parse XLSX: ${e.message}`);
@@ -104,10 +123,16 @@ async function getXlsxData(spreadsheetId: string, tabName: string) {
 }
 
 export async function getSheetData(subject: string = 'Sheet1', tabName?: string) {
-  const sheets = await getSheetsClient();
   const spreadsheetId = await getSubjectSheetId(subject);
   const targetTab = tabName || subject;
+  
+  const cacheKey = `sheets_${spreadsheetId}_${targetTab}`;
+  const cached = sheetsCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+      return cached.data;
+  }
 
+  const sheets = await getSheetsClient();
   // For ITCS251 and ITCS255, header starts at row 5
   const startRow = (subject === 'ITCS251' || subject === 'ITCS255') ? 5 : 1;
   const range = `${targetTab}!A${startRow}:Z1000`;
@@ -117,7 +142,11 @@ export async function getSheetData(subject: string = 'Sheet1', tabName?: string)
         spreadsheetId,
         range,
       });
-      return response.data.values || [];
+      const data = response.data.values || [];
+      
+      // Cache the result
+      sheetsCache.set(cacheKey, { data, timestamp: Date.now() });
+      return data;
   } catch (err: any) {
       // Check for XLSX error (400 Bad Request usually, or specific message)
       // Message: "This operation is not supported for this document"
@@ -160,8 +189,7 @@ function fixMashedName(name: string): string {
 // Helper to get full subject config
 async function getSubjectConfig(subjectCode: string) {
     try {
-        const { getSubjects } = await import("./db");
-        const subjects = await getSubjects();
+        const subjects = await getCachedSubjects();
         const target = subjects.find(s => s.code === subjectCode);
         return target;
     } catch (e) {
@@ -334,31 +362,27 @@ export async function getAllScores(subject: string = 'Sheet1') {
       
       let allStudentsMap: Record<string, any> = {};
       
-      // Fetch each lab tab
-      for (const lab of labs) {
-          const tabName = `Lab ${lab.labNumber}`; // Default pattern, maybe user customizes?
-          // If we had a custom tab pattern, we'd use it. For now assume "Lab X".
-          // Or if sheetTabs is provided as a list of Labs? "Lab 1, Lab 2"
-          
+      // Fetch each lab tab in parallel
+      const labDataResults = await Promise.all(labs.map(async (lab) => {
+          const tabName = `Lab ${lab.labNumber}`;
           try {
               const rows = await getSheetData(subject, tabName).catch(() => []);
-              if (rows.length === 0) continue;
-              
-              const labStudents = mapRowsToStudents(rows, subject, config);
-              
-              labStudents.forEach(s => {
-                  if (!s.username) return;
-                  if (!allStudentsMap[s.username]) {
-                      allStudentsMap[s.username] = { ...s }; // Init
-                  } else {
-                      // Merge scores
-                      allStudentsMap[s.username] = { ...allStudentsMap[s.username], ...s };
-                  }
-              });
+              if (rows.length === 0) return [];
+              return mapRowsToStudents(rows, subject, config);
           } catch(e) {
-              // console.log(`[getAllScores] Failed to fetch tab ${tabName}`);
+              return [];
           }
-      }
+      }));
+
+      labDataResults.flat().forEach(s => {
+          if (!s.username) return;
+          if (!allStudentsMap[s.username]) {
+              allStudentsMap[s.username] = { ...s }; // Init
+          } else {
+              // Merge scores
+              allStudentsMap[s.username] = { ...allStudentsMap[s.username], ...s };
+          }
+      });
       
       return Object.values(allStudentsMap);
   }
@@ -372,7 +396,7 @@ export async function getAllScores(subject: string = 'Sheet1') {
       
       // Use configured tabs if available
       if (config?.sheetTabs) {
-          tabs = config.sheetTabs.split(',').map(t => t.trim());
+          tabs = config.sheetTabs.split(',').map((t: string) => t.trim());
       } else {
           // Fallback legacy defaults
           if (subject === 'ITCS123') tabs = ['Sec1', 'Sec2', 'Sec3'];
@@ -490,7 +514,7 @@ export async function updateStudentLabScore(
            ['ITCS123', 'ITCS223', 'ITDS283'].includes(sheetName)) {
       
       if (config?.sheetTabs) {
-          targetTabs = config.sheetTabs.split(',').map(t => t.trim());
+          targetTabs = config.sheetTabs.split(',').map((t: string) => t.trim());
       } else {
           // Fallback
           if (sheetName === 'ITCS123') targetTabs = ['Sec1', 'Sec2', 'Sec3'];

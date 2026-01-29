@@ -1,70 +1,31 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { useParams, useRouter, notFound } from "next/navigation"
-import { ModeToggle } from "@/components/mode-toggle"
-import LogoutButton from "@/components/LogoutButton"
-import { ArrowLeft } from "lucide-react"
+import { notFound } from "next/navigation"
 import Link from "next/link"
 import Footer from "@/components/Footer"
-import { getSubjectConfig, isValidSubject, SubjectConfig } from "@/lib/subjectConfig"
-import { fetchSubjectConfig } from "@/lib/subjectConfigCache"
+import SubjectNavbar from "@/components/SubjectNavbar"
+import { getSubjectConfigServer } from "@/lib/subjectServer"
+import { getAuthUser } from "@/lib/auth"
 
-export default function SubjectLandingPage() {
-  const params = useParams()
-  const router = useRouter()
-  const subjectParam = typeof params?.subject === 'string' ? params.subject : ""
+export const revalidate = 3600; // Cache for 1 hour
+
+export default async function SubjectLandingPage(props: { params: Promise<{ subject: string }> }) {
+  const params = await props.params;
+  const subjectParam = params.subject;
   
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [config, setConfig] = useState<SubjectConfig | null>(null)
-  const [loading, setLoading] = useState(true)
-  
-  // Existing static config for fallback/initial check
-  const staticConfig = subjectParam ? getSubjectConfig(subjectParam) : null
+  const [config, authUser] = await Promise.all([
+    getSubjectConfigServer(subjectParam),
+    getAuthUser()
+  ]);
 
-  useEffect(() => {
-    // Check if user is logged in
-    fetch("/api/auth/check")
-      .then(res => res.json())
-      .then(data => {
-        setIsLoggedIn(data.isAuthenticated)
-      })
-      .catch(() => setIsLoggedIn(false))
-
-    // Fetch Subject Config Dynamically
-    if (subjectParam) {
-        fetchSubjectConfig(subjectParam as string)
-        .then(config => {
-            if (config) {
-                setConfig(config)
-            } else if (staticConfig) {
-                setConfig(staticConfig)
-            } else {
-                notFound()
-            }
-        })
-        .catch(() => {
-             if (staticConfig) setConfig(staticConfig)
-        })
-        .finally(() => setLoading(false))
-    }
-  }, [subjectParam, router, staticConfig])
-
-  // Return null while validating/loading
-  if (!config || loading) {
-    return null
+  if (!config) {
+    notFound();
   }
 
-  // Filter cards based on quiz section status
-  // Filter cards based on feature flags (flags are integrated into config via adapter now)
-  const visibleCards = config.cards
-
-  // Determine grid columns based on number of visible cards
+  const visibleCards = config.cards;
   const gridCols = visibleCards.length === 4 
     ? 'lg:grid-cols-4' 
     : visibleCards.length === 3 
     ? 'lg:grid-cols-3' 
-    : 'lg:grid-cols-2'
+    : 'lg:grid-cols-2';
 
   return (
     <div className={`min-h-screen bg-gradient-to-br ${config.bgGradient} relative overflow-hidden animate-fade-in`}>
@@ -75,49 +36,13 @@ export default function SubjectLandingPage() {
         <div className={`absolute -bottom-8 left-20 w-96 h-96 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-20 dark:opacity-10 animate-float ${config.blobColors?.three || 'bg-blue-300 dark:bg-blue-900'}`} style={{ animationDelay: '4s' }}></div>
       </div>
 
-      {/* Navigation */}
-      <nav className="sticky top-0 z-50 w-full glass border-b border-white/30 dark:border-slate-700/50 shadow-lg">
-        <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <a
-              href="/"
-              className="flex items-center justify-center w-10 h-10 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-              title="Back to Main Page"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </a>
-            <img 
-              src="/logo.png" 
-              alt="Logo" 
-              className={`h-11 w-11 rounded-xl shadow-lg ${config.shadowColor}`} 
-            />
-            <div>
-              <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                {config.code}
-              </span>
-              <p className={`text-xs ${config.accentColor} font-medium`}>
-                {config.subtitle}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 md:gap-4">
-            {!isLoggedIn ? (
-               <a
-                 href="/admin/login"
-                 className={`px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors rounded-xl hover:bg-white/80 dark:hover:bg-slate-700/60 flex items-center gap-2`}
-               >
-                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                 </svg>
-                 Admin
-               </a>
-             ) : (
-                <LogoutButton />
-             )}
-            <ModeToggle />
-          </div>
-        </div>
-      </nav>
+      <SubjectNavbar 
+        code={config.code}
+        subtitle={config.subtitle}
+        accentColor={config.accentColor}
+        shadowColor={config.shadowColor}
+        isAuthenticated={!!authUser}
+      />
 
       <main className="container mx-auto px-4 sm:px-6 py-12 sm:py-16 relative z-10 flex flex-col items-center justify-center min-h-[70vh]">
         <div className="text-center mb-16 animate-slide-up">
@@ -129,7 +54,7 @@ export default function SubjectLandingPage() {
           </p>
         </div>
 
-        <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-6xl ${subjectParam.toUpperCase() === 'ITCS123' ? 'max-w-7xl' : 'max-w-6xl'} animate-scale-in ${gridCols} ${visibleCards.length === 1 ? 'md:flex md:justify-center' : ''}`}>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-6xl animate-scale-in ${gridCols} ${visibleCards.length === 1 ? 'md:flex md:justify-center' : ''}`}>
           {visibleCards.map((card, index) => {
             const CardIcon = card.icon
             const isExternal = card.isExternal || false
