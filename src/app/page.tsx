@@ -58,8 +58,8 @@ export default async function LandingPage() {
   }
 
   const mappedSubjects = (subjectsData || [])
-    .filter((s: any) => s.is_visible)
-    .sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0))
+    .filter((s: any) => s.isVisible)
+    .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
     .map((s: any) => ({
       id: s.code.toLowerCase(),
       code: s.code,
