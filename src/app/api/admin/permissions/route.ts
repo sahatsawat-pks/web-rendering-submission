@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { getUserPermissions, getAllPermissions, upsertPermission } from "@/lib/db";
 
+export const dynamic = 'force-dynamic';
+
 // GET: Retrieve permissions for a specific user or all users
 export async function GET(request: NextRequest) {
   const authUser = await getAuthUser();

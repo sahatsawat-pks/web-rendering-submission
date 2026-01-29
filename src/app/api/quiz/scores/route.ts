@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getQuizScores, saveQuizScore } from '@/lib/db'
 
+export const dynamic = 'force-dynamic'
+
 // GET - Get quiz scores
 export async function GET(request: NextRequest) {
   try {
