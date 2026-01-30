@@ -18,7 +18,7 @@ export default function CredentialLookupPage() {
 
   useEffect(() => {
     // Check authorization: LA, Lecturer, or Main Admin (kanzaki_aito)
-    fetch('/api/auth/check')
+    fetch(`/api/auth/check?t=${Date.now()}`)
       .then(res => res.json())
       .then(data => {
         if (data.isAuthenticated) {
