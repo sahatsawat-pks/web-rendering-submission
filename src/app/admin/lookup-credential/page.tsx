@@ -27,7 +27,7 @@ export default function CredentialLookupPage() {
           const username = userData.username || ''
           setUserRole(role)
           
-          if (role === 'Lecturer' || role === 'LA' || username === 'kanzaki_aito') {
+          if (role === 'Lecturer' || username === 'kanzaki_aito') {
             setIsAuthorized(true)
           }
         }
@@ -83,7 +83,7 @@ export default function CredentialLookupPage() {
         <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-8 text-center max-w-md w-full">
           <Key className="w-12 h-12 text-red-400 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-red-400 mb-2">Access Denied</h2>
-          <p className="text-slate-400 mb-6">You do not have permission to view this page. Restricted to LAs and Lecturers.</p>
+          <p className="text-slate-400 mb-6">You do not have permission to view this page. Restricted to Lecturers and Main Admin.</p>
           <Link href="/admin/dashboard" className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition-colors">
             Return to Dashboard
           </Link>
