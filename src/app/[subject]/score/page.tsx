@@ -65,7 +65,7 @@ function StatusDot({ color }: { color: string }) {
     return <div className={`w-3 h-3 rounded-full ${color} mr-2`} />
 }
 
-function StatusChecker({ subject, config }: { subject: string, config: SubjectConfig }) {
+function StatusChecker({ subject, config, isAdmin = false }: { subject: string, config: SubjectConfig, isAdmin?: boolean }) {
   const [credential, setCredential] = useState("")
   const [scores, setScores] = useState<any | null>(null)
   const [activeLabs, setActiveLabs] = useState<ActiveLab[]>([])
@@ -116,9 +116,14 @@ function StatusChecker({ subject, config }: { subject: string, config: SubjectCo
       }
 
       if (!studentId) {
-        setError("Invalid credential code. Please check your code and try again.")
-        setLoading(false)
-        return
+        // If user is admin, allow searching by Student ID directly
+        if (isAdmin) {
+             studentId = credential.trim();
+        } else {
+             setError("Invalid credential code. Please check your code and try again.")
+             setLoading(false)
+             return
+        }
       }
 
       setSearchedId(studentId)
@@ -250,7 +255,7 @@ function StatusChecker({ subject, config }: { subject: string, config: SubjectCo
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                         <input 
                             type="text" 
-                            placeholder="Enter your credential code here" 
+                            placeholder={isAdmin ? "Enter credential code or Student ID" : "Enter your credential code here"}
                             value={credential}
                             onChange={(e) => setCredential(e.target.value)}
                             className="w-full pl-12 pr-4 py-4 rounded-xl bg-slate-50 dark:bg-slate-800 border-none focus:ring-2 focus:ring-orange-500/50 outline-none transition-all placeholder:text-slate-400 text-lg font-medium"
@@ -755,7 +760,7 @@ export default function SubjectScorePage() {
                  <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Enter your credential code to view your progress</p>
              </div>
              
-             <StatusChecker subject={config.code} config={config} />
+             <StatusChecker subject={config.code} config={config} isAdmin={isAdmin} />
         </div>
       </main>
 

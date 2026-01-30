@@ -652,7 +652,8 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
   
   // Header Config
   const headerRow = config?.headerRow || (subject === 'ITCS251' || subject === 'ITCS255' ? 5 : 1);
-  const headerIdx = headerRow - 1;
+  const startRow = (subject === 'ITCS251' || subject === 'ITCS255') ? 5 : 1;
+  const headerIdx = headerRow - startRow; // Relative index in 'rows' array
 
   let headers = rows.length > headerIdx ? rows[headerIdx] : [];
   
@@ -735,13 +736,9 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
     newRow[idIndex] = username;
     
     // The `rows` array returned by `getSheetData` is already adjusted for `startRow`.
-    // So if `rows[0]` is the first data row (after headers), then `rowIndex` is 0-indexed relative to that.
-    // The actual sheet row number is `rowIndex` + `headerRow` + 1 (since `headerRow` is 1-indexed).
-    // If `headerRow` is 1, then `rows[0]` is the header, `rows[1]` is the first data row.
-    // If `headerRow` is 5, then `rows[0]` is the header, `rows[1]` is the first data row.
-    // This means `rowIndex` is 0-indexed relative to the first data row.
-    // So, `actualSheetRow` for a new row should be `rows.length` (which is the next available index in `rows`) + `headerRow`.
-    const actualSheetRow = rows.length + headerRow;
+    // The relative index of the new row is `rows.length`.
+    // The actual sheet row number is `rows.length` + `startRow`.
+    const actualSheetRow = rows.length + startRow;
     
     pendingUpdates.push({
         range: `${tabName}!A${actualSheetRow}`,
@@ -756,11 +753,7 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
   // We need precise row number.
   // if rowIndex is from `rows` (which starts at `startRow`), then:
   // Sheet Row = rowIndex + startRow.
-  // The `rows` array returned by `getSheetData` is already adjusted for `startRow`.
-  // So if `rows[0]` is the header row (at `headerRow`), then `rows[1]` is the first data row.
-  // `rowIndex` is 0-indexed relative to the first data row.
-  // So, the actual sheet row number is `rowIndex` + `headerRow` + 1.
-  const actualSheetRow = rowIndex + headerRow;
+  const actualSheetRow = rowIndex + startRow;
 
   const scoreRange = `${tabName}!${getColumnLetter(labIndex + 1)}${actualSheetRow}`;
   // console.log(`[updateSpecificTab] Score update: range=${scoreRange}, score=${score}`);
