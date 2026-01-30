@@ -122,13 +122,13 @@ async function getXlsxData(spreadsheetId: string, tabName: string) {
     }
 }
 
-export async function getSheetData(subject: string = 'Sheet1', tabName?: string) {
+export async function getSheetData(subject: string = 'Sheet1', tabName?: string, bypassCache: boolean = false) {
   const spreadsheetId = await getSubjectSheetId(subject);
   const targetTab = tabName || subject;
   
   const cacheKey = `sheets_${spreadsheetId}_${targetTab}`;
   const cached = sheetsCache.get(cacheKey);
-  if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+  if (!bypassCache && cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
       return cached.data;
   }
 
@@ -345,7 +345,7 @@ function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] 
 }
 
 // Main Score Fetching Logic
-export async function getAllScores(subject: string = 'Sheet1') {
+export async function getAllScores(subject: string = 'Sheet1', bypassCache: boolean = false) {
   const config = await getSubjectConfig(subject);
   
   // Strategy: Tab per Lab (New)
@@ -366,7 +366,7 @@ export async function getAllScores(subject: string = 'Sheet1') {
       const labDataResults = await Promise.all(labs.map(async (lab) => {
           const tabName = `Lab ${lab.labNumber}`;
           try {
-              const rows = await getSheetData(subject, tabName).catch(() => []);
+              const rows = await getSheetData(subject, tabName, bypassCache).catch(() => []);
               if (rows.length === 0) return [];
               return mapRowsToStudents(rows, subject, config);
           } catch(e) {
@@ -407,7 +407,7 @@ export async function getAllScores(subject: string = 'Sheet1') {
 
       // console.log(`[getAllScores] Fetching multi-section: ${tabs.join(', ')}`);
       
-      const promises = tabs.map(tab => getSheetData(subject, tab).catch(e => {
+      const promises = tabs.map(tab => getSheetData(subject, tab, bypassCache).catch(e => {
           console.warn(`[getAllScores] Failed to fetch ${tab}: ${e.message}`);
           return [];
       }));
@@ -432,12 +432,12 @@ export async function getAllScores(subject: string = 'Sheet1') {
   }
 
   // Default: Single Sheet
-  const rows = await getSheetData(subject);
+  const rows = await getSheetData(subject, undefined, bypassCache);
   return mapRowsToStudents(rows, subject, config);
 }
 
-export async function getStudentAllScores(username: string, sheetName: string = 'Sheet1') {
-    const scores = await getAllScores(sheetName);
+export async function getStudentAllScores(username: string, sheetName: string = 'Sheet1', bypassCache: boolean = false) {
+    const scores = await getAllScores(sheetName, bypassCache);
     return scores.find((s: any) => s.username === username) || null;
 }
 

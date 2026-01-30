@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     let targetUsername = searchParams.get('username');
     const subject = searchParams.get('subject') || undefined;
     const action = searchParams.get('action');
+    const bypassCache = searchParams.get('bypassCache') === 'true';
 
     // Special action: list_all - returns all students for credential generation
     if (action === 'list_all' && subject) {
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
         }
         
         try {
-            const allScores = await getAllScores(subject);
+            const allScores = await getAllScores(subject, bypassCache);
             // Transform to student list format
             const students = allScores.map((student: any) => ({
                 ...student, // Include all original properties (scores, etc.)
@@ -103,7 +104,7 @@ export async function GET(request: NextRequest) {
         // If sheets.ts handles ITCS223 ID col as 1, it will map ID to 'username'.
         // So we just need to pass the target ID.
         
-        let allScores = await getAllScores(subject);
+        let allScores = await getAllScores(subject, bypassCache);
         console.log(`[Scores API] Fetched ${allScores.length} students from ITCS223 sheets`);
         
         if (targetUsername) {
@@ -157,7 +158,7 @@ export async function GET(request: NextRequest) {
 
     if (targetUsername) {
         console.log(`[Scores API] Standard lookup for ${targetUsername} in subject ${subject || 'default'}`);
-        const scores = await getStudentAllScores(targetUsername, subject);
+        const scores = await getStudentAllScores(targetUsername, subject, bypassCache);
         
         // Merge feedback from DB if subject is ITCS251 or ITCS255
 
@@ -172,7 +173,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const allScores = await getAllScores(subject);
+    const allScores = await getAllScores(subject, bypassCache);
     return NextResponse.json({ success: true, scores: allScores });
 
   } catch (error: any) {

@@ -128,7 +128,7 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
 
       setSearchedId(studentId)
 
-      const scoreRes = await fetch(`/api/scores?subject=${subject}&username=${studentId}`)
+      const scoreRes = await fetch(`/api/scores?subject=${subject}&username=${studentId}&bypassCache=true&t=${Date.now()}`)
       const labsRes = await fetch(`/api/labs?subject=${subject}&activeOnly=true`)
 
       let quizRes;
