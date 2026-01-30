@@ -46,16 +46,19 @@ export default function QuizScoresPage({
 }: QuizScoresPageProps) {
   const [scores, setScores] = useState<QuizScore[]>([])
   const [loading, setLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedLab, setSelectedLab] = useState<string>("all")
   const [sortBy, setSortBy] = useState<"date" | "score" | "student">("date")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
 
   useEffect(() => {
-    loadScores()
+    loadScores(true)
   }, [])
 
-  const loadScores = async () => {
-    setLoading(true)
+  const loadScores = async (initial = false) => {
+    if (initial) setLoading(true)
+    else setIsRefreshing(true)
+
     try {
       const res = await fetch(`/api/quiz/scores?subject=${subjectCode}`)
       if (res.ok) {
@@ -66,6 +69,7 @@ export default function QuizScoresPage({
       console.error('Failed to load scores:', e)
     } finally {
       setLoading(false)
+      setIsRefreshing(false)
     }
   }
 
@@ -297,11 +301,12 @@ export default function QuizScoresPage({
 
             <div className="flex gap-2">
               <button
-                onClick={loadScores}
-                className={`px-4 py-2 ${colorTheme.secondary} text-white rounded-lg hover:opacity-90 transition-colors flex items-center gap-2`}
+                onClick={() => loadScores(false)}
+                disabled={isRefreshing}
+                className={`px-4 py-2 ${colorTheme.secondary} text-white rounded-lg hover:opacity-90 transition-colors flex items-center gap-2 disabled:opacity-70`}
               >
-                <RefreshCw className="w-4 h-4" />
-                Refresh
+                <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                {isRefreshing ? 'Refreshing...' : 'Refresh'}
               </button>
               <button
                 onClick={exportToCSV}

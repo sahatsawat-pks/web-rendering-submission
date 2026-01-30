@@ -55,6 +55,7 @@ export default function SQLGrading({
     totalScore: ""
   })
   const [creatingLab, setCreatingLab] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // CSV Upload states
   const [showCsvModal, setShowCsvModal] = useState(false)
@@ -140,6 +141,7 @@ export default function SQLGrading({
     e.preventDefault()
     setGradingError(null)
     setGradingSuccess(false)
+    setIsSubmitting(true)
 
     try {
         const res = await fetch('/api/scores', {
@@ -178,6 +180,8 @@ export default function SQLGrading({
         }
     } catch (err: any) {
         setGradingError(err.message || "An unexpected error occurred");
+    } finally {
+        setIsSubmitting(false)
     }
   }
 
@@ -525,9 +529,13 @@ export default function SQLGrading({
           <div className="flex flex-col md:flex-row gap-4">
               <button
                 type="submit"
-                className={`flex-1 px-6 py-3 text-sm font-medium text-white hover:opacity-90 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 ${getGradientStyleProps(color).className}`}
+                disabled={isSubmitting}
+                className={`flex-1 px-6 py-3 text-sm font-medium text-white hover:opacity-90 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 ${getGradientStyleProps(color).className} disabled:opacity-70 disabled:cursor-not-allowed`}
                 style={getGradientStyleProps(color).style}
               >
+                {isSubmitting ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                ) : null}
                 Update Score to Spreadsheet
               </button>
               {['Lecturer', 'Main Admin'].includes(role) && (
