@@ -288,7 +288,7 @@ function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] 
          }
 
         // 2. Legacy/Hardcoded Matchers
-        const wMatch = header.match(/^W\s*(\d+)$/i);
+        const wMatch = header.match(/^(?:W|Week)\s*(\d+)/i);
         const match = header.match(/^(?:Lab\s*|L)(\d+)(?:\s*\(.*\))?$/i);
         const chMatch = header.match(/^(?:Ch\s*|Challenge\s*)(\d+)(?:\s*\(.*\))?$/i);
         
@@ -689,7 +689,7 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
       
       if (labIndex === -1) {
           // Standard Fallbacks
-          const labRegex = new RegExp(`^(Lab|Ch|L|W)\\s*(${labInt}|${labNumPad})\\b`, 'i');
+          const labRegex = new RegExp(`^(Lab|Ch|L|W|Week)\\s*(${labInt}|${labNumPad})\\b`, 'i');
           labIndex = headers.findIndex((h: string) => labRegex.test(h));
       }
   }

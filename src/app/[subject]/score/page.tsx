@@ -76,6 +76,8 @@ function StatusChecker({ subject, config }: { subject: string, config: SubjectCo
 
   // Determine if this is a Lab & Challenge subject
   const isLabChallenge = config.grading?.hasChallenge === true
+  
+  const assignmentLabel = (subject === 'ITCS251' || subject === 'ITCS255') ? 'Week' : 'Lab'
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -302,7 +304,7 @@ function StatusChecker({ subject, config }: { subject: string, config: SubjectCo
                     <table className="w-full text-left text-sm">
                         <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
                             <tr>
-                                <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300">Lab</th>
+                                <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300">{assignmentLabel}</th>
                                 <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300">Title</th>
                                 <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300 text-right">Main Score (Max 2)</th>
                                 <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300 text-right">Challenge (Max 2)</th>
@@ -342,7 +344,7 @@ function StatusChecker({ subject, config }: { subject: string, config: SubjectCo
                                 {/* Total Score Summary */}
                                 <tr className="bg-orange-50 dark:bg-orange-900/20 font-bold border-t-2 border-orange-200 dark:border-orange-800">
                                     <td colSpan={2} className="px-6 py-4 text-right text-slate-900 dark:text-slate-100">
-                                        Total Lab Score (Max {maxLabScore})
+                                        Total {assignmentLabel} Score (Max {maxLabScore})
                                     </td>
                                     <td colSpan={2} className="px-6 py-4 text-right text-orange-600 dark:text-orange-400 text-lg">
                                         <span className="text-xs text-slate-500 dark:text-slate-400 mr-2">
@@ -385,7 +387,7 @@ function StatusChecker({ subject, config }: { subject: string, config: SubjectCo
                             <table className="w-full text-left text-sm">
                                 <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
                                     <tr>
-                                        <th className="px-6 py-3 font-semibold text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider">Lab</th>
+                                        <th className="px-6 py-3 font-semibold text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider">{assignmentLabel}</th>
                                         <th className="px-6 py-3 font-semibold text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider">Score</th>
                                         <th className="px-6 py-3 font-semibold text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider text-right">Date</th>
                                     </tr>
@@ -395,7 +397,7 @@ function StatusChecker({ subject, config }: { subject: string, config: SubjectCo
                                         <tr key={quiz.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                             <td className="px-6 py-3 text-slate-900 dark:text-slate-200 font-mono">
                                                 <span className="inline-block bg-teal-50 dark:bg-teal-900/30 px-2 py-1 rounded text-xs font-bold text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-800">
-                                                    Lab {quiz.labNumber}
+                                                    {assignmentLabel} {quiz.labNumber}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-3">
@@ -509,7 +511,7 @@ function StatusChecker({ subject, config }: { subject: string, config: SubjectCo
                     <table className="w-full text-left text-sm">
                         <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
                             <tr>
-                                <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300">Lab</th>
+                                <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300">{assignmentLabel}</th>
                                 <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300">Title</th>
                                 <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300 text-right">Score</th>
                             </tr>
@@ -535,13 +537,13 @@ function StatusChecker({ subject, config }: { subject: string, config: SubjectCo
                                     </tr>
                                 ))}
                                 {config.grading?.showCumulativeScore && (() => {
-                                    // Calculate total lab score
+                                    // Calculate total {assignmentLabel} score
                                     const totalLabScore = labRows.reduce((acc, row) => {
                                         const val = parseFloat(row.score);
                                         return acc + (isNaN(val) ? 0 : val);
                                     }, 0);
                                     
-                                    // Calculate max lab score
+                                    // Calculate max {assignmentLabel} score
                                     const maxLabScore = config.grading.labMaxScore || labRows.length * 2;
                                     
                                     // Calculate percentage
@@ -605,7 +607,7 @@ function StatusChecker({ subject, config }: { subject: string, config: SubjectCo
                             <table className="w-full text-left text-sm">
                                 <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
                                     <tr>
-                                        <th className="px-6 py-3 font-semibold text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider">Lab</th>
+                                        <th className="px-6 py-3 font-semibold text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider">{assignmentLabel}</th>
                                         <th className="px-6 py-3 font-semibold text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider">Score</th>
                                         <th className="px-6 py-3 font-semibold text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider text-right">Date</th>
                                     </tr>
@@ -615,7 +617,7 @@ function StatusChecker({ subject, config }: { subject: string, config: SubjectCo
                                         <tr key={quiz.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                             <td className="px-6 py-3 text-slate-900 dark:text-slate-200 font-mono">
                                                 <span className={`inline-block px-2 py-1 rounded text-xs font-bold border ${config.iconBg} ${config.iconColor} border-opacity-30`}>
-                                                    Lab {quiz.labNumber}
+                                                    {assignmentLabel} {quiz.labNumber}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-3">
