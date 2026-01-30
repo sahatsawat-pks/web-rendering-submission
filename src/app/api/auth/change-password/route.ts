@@ -38,9 +38,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Incorrect current password" }, { status: 403 });
     }
 
-    // Hash new password and update
-    const newHash = await hashPassword(newPassword);
-    const success = await updateUserPassword(authUser.userId, newHash);
+    // Update password (updateUserPassword handles hashing)
+    const success = await updateUserPassword(authUser.userId, newPassword);
 
     if (success) {
          return NextResponse.json({ success: true });

@@ -27,7 +27,7 @@ export default function AdminHub() {
     const fetchData = async () => {
       try {
         const [userRes, subjectsRes] = await Promise.all([
-          fetch("/api/auth/me"),
+          fetch("/api/auth/me", { cache: "no-store", headers: { "Pragma": "no-cache" } }),
           fetch("/api/subjects")
         ])
 

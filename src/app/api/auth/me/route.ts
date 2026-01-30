@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const user = await getAuthUser();
   if (!user) {
@@ -21,11 +23,17 @@ export async function GET() {
     itds283: userPerms.some(p => p.subjectCode === "itds283" && p.canEdit),
   };
 
-  // Return current user info
+  // Return current user info with no caching headers
   return NextResponse.json({ 
     userId: user.userId, 
     username: user.username,
     role: user.role,
     permissions
+  }, {
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    }
   });
 }
