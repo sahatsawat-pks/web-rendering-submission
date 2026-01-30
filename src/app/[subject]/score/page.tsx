@@ -536,12 +536,14 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getScoreColor(parseFloat(row.score) || 0, row.totalScore)}`}>
-                                                {row.score === '-' ? 'Not Graded' : `${row.score}${row.totalScore ? `/${row.totalScore}` : ''}`}
+                                                {row.score === '-' ? 'Not Graded' : 
+                                                 row.score === '-1' && (subject === 'ITCS251' || subject === 'ITCS255') ? `0${row.totalScore ? `/${row.totalScore}` : ''}` :
+                                                 `${row.score}${row.totalScore ? `/${row.totalScore}` : ''}`}
                                             </span>
                                         </td>
                                     </tr>
                                 ))}
-                                {config.grading?.showCumulativeScore && (() => {
+                                {config.grading?.showCumulativeScore && subject !== 'ITCS251' && subject !== 'ITCS255' && (() => {
                                     // Calculate total {assignmentLabel} score
                                     const totalLabScore = labRows.reduce((acc, row) => {
                                         const val = parseFloat(row.score);
