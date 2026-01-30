@@ -52,6 +52,7 @@ export default function CriteriaGrading({
     totalScore: "6" // Default total for 3 criteria x 2 points
   })
   const [creatingLab, setCreatingLab] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     async function fetchLabs() {
@@ -96,6 +97,7 @@ export default function CriteriaGrading({
     e.preventDefault()
     setGradingError(null)
     setGradingSuccess(false)
+    setIsSubmitting(true)
 
     try {
         // Calculate total score or submit individual criteria?
@@ -147,6 +149,8 @@ export default function CriteriaGrading({
         }
     } catch (err: any) {
         setGradingError(err.message || "An unexpected error occurred");
+    } finally {
+        setIsSubmitting(false)
     }
   }
 
@@ -320,9 +324,13 @@ export default function CriteriaGrading({
 
           <button
             type="submit"
-            className={`w-full px-6 py-3 text-sm font-medium text-white hover:opacity-90 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 ${getGradientStyleProps(color).className}`}
+            disabled={isSubmitting}
+            className={`w-full px-6 py-3 text-sm font-medium text-white hover:opacity-90 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 ${getGradientStyleProps(color).className} disabled:opacity-70 disabled:cursor-not-allowed`}
             style={getGradientStyleProps(color).style}
           >
+            {isSubmitting ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            ) : null}
             Submit Criteria Assessment
           </button>
 

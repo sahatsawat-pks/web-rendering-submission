@@ -57,6 +57,9 @@ export default function LabChallengeGrading({
   })
   const [creatingLab, setCreatingLab] = useState(false)
   const [isFilling, setIsFilling] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const assignmentLabel = (subjectCode === 'ITCS251' || subjectCode === 'ITCS255') ? 'Week' : 'Lab'
 
   useEffect(() => {
     async function fetchLabs() {
@@ -203,9 +206,11 @@ export default function LabChallengeGrading({
     e.preventDefault()
     setGradingError(null)
     setGradingSuccess(false)
+    setIsSubmitting(true)
 
     if (!showScoreDialog) {
       setShowScoreDialog(true)
+      setIsSubmitting(false)
       return
     }
 
@@ -255,6 +260,8 @@ export default function LabChallengeGrading({
         }
     } catch (err: any) {
         setGradingError(err.message || "An unexpected error occurred");
+    } finally {
+        setIsSubmitting(false)
     }
   }
 
@@ -476,34 +483,49 @@ export default function LabChallengeGrading({
                 <button
                   type="button"
                   onClick={(e) => handleGradeSubmit(e, 'lab')}
-                  className={`px-4 py-3 text-sm font-medium text-white rounded-xl shadow-md transition-all btn-hover-lift flex items-center justify-center gap-2 ${getGradientStyleProps(color).className}`}
+                  disabled={isSubmitting}
+                  className={`px-4 py-3 text-sm font-medium text-white rounded-xl shadow-md transition-all btn-hover-lift flex items-center justify-center gap-2 ${getGradientStyleProps(color).className} disabled:opacity-70 disabled:cursor-not-allowed`}
                   style={getGradientStyleProps(color).style}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Add Lab Only
+                  {isSubmitting ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  )}
+                  Add {assignmentLabel} Only
                 </button>
                 <button
                   type="button"
                   onClick={(e) => handleGradeSubmit(e, 'challenge')}
-                  className={`px-4 py-3 text-sm font-medium text-white rounded-xl shadow-md transition-all btn-hover-lift flex items-center justify-center gap-2 ${getGradientStyleProps(color).className}`}
+                  disabled={isSubmitting}
+                  className={`px-4 py-3 text-sm font-medium text-white rounded-xl shadow-md transition-all btn-hover-lift flex items-center justify-center gap-2 ${getGradientStyleProps(color).className} disabled:opacity-70 disabled:cursor-not-allowed`}
                   style={{ ...getGradientStyleProps(color).style, filter: 'brightness(90%)' }}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
+                  {isSubmitting ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  )}
                   Add Challenge Only
                 </button>
                 <button
                   type="button"
                   onClick={(e) => handleGradeSubmit(e, 'both')}
-                  className={`px-4 py-3 text-sm font-medium text-white rounded-xl shadow-md transition-all btn-hover-lift flex items-center justify-center gap-2 ${getGradientStyleProps(color).className}`}
+                  disabled={isSubmitting}
+                  className={`px-4 py-3 text-sm font-medium text-white rounded-xl shadow-md transition-all btn-hover-lift flex items-center justify-center gap-2 ${getGradientStyleProps(color).className} disabled:opacity-70 disabled:cursor-not-allowed`}
                   style={{ ...getGradientStyleProps(color).style,  filter: 'brightness(110%)' }}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                  </svg>
+                  {isSubmitting ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                  )}
                   Add Both Scores
                 </button>
               </div>

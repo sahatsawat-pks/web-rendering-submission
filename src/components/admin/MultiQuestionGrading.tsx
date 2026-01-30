@@ -48,6 +48,7 @@ export default function MultiQuestionGrading({
     questionCount: "1" // New field for this type
   })
   const [creatingLab, setCreatingLab] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Fetch Labs and Prefixes
   useEffect(() => {
@@ -107,6 +108,7 @@ export default function MultiQuestionGrading({
     e.preventDefault()
     setGradingError(null)
     setGradingSuccess(false)
+    setIsSubmitting(true)
 
     try {
         // We have multiple scores to submit.
@@ -152,6 +154,8 @@ export default function MultiQuestionGrading({
         }
     } catch (err: any) {
         setGradingError(err.message || "An unexpected error occurred");
+    } finally {
+        setIsSubmitting(false)
     }
   }
 
@@ -252,7 +256,10 @@ export default function MultiQuestionGrading({
                  </div>
              )}
 
-             <button type="submit" className={`w-full px-6 py-3 text-white font-bold rounded-xl shadow-lg transition-transform active:scale-95 ${getGradientStyleProps(color).className}`} style={getGradientStyleProps(color).style}>
+             <button type="submit" disabled={isSubmitting} className={`w-full px-6 py-3 text-white font-bold rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2 ${getGradientStyleProps(color).className} disabled:opacity-70 disabled:cursor-not-allowed`} style={getGradientStyleProps(color).style}>
+                 {isSubmitting ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                 ) : null}
                  Submit All Scores
              </button>
 
