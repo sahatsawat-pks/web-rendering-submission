@@ -15,6 +15,8 @@ export async function GET(request: Request) {
     // Fetch all student data from Google Sheets
     const students = await getAllScores(subject);
 
+    console.log(students);
+
     if (!students || students.length === 0) {
       return NextResponse.json({ prefixes: [] });
     }

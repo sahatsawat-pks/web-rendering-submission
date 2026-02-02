@@ -70,7 +70,7 @@ export default function PythonGrading({
   useEffect(() => {
     async function fetchLabs() {
       try {
-        const res = await fetch(`/api/labs?subject=${subjectCode}`)
+        const res = await fetch(`/api/labs?subject=${subjectCode}`, { cache: 'no-store' })
         if (res.ok) {
           const data = await res.json()
           if (data.success) {

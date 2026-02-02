@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 
 // Performance optimization: Cache lab listings
-export const revalidate = 3600; // Revalidate every hour
+export const dynamic = 'force-dynamic';
 import {
   getAllLabs,
   getLabById,
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { labNumber, title, fileName, isActive, deadline, subject, testCases, labType } = body;
+    const { labNumber, title, fileName, isActive, deadline, subject, testCases, labType, subQuestions } = body;
 
     if (!labNumber || !title) {
       return NextResponse.json(
@@ -63,7 +63,8 @@ export async function POST(request: NextRequest) {
       isActive !== undefined ? isActive : true,
       deadline,
       testCases,
-      labType || 'Lab'
+      labType || 'Lab',
+      subQuestions
     );
 
     // For ITCS123, automatically create a Challenge with the same lab number

@@ -781,16 +781,17 @@ export async function createLab(
   isActive: boolean = true,
   deadline?: string,
   testCases?: string,
-  labType: 'Lab' | 'Challenge' = 'Lab'
+  labType: 'Lab' | 'Challenge' = 'Lab',
+  subQuestions?: string
 ): Promise<Lab> {
     await init();
     const client = await getPool().connect();
     try {
         const res = await client.query(`
-            INSERT INTO labs (lab_number, title, file_name, subject, is_active, deadline, test_cases, lab_type)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            INSERT INTO labs (lab_number, title, file_name, subject, is_active, deadline, test_cases, lab_type, sub_questions)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING *
-        `, [labNumber, title, fileName, subject, isActive, deadline || null, testCases || null, labType]);
+        `, [labNumber, title, fileName, subject, isActive, deadline || null, testCases || null, labType, subQuestions || null]);
         
         const r = res.rows[0];
         return {

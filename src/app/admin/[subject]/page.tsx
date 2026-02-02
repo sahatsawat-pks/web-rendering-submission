@@ -258,11 +258,11 @@ export default function DynamicAdminDashboard() {
           />
         ) : subject.hasGradingInterface && subject.gradingType === 'multi_question' ? (
           <MultiQuestionGrading
-            subjectCode={subjectCode}
-            subjectTitle={subject.title}
+            subjectCode={subject.code}
             role={role}
             username={username}
             color={subject.color}
+            hasQuizManagement={subject.hasQuizManagement}
           />
         ) : subject.hasGradingInterface && !subject.gradingType ? (
           <div className="glass-card p-8 rounded-2xl text-center">

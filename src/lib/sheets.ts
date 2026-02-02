@@ -124,6 +124,14 @@ async function getXlsxData(spreadsheetId: string, tabName: string) {
 
 export async function getSheetData(subject: string = 'Sheet1', tabName?: string, bypassCache: boolean = false) {
   const spreadsheetId = await getSubjectSheetId(subject);
+
+  let firstRow = 'A';
+
+  if (subject === 'ITCS113') {
+    tabName = 'lab';
+    firstRow = 'B';
+  }
+
   const targetTab = tabName || subject;
   
   const cacheKey = `sheets_${spreadsheetId}_${targetTab}`;
@@ -135,7 +143,7 @@ export async function getSheetData(subject: string = 'Sheet1', tabName?: string,
   const sheets = await getSheetsClient();
   // For ITCS251 and ITCS255, header starts at row 5
   const startRow = (subject === 'ITCS251' || subject === 'ITCS255') ? 5 : 1;
-  const range = `${targetTab}!A${startRow}:Z1000`;
+  const range = `${targetTab}!${firstRow}${startRow}:Z1000`;
 
   try {
       const response = await sheets.spreadsheets.values.get({
