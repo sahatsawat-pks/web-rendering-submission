@@ -182,7 +182,7 @@ export default function MultiQuestionGrading({
         setNewLabData({ ...newLabData, title: "", fileName: "", questionCount: "1", deadline: "" });
         setShowNewLabDialog(false);
         // Refresh
-        const labsRes = await fetch(`/api/labs?subject=${subjectCode}`)
+        const labsRes = await fetch(`/api/labs?subject=${subjectCode}`, { cache: 'no-store' })
         if (labsRes.ok) {
             const data = await labsRes.json();
             if (data.success) setLabs(data.labs.sort((a: any, b: any) => a.labNumber.localeCompare(b.labNumber)));

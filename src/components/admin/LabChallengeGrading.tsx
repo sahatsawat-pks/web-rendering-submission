@@ -120,7 +120,7 @@ export default function LabChallengeGrading({
       })
 
       if (res.ok) {
-        const labsRes = await fetch(`/api/labs?subject=${subjectCode}`)
+        const labsRes = await fetch(`/api/labs?subject=${subjectCode}`, { cache: 'no-store' })
         if (labsRes.ok) {
           const data = await labsRes.json()
           if (data.success) {
@@ -183,7 +183,7 @@ export default function LabChallengeGrading({
         })
         setShowNewLabDialog(false)
         
-        const labsRes = await fetch(`/api/labs?subject=${subjectCode}`)
+        const labsRes = await fetch(`/api/labs?subject=${subjectCode}`, { cache: 'no-store' })
         if (labsRes.ok) {
           const data = await labsRes.json()
           if (data.success) {
@@ -720,7 +720,7 @@ export default function LabChallengeGrading({
                              body: JSON.stringify({ id: lab.id, isActive: !lab.isActive }),
                            })
                            if (response.ok) {
-                              const labsRes = await fetch(`/api/labs?subject=${subjectCode}`)
+                              const labsRes = await fetch(`/api/labs?subject=${subjectCode}`, { cache: 'no-store' })
                               if (labsRes.ok) {
                                 const data = await labsRes.json()
                                 if (data.success) {

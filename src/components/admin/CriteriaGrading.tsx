@@ -181,7 +181,7 @@ export default function CriteriaGrading({
         setShowNewLabDialog(false)
         
         // Refresh labs
-        const labsRes = await fetch(`/api/labs?subject=${subjectCode}`)
+        const labsRes = await fetch(`/api/labs?subject=${subjectCode}`, { cache: 'no-store' })
         if (labsRes.ok) {
           const data = await labsRes.json()
           if (data.success) {
