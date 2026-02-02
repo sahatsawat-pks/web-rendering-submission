@@ -162,3 +162,21 @@ function adjustBrightness(col: string, amt: number) {
 function bgGradientToR(str: string) {
     return str;
 }
+
+/**
+ * Extracts a shadow color class from the gradient string.
+ * Example: "from-purple-500 to-pink-500" -> "shadow-purple-500/30"
+ */
+export function getShadowColorClass(color: string | undefined | null): string {
+    if (!color) return "shadow-blue-500/30";
+
+    if (color.startsWith("from-")) {
+        const fromPart = color.split(" ").find(c => c.startsWith("from-"));
+        if (fromPart) {
+            return fromPart.replace("from-", "shadow-") + "/30";
+        }
+    }
+    
+    // For hex, we'd need to style manually, but for now fallback to style-based handling in component or default
+    return "shadow-blue-500/30"; 
+}

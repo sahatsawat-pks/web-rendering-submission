@@ -25,6 +25,7 @@ interface Subject {
   gradingType: 'lab_challenge' | 'simple_score' | 'sql' | 'python' | 'java' | 'criteria' | 'multi_question' | null
   color: string
   quizSectionEnabled: boolean
+  google_sheet_id?: string
 }
 
 export default function DynamicAdminDashboard() {
@@ -213,6 +214,7 @@ export default function DynamicAdminDashboard() {
             hasTestCases={subject.hasTestCases}
             quizSectionEnabled={subject.quizSectionEnabled}
             color={subject.color}
+            googleSheetId={subject.google_sheet_id}
           />
         ) : subject.hasGradingInterface && subject.gradingType === 'simple_score' ? (
           <SimpleScoreGrading
@@ -223,6 +225,7 @@ export default function DynamicAdminDashboard() {
             hasQuizManagement={subject.hasQuizManagement}
             quizSectionEnabled={subject.quizSectionEnabled}
             color={subject.color}
+            googleSheetId={subject.google_sheet_id}
           />
         ) : subject.hasGradingInterface && subject.gradingType === 'sql' ? (
           <SQLGrading
@@ -234,6 +237,7 @@ export default function DynamicAdminDashboard() {
             hasTestCases={subject.hasTestCases}
             quizSectionEnabled={subject.quizSectionEnabled}
             color={subject.color}
+            googleSheetId={subject.google_sheet_id}
           />
         ) : subject.hasGradingInterface && subject.gradingType === 'python' ? (
           <PythonGrading
@@ -245,6 +249,7 @@ export default function DynamicAdminDashboard() {
             hasTestCases={subject.hasTestCases}
             quizSectionEnabled={subject.quizSectionEnabled}
             color={subject.color}
+            googleSheetId={subject.google_sheet_id}
           />
         ) : subject.hasGradingInterface && subject.gradingType === 'criteria' ? (
           <CriteriaGrading
@@ -255,6 +260,7 @@ export default function DynamicAdminDashboard() {
             hasQuizManagement={subject.hasQuizManagement}
             quizSectionEnabled={subject.quizSectionEnabled}
             color={subject.color}
+            googleSheetId={subject.google_sheet_id}
           />
         ) : subject.hasGradingInterface && subject.gradingType === 'multi_question' ? (
           <MultiQuestionGrading
@@ -263,6 +269,7 @@ export default function DynamicAdminDashboard() {
             username={username}
             color={subject.color}
             hasQuizManagement={subject.hasQuizManagement}
+            googleSheetId={subject.google_sheet_id}
           />
         ) : subject.hasGradingInterface && !subject.gradingType ? (
           <div className="glass-card p-8 rounded-2xl text-center">

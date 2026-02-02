@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { getGradientStyleProps } from "@/lib/colors"
+import { getGradientStyleProps, getShadowColorClass } from "@/lib/colors"
 
 interface PythonGradingProps {
   subjectCode: string
@@ -14,6 +14,7 @@ interface PythonGradingProps {
   hasTestCases?: boolean
   quizSectionEnabled?: boolean
   color?: string
+  googleSheetId?: string
 }
 
 export default function PythonGrading({
@@ -24,7 +25,8 @@ export default function PythonGrading({
   hasQuizManagement = false,
   hasTestCases = false,
   quizSectionEnabled = true,
-  color = 'from-blue-500 to-sky-500'
+  color = 'from-blue-500 to-sky-500',
+  googleSheetId
 }: PythonGradingProps) {
   const [labs, setLabs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -435,18 +437,20 @@ export default function PythonGrading({
             Student Lab Grader
           </h3>
           <div className="flex gap-2">
-            <a
-              href="https://docs.google.com/spreadsheets/d/1x29jzhrMCzr7MazNWoLZ2XSn77hk33bu5ltuGmLSVtE/edit?ouid=107284221226923478169&usp=sheets_home&ths=true"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`flex items-center gap-2 px-4 py-2 hover:opacity-90 text-white rounded-lg transition-colors text-sm font-semibold shadow-lg ${getGradientStyleProps(color).className}`}
-              style={getGradientStyleProps(color).style}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <span className="hidden sm:inline">Open Lab Sheet</span>
-            </a>
+            {googleSheetId && (
+              <a
+                href={`https://docs.google.com/spreadsheets/d/${googleSheetId}/edit`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`flex items-center gap-2 px-4 py-2 hover:opacity-90 text-white rounded-lg transition-colors text-sm font-semibold shadow-lg ${getShadowColorClass(color)} ${getGradientStyleProps(color).className}`}
+                style={getGradientStyleProps(color).style}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span className="hidden sm:inline">Open Lab Sheet</span>
+              </a>
+            )}
             <a
                 href="https://1drv.ms/f/c/71ba4eac2d3846e2/IgBSqedIAqxwSZUF1fudH6s9AWw7W-ROP7HYHqrMBsXQxkg?e=fqNOeh"
                 target="_blank"
@@ -637,8 +641,8 @@ export default function PythonGrading({
               </a>
             )}
             {['Lecturer', 'Main Admin'].includes(role) && (
-              <button 
-                onClick={() => setShowNewLabDialog(true)} 
+              <button
+                onClick={() => setShowNewLabDialog(true)}
                 className={`px-3 py-1.5 hover:opacity-90 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1 ${getGradientStyleProps(color).className}`}
                 style={getGradientStyleProps(color).style}
               >

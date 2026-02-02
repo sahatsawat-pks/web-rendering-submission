@@ -3,17 +3,18 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { getGradientStyleProps } from "@/lib/colors"
+import { getGradientStyleProps, getShadowColorClass } from "@/lib/colors"
 
 interface LabChallengeGradingProps {
   subjectCode: string
   subjectTitle: string
   role: 'LA' | 'Lecturer' | 'Main Admin'
   username: string
-  hasQuizManagement?: boolean
-  hasTestCases?: boolean
-  quizSectionEnabled?: boolean
-  color?: string
+  hasQuizManagement: boolean
+  hasTestCases: boolean
+  quizSectionEnabled: boolean
+  color: string
+  googleSheetId?: string
 }
 
 export default function LabChallengeGrading({
@@ -21,10 +22,11 @@ export default function LabChallengeGrading({
   subjectTitle,
   role,
   username,
-  hasQuizManagement = false,
-  hasTestCases = false,
-  quizSectionEnabled = true,
-  color = 'from-orange-500 to-amber-500'
+  hasQuizManagement,
+  hasTestCases,
+  quizSectionEnabled,
+  color,
+  googleSheetId
 }: LabChallengeGradingProps) {
   const [labs, setLabs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -344,18 +346,20 @@ export default function LabChallengeGrading({
             </svg>
             Student Lab Grader
           </h3>
-          <a
-            href="https://docs.google.com/spreadsheets/d/1ZH6-_4we-PCHstk719MZr2Vo0NAOe5wGokq-IBHIx2U/edit?gid=1247580919#gid=1247580919"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`flex items-center gap-2 px-4 py-2 hover:opacity-90 text-white rounded-lg transition-colors text-sm font-semibold shadow-lg shadow-orange-500/20 ${getGradientStyleProps(color).className}`}
-            style={getGradientStyleProps(color).style}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <span className="hidden sm:inline">Open Lab Sheet</span>
-          </a>
+          {googleSheetId && (
+            <a
+              href={`https://docs.google.com/spreadsheets/d/${googleSheetId}/edit`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex items-center gap-2 px-4 py-2 hover:opacity-90 text-white rounded-lg transition-colors text-sm font-semibold shadow-lg ${getShadowColorClass(color)} ${getGradientStyleProps(color).className}`}
+              style={getGradientStyleProps(color).style}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span className="hidden sm:inline">Open Lab Sheet</span>
+            </a>
+          )}
         </div>
 
         <form onSubmit={(e) => e.preventDefault()} className="space-y-4">

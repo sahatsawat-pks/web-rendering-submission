@@ -3,16 +3,17 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { getGradientStyleProps } from "@/lib/colors"
+import { getGradientStyleProps, getShadowColorClass } from "@/lib/colors"
 
 interface SimpleScoreGradingProps {
   subjectCode: string
   subjectTitle: string
   role: 'LA' | 'Lecturer' | 'Main Admin'
   username: string  
-  hasQuizManagement?: boolean
-  quizSectionEnabled?: boolean
-  color?: string
+  hasQuizManagement: boolean
+  quizSectionEnabled: boolean
+  color: string
+  googleSheetId?: string
 }
 
 export default function SimpleScoreGrading({
@@ -20,30 +21,36 @@ export default function SimpleScoreGrading({
   subjectTitle,
   role,
   username,
-  hasQuizManagement = false,
-  quizSectionEnabled = true,
-  color = 'from-teal-500 to-cyan-500'
+  hasQuizManagement,
+  quizSectionEnabled,
+  color,
+  googleSheetId
 }: SimpleScoreGradingProps) {
+  const [activeTab, setActiveTab] = useState("labs")
   const [labs, setLabs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   
   const [studentId, setStudentId] = useState("")
+  const [score, setScore] = useState("2")
   const [selectedLab, setSelectedLab] = useState("")
   const [selectedSection, setSelectedSection] = useState("")
-  const [score, setScore] = useState("2")
+  
   const [gradingSuccess, setGradingSuccess] = useState(false)
   const [gradingError, setGradingError] = useState<string | null>(null)
   const [lastSubmittedStudentId, setLastSubmittedStudentId] = useState("")
   const [studentDetails, setStudentDetails] = useState<any>(null)
   const [isFilling, setIsFilling] = useState(false)
+  
   const [prefixes, setPrefixes] = useState<string[]>([])
   const [selectedPrefix, setSelectedPrefix] = useState("6788")
   const [remainingDigits, setRemainingDigits] = useState("")
+  
   const [togglingQuiz, setTogglingQuiz] = useState<number | null>(null)
   const [localQuizSectionEnabled, setLocalQuizSectionEnabled] = useState(quizSectionEnabled)
   const [togglingQuizSection, setTogglingQuizSection] = useState(false)
   const [fillAllSections, setFillAllSections] = useState(false)
   
+  const [showScoreDialog, setShowScoreDialog] = useState(false)
   const [showNewLabDialog, setShowNewLabDialog] = useState(false)
   const [newLabData, setNewLabData] = useState({
     labNumber: "",
@@ -56,6 +63,7 @@ export default function SimpleScoreGrading({
   const [creatingLab, setCreatingLab] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // Fetch Labs and Prefixes
   useEffect(() => {
     async function fetchLabs() {
       try {
@@ -68,16 +76,12 @@ export default function SimpleScoreGrading({
             
             const activeLabs = sortedLabs.filter((lab: any) => lab.isActive)
             if (activeLabs.length > 0) {
-              const latestActiveLab = activeLabs[activeLabs.length - 1]
-              setSelectedLab(latestActiveLab.labNumber)
+              const latest = activeLabs[activeLabs.length - 1]
+              setSelectedLab(latest.labNumber)
             }
           }
         }
-      } catch (e) {
-        console.error("Failed to fetch labs", e)
-      } finally {
-        setLoading(false)
-      }
+      } catch (e) { console.error(e) } finally { setLoading(false) }
     }
     fetchLabs()
 
@@ -94,15 +98,15 @@ export default function SimpleScoreGrading({
       .then(res => res.json())
       .then(data => {
         if (data.success && data.prefixes) {
-          const sorted = data.prefixes.sort();
-          setPrefixes(sorted)
-          if (sorted.length > 0) {
-            setSelectedPrefix(sorted[sorted.length - 1])
-          }
+            const sorted = data.prefixes.sort()
+            setPrefixes(sorted)
+            if (sorted.length > 0) {
+                setSelectedPrefix(sorted[sorted.length - 1])
+            }
         }
       })
-      .catch(err => console.error("Failed to fetch prefixes", err))
-  }, [subjectCode])
+      .catch(console.error)
+  }, [subjectCode]) // Removed dependency on labs to prevent loops
 
   async function toggleQuizSection() {
     setTogglingQuizSection(true)
@@ -133,44 +137,71 @@ export default function SimpleScoreGrading({
     setIsSubmitting(true)
 
     try {
-        const res = await fetch('/api/scores', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'update',
-                username: studentId,
-                labNumber: selectedLab,
-                score: parseInt(score),
-                subject: subjectCode
-            })
-        });
+      const res = await fetch('/api/scores', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'update',
+          username: studentId,
+          labNumber: selectedLab,
+          score: parseFloat(score),
+          subject: subjectCode
+        }),
+      })
 
-        if (res.ok) {
-             setLastSubmittedStudentId(studentId);
-             
-             try {
-                const detailsRes = await fetch(`/api/scores?username=${studentId}&subject=${subjectCode}`)
-                if (detailsRes.ok) {
-                    const detailsData = await detailsRes.json()
-                    if (detailsData.success && detailsData.scores) {
-                        setStudentDetails(detailsData.scores)
-                    }
+      if (res.ok) {
+        setLastSubmittedStudentId(studentId)
+        
+        try {
+            const detailsRes = await fetch(`/api/scores?username=${studentId}&subject=${subjectCode}`)
+            if (detailsRes.ok) {
+                const detailsData = await detailsRes.json()
+                if (detailsData.success && detailsData.scores) {
+                    setStudentDetails(detailsData.scores)
                 }
-             } catch (error) {
-                 console.error("Failed to fetch student details", error)
-             }
-             
-             setGradingSuccess(true);
-             setStudentId("");
-             setRemainingDigits("");
-        } else {
-            const data = await res.json();
-            setGradingError(data.error || "Failed to update score");
+            }
+        } catch (error) {
+            console.error("Failed to fetch student details", error)
         }
+
+        setGradingSuccess(true)
+        setStudentId("")
+        setRemainingDigits("")
+      } else {
+        const data = await res.json()
+        setGradingError(data.error || "Failed to submit grade")
+      }
     } catch (err: any) {
-        setGradingError(err.message || "An unexpected error occurred");
+      setGradingError(err.message || "An error occurred while submitting grade")
     } finally {
-        setIsSubmitting(false)
+      setIsSubmitting(false)
+    }
+  }
+
+  async function toggleQuiz(labId: number, currentStatus: boolean) {
+    setTogglingQuiz(labId)
+    try {
+      const res = await fetch('/api/admin/quiz-management', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ labId, quizEnabled: !currentStatus })
+      })
+      const data = await res.json()
+      if (data.success) {
+        const labsRes = await fetch(`/api/labs?subject=${subjectCode}`)
+        if (labsRes.ok) {
+          const labsData = await labsRes.json()
+          if (labsData.success) {
+            setLabs(labsData.labs.sort((a: any, b: any) => a.labNumber.localeCompare(b.labNumber)))
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to toggle quiz", e)
+    } finally {
+      setTogglingQuiz(null)
     }
   }
 
@@ -221,31 +252,6 @@ export default function SimpleScoreGrading({
       }
   }
 
-  async function toggleQuiz(labId: number, currentStatus: boolean) {
-    setTogglingQuiz(labId)
-    try {
-      const res = await fetch('/api/admin/quiz-management', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ labId, quizEnabled: !currentStatus })
-      })
-      const data = await res.json()
-      if (data.success) {
-        const labsRes = await fetch(`/api/labs?subject=${subjectCode}`)
-        if (labsRes.ok) {
-          const labsData = await labsRes.json()
-          if (labsData.success) {
-            setLabs(labsData.labs.sort((a: any, b: any) => a.labNumber.localeCompare(b.labNumber)))
-          }
-        }
-      }
-    } catch (e) {
-      console.error("Failed to toggle quiz", e)
-    } finally {
-      setTogglingQuiz(null)
-    }
-  }
-
   async function handleCreateLab(e: React.FormEvent) {
     e.preventDefault()
     setCreatingLab(true)
@@ -291,12 +297,14 @@ export default function SimpleScoreGrading({
     }
   }
 
+  const gradientProps = getGradientStyleProps(color)
+
   return (
     <div className="flex-1 space-y-8">
       {/* Welcome Section */}
       <div className="animate-slide-up">
         <div className="flex items-center justify-between mb-2">
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-200">{subjectCode} Dashboard</h1>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-200">{subjectTitle} Dashboard</h1>
           {['Lecturer', 'Main Admin'].includes(role) && hasQuizManagement && (
             <button
               onClick={toggleQuizSection}
@@ -314,18 +322,49 @@ export default function SimpleScoreGrading({
             </button>
           )}
         </div>
-        <p className="text-lg text-slate-600 dark:text-slate-400">Welcome back. Here's what's happening today.</p>
+        <p className="text-lg text-slate-600 dark:text-slate-400">Welcome back, {username || role}. Here's what's happening today.</p>
       </div>
 
       {/* Grading Interface */}
       <div className="glass-card p-8 animate-scale-in hover:shadow-2xl transition-all duration-300 border-white/40">
         <div className="flex items-center justify-between mb-8">
           <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2">
-            <svg className="w-5 h-5 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className={`w-5 h-5 ${gradientProps.className.replace('bg-', 'text-').replace('from-', 'text-').split(' ')[0]}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
             </svg>
             Student Lab Grader
           </h3>
+          <div className="flex gap-2">
+            <button
+                onClick={() => setShowScoreDialog(!showScoreDialog)}
+                className={`p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${showScoreDialog ? 'text-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'text-slate-400'}`}
+            >
+                {showScoreDialog ? (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                )}
+            </button>
+            {googleSheetId && (
+              <a
+                  href={`https://docs.google.com/spreadsheets/d/${googleSheetId}/edit`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`flex items-center gap-2 px-4 py-2 hover:opacity-90 text-white rounded-lg transition-colors text-sm font-semibold shadow-lg ${getShadowColorClass(color)} ${gradientProps.className}`}
+                  style={gradientProps.style}
+              >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span className="hidden sm:inline">Open Lab Sheet</span>
+              </a>
+            )}
+          </div>
         </div>
 
         <form onSubmit={handleGradeSubmit} className="space-y-4">
