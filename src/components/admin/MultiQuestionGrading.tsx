@@ -122,15 +122,27 @@ export default function MultiQuestionGrading({
         // If we configure our Subject Pattern correctly or if headers match, it works!
         // User request: "Ex l1-q1 , l1-q2"
         
-        const updates = totalQuestions.map(q => ({
-            username: studentId,
-            labNumber: `L${selectedLab}-${q}`, // Constructing dynamic column name hint? Or let sheets.ts handle it?
-            // Actually, best to rely on column matching.
-            // If the sheet has "L1-Q1", passing "L1-Q1" as labNumber to `updateStudentLabScore` works 
-            // because standard logic attempts regex match or exact match.
-            score: parseInt(questionScores[q] || "0"),
-            subject: subjectCode
-        }));
+        const updates = totalQuestions.map(q => {
+             let labColumnName = `L${selectedLab}-${q}`;
+             
+             if (subjectCode === 'ITCS113') {
+                 // Format: l2-q1 (lowercase, no padding on lab, remove 'Q' prefix from question)
+                 const labInt = parseInt(selectedLab).toString();
+                 const qInt = q.replace(/Q/i, 'q'); 
+                 // Actually q is "Q1", so q.replace(/Q/i, 'q') -> "q1"
+                 // Or just lower case everything: l2-q1
+                 labColumnName = `l${labInt}-${qInt.toLowerCase()}`;
+             }
+
+             return {
+                username: studentId,
+                labNumber: labColumnName,
+                score: parseInt(questionScores[q] || "0"),
+                subject: subjectCode
+             }
+        });
+
+        console.log(`[MultiQuestionGrading] Submitting batch updates for ${subjectCode}:`, updates);
 
         const res = await fetch('/api/scores', {
             method: 'POST',

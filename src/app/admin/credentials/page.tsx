@@ -13,15 +13,7 @@ interface StudentCredential {
   subject?: string
 }
 
-const SUBJECTS = [
-  'ITCS123', 
-  'ITCS223', 
-  'ITCS227', 
-  'ITCS251', 
-  'ITCS255', 
-  'ITGE162', 
-  'ITDS283'
-]
+// SUBJECTS removed in favor of dynamic fetching
 
 export default function UniversalCredentialsPage() {
   const [loading, setLoading] = useState(false)
@@ -32,7 +24,8 @@ export default function UniversalCredentialsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
   
   // Selection State
-  const [selectedSubject, setSelectedSubject] = useState(SUBJECTS[0])
+  const [subjects, setSubjects] = useState<string[]>([])
+  const [selectedSubject, setSelectedSubject] = useState("")
   
   // Auth state
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -41,9 +34,25 @@ export default function UniversalCredentialsPage() {
   const [username, setUsername] = useState('')
   const [role, setRole] = useState('')
 
-  // Check authentication and authorization on mount
+  // Fetch subjects and check auth
   useEffect(() => {
-    const checkAuth = async () => {
+    const init = async () => {
+      // 1. Fetch Subjects
+      try {
+        const subRes = await fetch('/api/subjects')
+        if (subRes.ok) {
+           const data = await subRes.json()
+           if (data.subjects) {
+               const codes = data.subjects.map((s: any) => s.code || s.title)
+               setSubjects(codes)
+               if (codes.length > 0) setSelectedSubject(codes[0])
+           }
+        }
+      } catch (e) {
+          console.error("Failed to fetch subjects", e)
+      }
+
+      // 2. Check Auth
       try {
         const res = await fetch('/api/auth/check')
         const data = await res.json()
@@ -54,7 +63,6 @@ export default function UniversalCredentialsPage() {
           setUsername(userData.username || '')
           setRole(userData.role || '')
           
-          // Only Lecturer and kanzaki_aito can access credentials
           if (userData.role === 'Lecturer' || userData.username === 'kanzaki_aito') {
             setIsAuthorized(true)
           }
@@ -66,7 +74,7 @@ export default function UniversalCredentialsPage() {
       }
     }
     
-    checkAuth()
+    init()
   }, [])
 
   // Load existing credentials on mount
@@ -415,7 +423,7 @@ export default function UniversalCredentialsPage() {
               onChange={(e) => setSelectedSubject(e.target.value)}
               className="bg-[#0f1115] text-white px-4 py-3 outline-none min-w-[150px] cursor-pointer hover:bg-slate-900 transition-colors"
             >
-              {SUBJECTS.map(sub => (
+              {subjects.map(sub => (
                 <option key={sub} value={sub}>{sub}</option>
               ))}
             </select>

@@ -125,11 +125,11 @@ async function getXlsxData(spreadsheetId: string, tabName: string) {
 export async function getSheetData(subject: string = 'Sheet1', tabName?: string, bypassCache: boolean = false) {
   const spreadsheetId = await getSubjectSheetId(subject);
 
+  // Removed ITCS113 special block to default to starting from 'A' and using 'Sheet1' or subject name fallback
   let firstRow = 'A';
 
   if (subject === 'ITCS113') {
     tabName = 'lab';
-    firstRow = 'B';
   }
 
   const targetTab = tabName || subject;
@@ -224,7 +224,7 @@ function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] 
   // Default logic: ITCS123/223/251/255/ITDS283 -> Index 1 (Col B)
   // Others -> Index 0 (Col A)
   // We can make this configurable later, but for now stick to patterns + overrides
-  let idIndex = (subject === 'ITCS123' || subject === 'ITCS223' || subject === 'ITCS251' || subject === 'ITCS255' || subject === 'ITDS283') ? 1 : 0;
+  let idIndex = (subject === 'ITCS123' || subject === 'ITCS223' || subject === 'ITCS251' || subject === 'ITCS255' || subject === 'ITDS283' || subject === 'ITCS113') ? 1 : 0;
   
   // ITDS283 Dynamic Search
   if (subject === 'ITDS283') {
@@ -530,6 +530,8 @@ export async function updateStudentLabScore(
           else if (sheetName === 'ITDS283') targetTabs = ['Section 1', 'Section 2'];
           else targetTabs = ['Sec1', 'Sec2'];
       }
+  } else if (sheetName === 'ITCS113') {
+      targetTabs = ['lab'];
   }
 
   // Iterate tabs to find student
@@ -713,7 +715,15 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
   // Add Header if missing
   if (labIndex === -1) {
       labIndex = headers.length; 
-      let headerValue = labNumber; 
+      let headerValue = labNumber;
+      
+      // Format header for specific subjects
+      if (sheetName === 'ITDS283') {
+          const labInt = parseInt(labNumber.toString().replace(/[^\d]/g, '')).toString();
+          const labNumPadded = labInt.padStart(2, '0');
+          headerValue = `Lab${labNumPadded}`;
+      }
+      
       // If we need to respect pattern for creation, it's hard. Just use passed Value.
       headers.push(headerValue);
       
@@ -726,7 +736,7 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
 
   // Find Row
   // Use same ID logic as mapRows
-  let idIndex = ['ITCS123','ITCS223','ITCS251','ITCS255','ITDS283'].includes(subject) ? 1 : 0;
+  let idIndex = ['ITCS123','ITCS223','ITCS251','ITCS255','ITDS283','ITCS113'].includes(subject) ? 1 : 0;
   if (subject === 'ITDS283') {
        const found = headers.findIndex((h: string) => String(h).toLowerCase().trim() === 'id');
        if (found !== -1) idIndex = found;
@@ -822,9 +832,11 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
   }
 }
 
-export async function batchUpdateScores(updates: {username: string, labNumber: string, score: number, feedback?: string, sheetName?: string}[]) {
+export async function batchUpdateScores(updates: {username: string, labNumber: string, score: number, feedback?: string, sheetName?: string, subject?: string}[]) {
+    console.log(`[batchUpdateScores] Received ${updates.length} updates. First update sample:`, updates[0]);
     for (const update of updates) {
-        await updateStudentLabScore(update.username, update.labNumber, update.score, update.feedback, update.sheetName);
+        // console.log(`[batchUpdateScores] Updating ${update.username} for ${update.labNumber} in ${update.sheetName || update.subject || 'Default(Sheet1)'}`);
+        await updateStudentLabScore(update.username, update.labNumber, update.score, update.feedback, update.sheetName || update.subject);
     }
 }
 

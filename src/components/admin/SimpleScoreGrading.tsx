@@ -50,7 +50,7 @@ export default function SimpleScoreGrading({
   const [togglingQuizSection, setTogglingQuizSection] = useState(false)
   const [fillAllSections, setFillAllSections] = useState(false)
   
-  const [showScoreDialog, setShowScoreDialog] = useState(false)
+
   const [showNewLabDialog, setShowNewLabDialog] = useState(false)
   const [newLabData, setNewLabData] = useState({
     labNumber: "",
@@ -340,16 +340,7 @@ export default function SimpleScoreGrading({
             Student Lab Grader
           </h3>
           <div className="flex gap-2">
-            <button
-                onClick={() => setShowScoreDialog(!showScoreDialog)}
-                className={`p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${showScoreDialog ? 'text-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'text-slate-400'}`}
-            >
-                {showScoreDialog ? (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
-                ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                )}
-            </button>
+
             {googleSheetId && (
               <a
                   href={`https://docs.google.com/spreadsheets/d/${googleSheetId}/edit`}
