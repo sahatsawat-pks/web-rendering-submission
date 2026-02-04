@@ -652,6 +652,23 @@ export async function updateUserPassword(id: string, password: string): Promise<
     }
 }
 
+export async function updateUsername(currentUsername: string, newUsername: string): Promise<boolean> {
+    await init();
+    const client = await getPool().connect();
+    try {
+        // Check if new username already exists
+        const existing = await client.query('SELECT id FROM users WHERE username = $1', [newUsername]);
+        if (existing.rowCount && existing.rowCount > 0) {
+            throw new Error('Username already exists');
+        }
+        
+        const res = await client.query('UPDATE users SET username = $1 WHERE username = $2', [newUsername, currentUsername]);
+        return (res.rowCount || 0) > 0;
+    } finally {
+        client.release();
+    }
+}
+
 // -- LAB OPERATIONS --
 
 export async function getAllLabs(activeOnly: boolean = false, subject?: string): Promise<Lab[]> {

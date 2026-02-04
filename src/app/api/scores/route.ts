@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { action, username, labNumber, score, labScore, challengeScore, updates, subject, section, isCsv } = body;
+    const { action, username, labNumber, score, labScore, challengeScore, updates, subject, section, isCsv, inClass } = body;
 
     // Check if user has permission to update scores for this subject (or is main admin)
     if (subject && user.username !== 'kanzaki_aito') {
@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
             // Standard single score update for other subjects
             
             // 1. Update Score in Sheets (pass undefined for feedback to skip sheet feedback update)
-            await updateStudentLabScore(username, labNumber, score, undefined, subject, undefined, isCsv);
+            await updateStudentLabScore(username, labNumber, score, undefined, subject, undefined, isCsv, inClass);
 
             // 2. Update Feedback in DB (if provided)
 

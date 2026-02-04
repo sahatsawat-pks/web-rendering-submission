@@ -469,7 +469,8 @@ export async function updateStudentLabScore(
   feedback?: string, 
   sheetName: string = 'Sheet1',
   scoreType?: 'lab' | 'challenge', // For ITCS123 dual scoring
-  isCsv: boolean = false
+  isCsv: boolean = false,
+  inClass?: boolean // For ITCS251/255 in-class tracking
 ) {
   // console.log(`[updateStudentLabScore] START: User=${username}, Lab=${labNumber}, Score=${score}, Subject=${sheetName}`);
   
@@ -568,13 +569,13 @@ export async function updateStudentLabScore(
            
            if (exists) {
                // console.log(`[updateStudentLabScore] Found user in ${tab}`);
-               await updateSpecificTab(sheetName, tab, username, actualLabNumber, score, feedback, isCsv, config);
+               await updateSpecificTab(sheetName, tab, username, actualLabNumber, score, feedback, isCsv, config, inClass);
                foundAndUpdate = true;
                break; 
            }
        } else {
            // Single target (Standard or Specific Lab Tab) - Allow creation or update
-           await updateSpecificTab(sheetName, tab, username, actualLabNumber, score, feedback, isCsv, config);
+           await updateSpecificTab(sheetName, tab, username, actualLabNumber, score, feedback, isCsv, config, inClass);
            foundAndUpdate = true;
        }
   }
@@ -582,7 +583,7 @@ export async function updateStudentLabScore(
   if (!foundAndUpdate && targetTabs.length > 1) {
       // Default to first tab if not found?
       // console.log(`[updateStudentLabScore] User not found in any section tab. Defaulting to ${targetTabs[0]}`);
-      await updateSpecificTab(sheetName, targetTabs[0], username, actualLabNumber, score, feedback, isCsv, config);
+      await updateSpecificTab(sheetName, targetTabs[0], username, actualLabNumber, score, feedback, isCsv, config, inClass);
   }
 }
 
@@ -654,7 +655,7 @@ async function updateXlsxData(spreadsheetId: string, tabName: string, updates: {
 }
 
 // Internal helper for actual update logic
-async function updateSpecificTab(subject: string, tabName: string, username: string, labNumber: string, score: number, feedback?: string, isCsv: boolean = false, config?: any) {
+async function updateSpecificTab(subject: string, tabName: string, username: string, labNumber: string, score: number, feedback?: string, isCsv: boolean = false, config?: any, inClass?: boolean) {
   const sheets = await getSheetsClient();
   const spreadsheetId = await getSubjectSheetId(subject);
   
@@ -784,7 +785,7 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
   
   // Special handling for ITCS251 and ITCS255: Update In-Class column adjacent to W column
   // Skip if initiated via CSV upload
-  if ((subject === 'ITCS251' || subject === 'ITCS255') && !isCsv) {
+  if ((subject === 'ITCS251' || subject === 'ITCS255') && !isCsv && inClass !== undefined) {
     // Check if the column immediately after the lab column is "In-Class"
     const nextColumnIndex = labIndex + 1;
     if (nextColumnIndex < headers.length) {
@@ -794,9 +795,9 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
         // Update the In-Class column adjacent to this specific W column
         pendingUpdates.push({
           range: `${tabName}!${getColumnLetter(nextColumnIndex + 1)}${actualSheetRow}`,
-          values: [[true]]
+          values: [[inClass]]
         });
-        xlsxUpdates.push({ col: nextColumnIndex + 1, row: actualSheetRow, value: true });
+        xlsxUpdates.push({ col: nextColumnIndex + 1, row: actualSheetRow, value: inClass });
       }
     }
   }

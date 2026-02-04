@@ -110,7 +110,28 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const { id, role, password } = await request.json();
+    const body = await request.json();
+    const { id, role, password, username, newUsername } = body;
+
+    // Handle username change (main admin only, for their own account)
+    if (username && newUsername) {
+      if (authUser.username !== username) {
+        return NextResponse.json({ 
+          error: "You can only change your own username" 
+        }, { status: 403 });
+      }
+
+      if (!newUsername.trim()) {
+        return NextResponse.json({ error: "Username cannot be empty" }, { status: 400 });
+      }
+
+      const { updateUsername } = await import("@/lib/db");
+      const updated = await updateUsername(username, newUsername.trim());
+      if (updated) {
+        return NextResponse.json({ success: true, message: "Username updated successfully" });
+      }
+      return NextResponse.json({ error: "Failed to update username" }, { status: 500 });
+    }
 
     if (!id) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 });

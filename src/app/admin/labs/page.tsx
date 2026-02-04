@@ -16,6 +16,7 @@ interface Lab {
   createdAt: string
   subject: string
   labType?: 'Lab' | 'Challenge'
+  subQuestions?: string // JSON string of questions array
 }
 
 export default function LabManagement() {
@@ -26,6 +27,7 @@ export default function LabManagement() {
   const [editingLab, setEditingLab] = useState<Lab | null>(null)
   const [currentUser, setCurrentUser] = useState<string>("")
   const [userPermissions, setUserPermissions] = useState<{[key: string]: boolean}>({})
+  const [subjectFilter, setSubjectFilter] = useState<string>("all") // Add subject filter state
   const router = useRouter()
 
   // Form state
@@ -36,7 +38,8 @@ export default function LabManagement() {
     isActive: true,
     deadline: "",
     subject: "", // Will be set from fetched subjects
-    totalScore: "" // Add total score field
+    totalScore: "", // Add total score field
+    numberOfQuestions: "1" // Add number of questions field for multi-question labs
   })
 
 
@@ -143,10 +146,17 @@ export default function LabManagement() {
       const url = "/api/labs"
       const method = editingLab ? "PUT" : "POST"
       
-      // Prepare body with totalScore as number if provided
+      // Create subQuestions array based on numberOfQuestions
+      const questionCount = parseInt(formData.numberOfQuestions) || 1
+      const subQuestions = questionCount > 1 ? 
+        Array.from({length: questionCount}, (_, i) => `Q${i+1}`) : 
+        undefined
+      
+      // Prepare body with totalScore as number if provided and subQuestions
       const bodyData: any = {
         ...formData,
-        totalScore: formData.totalScore ? parseInt(formData.totalScore) : undefined
+        totalScore: formData.totalScore ? parseInt(formData.totalScore) : undefined,
+        subQuestions: subQuestions ? JSON.stringify(subQuestions) : undefined
       }
       
       const body = editingLab ? { id: editingLab.id, ...bodyData } : bodyData
@@ -170,7 +180,7 @@ export default function LabManagement() {
 
 
       // Reset form and refresh
-      setFormData({ labNumber: "", title: "", fileName: "index.html", isActive: true, deadline: "", subject: subjects[0]?.code || "", totalScore: "" })
+      setFormData({ labNumber: "", title: "", fileName: "index.html", isActive: true, deadline: "", subject: subjects[0]?.code || "", totalScore: "", numberOfQuestions: "1" })
 
       setEditingLab(null)
       fetchLabs()
@@ -206,6 +216,18 @@ export default function LabManagement() {
 
   function handleEdit(lab: Lab) {
     setEditingLab(lab)
+    
+    // Parse existing subQuestions to get number of questions
+    let questionCount = "1"
+    if (lab.subQuestions) {
+      try {
+        const questions = JSON.parse(lab.subQuestions)
+        questionCount = Array.isArray(questions) ? questions.length.toString() : "1"
+      } catch (e) {
+        questionCount = "1"
+      }
+    }
+    
     setFormData({
       labNumber: lab.labNumber,
       title: lab.title,
@@ -214,12 +236,13 @@ export default function LabManagement() {
       deadline: lab.deadline || "",
       subject: lab.subject || subjects[0]?.code || "",
       totalScore: (lab as any).totalScore?.toString() || "",
+      numberOfQuestions: questionCount
     })
   }
 
   function handleCancelEdit() {
     setEditingLab(null)
-    setFormData({ labNumber: "", title: "", fileName: "index.html", isActive: true, deadline: "", subject: subjects[0]?.code || "", totalScore: "" })
+    setFormData({ labNumber: "", title: "", fileName: "index.html", isActive: true, deadline: "", subject: subjects[0]?.code || "", totalScore: "", numberOfQuestions: "1" })
   }
 
   async function handleToggleActive(lab: Lab) {
@@ -260,10 +283,11 @@ export default function LabManagement() {
   // console.log("User permissions:", userPermissions)
   // console.log("Allowed subjects:", allowedSubjects)
 
-  // Filter labs based on user permissions and sort by subject and lab number
+  // Filter labs based on user permissions and subject filter, then sort by subject and lab number
   const filteredLabs = (isMainAdmin 
     ? labs 
     : labs.filter(lab => userPermissions[lab.subject.toLowerCase()]))
+    .filter(lab => subjectFilter === "all" || lab.subject === subjectFilter)
     .sort((a, b) => {
       // First sort by subject
       const subjectCompare = a.subject.localeCompare(b.subject)
@@ -466,6 +490,26 @@ export default function LabManagement() {
                   </div>
                 )}
 
+                {/* Number of Questions Field - For multi-question labs */}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    Number of Questions
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.numberOfQuestions}
+                    onChange={(e) => setFormData({ ...formData, numberOfQuestions: e.target.value })}
+                    placeholder="e.g., 3"
+                    min="1"
+                    max="20"
+                    step="1"
+                    className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/90 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-all font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                  />
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Set how many questions this lab contains (for multi-question grading)
+                  </p>
+                </div>
+
 
 
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-50/50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
@@ -509,25 +553,44 @@ export default function LabManagement() {
           <div className="lg:col-span-2 animate-fade-in">
             <div className="glass-card overflow-hidden hover:shadow-2xl hover:shadow-blue-500/5 transition-all duration-300 border-white/40 dark:border-slate-700/50">
               <div className="px-8 py-6 border-b border-white/20 dark:border-slate-700/50 bg-gradient-to-r from-blue-50/50 to-cyan-50/50 dark:from-slate-800/50 dark:to-slate-700/50">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-3">
-                  <svg
-                    className="w-5 h-5 text-blue-600 dark:text-blue-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                    />
-                  </svg>
-                  Existing Labs
-                  <span className="ml-auto px-3 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-bold ring-1 ring-blue-200 dark:ring-blue-800">
-                    {filteredLabs.length}
-                  </span>
-                </h3>
+                <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-3">
+                    <svg
+                      className="w-5 h-5 text-blue-600 dark:text-blue-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                      />
+                    </svg>
+                    Existing Labs
+                    <span className="ml-auto px-3 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-bold ring-1 ring-blue-200 dark:ring-blue-800">
+                      {filteredLabs.length}
+                    </span>
+                  </h3>
+                  
+                  {/* Subject Filter */}
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Filter:
+                    </label>
+                    <select
+                      value={subjectFilter}
+                      onChange={(e) => setSubjectFilter(e.target.value)}
+                      className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm min-w-[120px]"
+                    >
+                      <option value="all">All Subjects</option>
+                      {allowedSubjects.map(subject => (
+                        <option key={subject} value={subject}>{subject}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
               <div className="overflow-x-auto -mx-4 md:mx-0">
                 <div className="inline-block min-w-full align-middle">
@@ -538,6 +601,7 @@ export default function LabManagement() {
                       <th className="px-4 md:px-8 py-4 md:py-5 font-semibold tracking-wide text-xs md:text-sm">Subject</th>
                       <th className="px-4 md:px-8 py-4 md:py-5 font-semibold tracking-wide text-xs md:text-sm">Lab #</th>
                       <th className="px-4 md:px-8 py-4 md:py-5 font-semibold tracking-wide text-xs md:text-sm">Title</th>
+                      <th className="px-4 md:px-8 py-4 md:py-5 font-semibold tracking-wide text-xs md:text-sm">Questions</th>
                       <th className="px-4 md:px-8 py-4 md:py-5 font-semibold tracking-wide text-xs md:text-sm">Deadline</th>
                       <th className="px-4 md:px-8 py-4 md:py-5 font-semibold tracking-wide text-xs md:text-sm">Status</th>
                       <th className="px-4 md:px-8 py-4 md:py-5 text-right font-semibold tracking-wide text-xs md:text-sm">Actions</th>
@@ -546,7 +610,7 @@ export default function LabManagement() {
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                     {filteredLabs.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-6 py-12 text-center">
+                        <td colSpan={7} className="px-6 py-12 text-center">
                           <div className="flex flex-col items-center text-slate-400 dark:text-slate-500">
                             <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
                               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -590,6 +654,21 @@ export default function LabManagement() {
                                 </span>
                               )}
                             </div>
+                          </td>
+                          <td className="px-4 md:px-8 py-4 md:py-5 text-slate-700 dark:text-slate-300 font-medium text-xs md:text-sm text-center">
+                            {lab.subQuestions ? (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-semibold">
+                                {(() => {
+                                  try {
+                                    return JSON.parse(lab.subQuestions).length
+                                  } catch {
+                                    return 1
+                                  }
+                                })()} Q
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 dark:text-slate-500 text-xs">1</span>
+                            )}
                           </td>
                           <td className="px-4 md:px-8 py-4 md:py-5 text-slate-500 dark:text-slate-400 text-xs md:text-sm">
                             {lab.deadline || <span className="text-slate-300 dark:text-slate-600 italic">None</span>}

@@ -68,6 +68,10 @@ export default function PythonGrading({
   const [csvLoading, setCsvLoading] = useState(false)
   const [csvSelectedLab, setCsvSelectedLab] = useState("")
   const [selectedScores, setSelectedScores] = useState<{[key: string]: 'sheet' | 'csv'}>({})
+  const [inClass, setInClass] = useState(true)
+  
+  // Helper to check if this is ITCS251 or ITCS255
+  const isITCS251or255 = subjectCode === 'ITCS251' || subjectCode === 'ITCS255'
 
   useEffect(() => {
     async function fetchLabs() {
@@ -117,6 +121,16 @@ export default function PythonGrading({
       .catch(err => console.error("Failed to fetch prefixes", err))
   }, [subjectCode])
 
+  // Set default score to max score for ITCS251/255 when lab is selected
+  useEffect(() => {
+    if (isITCS251or255 && selectedLab && labs.length > 0) {
+      const selectedLabData = labs.find(lab => lab.labNumber === selectedLab)
+      if (selectedLabData && selectedLabData.totalScore) {
+        setScore(selectedLabData.totalScore.toString())
+      }
+    }
+  }, [selectedLab, labs, isITCS251or255])
+
   async function toggleQuizSection() {
     setTogglingQuizSection(true)
     try {
@@ -154,7 +168,8 @@ export default function PythonGrading({
                 username: studentId,
                 labNumber: selectedLab,
                 score: parseInt(score),
-                subject: subjectCode
+                subject: subjectCode,
+                ...(isITCS251or255 && { inClass })
             })
         });
 
@@ -526,6 +541,20 @@ export default function PythonGrading({
                   step="0.5"
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm"
                 />
+                {isITCS251or255 && (
+                  <div className="flex items-center gap-2 mt-3">
+                    <input
+                      type="checkbox"
+                      id="inClass"
+                      checked={inClass}
+                      onChange={(e) => setInClass(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 focus:ring-2"
+                    />
+                    <label htmlFor="inClass" className="text-sm text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                      In-Class Attendance
+                    </label>
+                  </div>
+                )}
               </div>
             </div>
           </div>

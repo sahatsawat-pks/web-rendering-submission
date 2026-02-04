@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
-import { Shield, CheckCircle2, XCircle, Key } from "lucide-react"
+import { Shield, CheckCircle2, XCircle, Key, Edit } from "lucide-react"
 
 interface User {
   id: string
@@ -45,6 +45,12 @@ export default function UserManagement() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [passwordChangeLoading, setPasswordChangeLoading] = useState(false)
   const [passwordChangeMessage, setPasswordChangeMessage] = useState<{type: 'success' | 'error', text: string} | null>(null)
+  
+  // Username change state
+  const [showUsernameChangeDialog, setShowUsernameChangeDialog] = useState(false)
+  const [newUsername, setNewUsername] = useState("")
+  const [usernameChangeLoading, setUsernameChangeLoading] = useState(false)
+  const [usernameChangeMessage, setUsernameChangeMessage] = useState<{type: 'success' | 'error', text: string} | null>(null)
   
   // Add user dialog state
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false)
@@ -195,6 +201,57 @@ export default function UserManagement() {
       fetchUsers()
     } catch (err: any) {
       setError(err.message)
+    }
+  }
+
+  async function handleUsernameChange(e: React.FormEvent) {
+    e.preventDefault()
+    setUsernameChangeMessage(null)
+    
+    if (!currentUser) {
+      setUsernameChangeMessage({ type: 'error', text: 'User not found' })
+      return
+    }
+    
+    if (!newUsername || newUsername.trim() === '') {
+      setUsernameChangeMessage({ type: 'error', text: 'Username cannot be empty' })
+      return
+    }
+    
+    if (newUsername.trim() === currentUser) {
+      setUsernameChangeMessage({ type: 'error', text: 'New username must be different from current username' })
+      return
+    }
+    
+    setUsernameChangeLoading(true)
+    
+    try {
+      const response = await fetch("/api/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: currentUser,
+          newUsername: newUsername.trim(),
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to change username")
+      }
+
+      setUsernameChangeMessage({ type: 'success', text: 'Username changed successfully! Please log in with your new username.' })
+      setNewUsername("")
+      
+      // Redirect to login after 2 seconds
+      setTimeout(() => {
+        router.push("/admin/login")
+      }, 2000)
+    } catch (err: any) {
+      setUsernameChangeMessage({ type: 'error', text: err.message })
+    } finally {
+      setUsernameChangeLoading(false)
     }
   }
 
@@ -426,6 +483,19 @@ export default function UserManagement() {
                         })}
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
+                            {isMainAdmin && user.username === currentUser && (
+                              <button
+                                onClick={() => {
+                                  setNewUsername("")
+                                  setUsernameChangeMessage(null)
+                                  setShowUsernameChangeDialog(true)
+                                }}
+                                className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-medium text-sm px-3 py-1.5 rounded-lg hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-all"
+                                title="Change Username"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                              </button>
+                            )}
                             {isMainAdmin && (
                               <button
                                 onClick={() => setSelectedUserForPasswordChange({id: user.id, username: user.username})}
@@ -473,6 +543,88 @@ export default function UserManagement() {
             </div>
           </div>
       </div>
+
+      {/* Username Change Modal */}
+      {showUsernameChangeDialog && isMainAdmin && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="glass-card p-8 max-w-md w-full animate-scale-in">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-200">
+                Change Username
+              </h3>
+              <button
+                onClick={() => {
+                  setShowUsernameChangeDialog(false)
+                  setNewUsername("")
+                  setUsernameChangeMessage(null)
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {usernameChangeMessage && (
+              <div className={`mb-4 px-4 py-3 rounded-xl text-sm ${
+                usernameChangeMessage?.type === 'success' 
+                  ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-300' 
+                  : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
+              }`}>
+                {usernameChangeMessage?.text}
+              </div>
+            )}
+
+            <form onSubmit={handleUsernameChange} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Current Username
+                </label>
+                <input
+                  type="text"
+                  value={currentUser}
+                  disabled
+                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed font-medium"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  New Username
+                </label>
+                <input
+                  type="text"
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
+                  required
+                  placeholder="Enter new username"
+                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none shadow-sm hover:border-cyan-300 dark:hover:border-cyan-600 transition-all font-medium"
+                />
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowUsernameChangeDialog(false)
+                    setNewUsername("")
+                    setUsernameChangeMessage(null)
+                  }}
+                  className="flex-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-200 font-bold py-3 px-6 rounded-2xl transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={usernameChangeLoading}
+                  className="flex-1 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/40 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {usernameChangeLoading ? 'Changing...' : 'Change Username'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Password Change Modal */}
       {selectedUserForPasswordChange && (
