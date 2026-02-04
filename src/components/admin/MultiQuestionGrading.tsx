@@ -134,13 +134,15 @@ export default function MultiQuestionGrading({
                  labColumnName = `l${labInt}-${qInt.toLowerCase()}`;
              }
 
+             const scoreValue = questionScores[q];
+             
              return {
                 username: studentId,
                 labNumber: labColumnName,
-                score: parseInt(questionScores[q] || "0"),
+                score: scoreValue && scoreValue.trim() !== "" ? parseInt(scoreValue) : null, // Keep null for blank scores
                 subject: subjectCode
              }
-        });
+        }).filter(update => update.score !== null); // Only submit non-blank scores
 
         console.log(`[MultiQuestionGrading] Submitting batch updates for ${subjectCode}:`, updates);
 

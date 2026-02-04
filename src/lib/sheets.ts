@@ -718,7 +718,7 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
       let headerValue = labNumber;
       
       // Format header for specific subjects
-      if (sheetName === 'ITDS283') {
+      if (subject === 'ITDS283') {
           const labInt = parseInt(labNumber.toString().replace(/[^\d]/g, '')).toString();
           const labNumPadded = labInt.padStart(2, '0');
           headerValue = `Lab${labNumPadded}`;

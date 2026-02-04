@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 
 export const dynamic = 'force-dynamic';
-import { createUser, findUserByUsername, getAllUsers, deleteUser, getUserPermissions, updateUserRole, updateUserPassword } from "@/lib/db";
+import { createUser, findUserByUsername, getAllUsers, deleteUser, getUserPermissions, updateUserRole, updateUserPassword, getSubjects } from "@/lib/db";
 
 export async function GET() {
   const user = await getAuthUser();
@@ -11,22 +11,18 @@ export async function GET() {
   }
 
   const users = await getAllUsers();
+  const allSubjects = await getSubjects(); // Get all subjects from database
   
   // Return users without passwords, but with permissions
   const safeUsers = await Promise.all(users.map(async ({ password, ...u }) => {
     // Get permissions for this user
     const userPerms = await getUserPermissions(u.id);
     
-    // Convert to object format { itcs223: true, itcs227: false, ... }
-    const permissions = {
-      itcs223: userPerms.some(p => p.subjectCode === "itcs223" && p.canEdit),
-      itcs227: userPerms.some(p => p.subjectCode === "itcs227" && p.canEdit),
-      itge162: userPerms.some(p => p.subjectCode === "itge162" && p.canEdit),
-      itcs123: userPerms.some(p => p.subjectCode === "itcs123" && p.canEdit),
-      itcs251: userPerms.some(p => p.subjectCode === "itcs251" && p.canEdit),
-      itcs255: userPerms.some(p => p.subjectCode === "itcs255" && p.canEdit),
-      itds283: userPerms.some(p => p.subjectCode === "itds283" && p.canEdit),
-    };
+    // Dynamically build permissions object for all subjects
+    const permissions: { [key: string]: boolean } = {};
+    allSubjects.forEach(subject => {
+      permissions[subject.code.toLowerCase()] = userPerms.some(p => p.subjectCode === subject.code.toLowerCase() && p.canEdit);
+    });
 
     return { ...u, permissions };
   }));
