@@ -143,7 +143,7 @@ export async function getSheetData(subject: string = 'Sheet1', tabName?: string,
   const sheets = await getSheetsClient();
   // For ITCS251 and ITCS255, header starts at row 5
   const startRow = (subject === 'ITCS251' || subject === 'ITCS255') ? 5 : 1;
-  const range = `${targetTab}!${firstRow}${startRow}:Z1000`;
+  const range = `${targetTab}!${firstRow}${startRow}:ZZ1000`;
 
   try {
       const response = await sheets.spreadsheets.values.get({
@@ -441,7 +441,54 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
 
   // Default: Single Sheet
   const rows = await getSheetData(subject, undefined, bypassCache);
-  return mapRowsToStudents(rows, subject, config);
+  let students = mapRowsToStudents(rows, subject, config);
+  
+  // Special handling for ITCS113: fetch name/surname from separate sheet
+  if (subject === 'ITCS113') {
+    try {
+      const nameSheetId = '1Sa8K_SPKuhqDHFuwlIrH_8lSdA3aMPqzuKsadwEkCXc';
+      const sheets = await getSheetsClient();
+      const nameResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId: nameSheetId,
+        range: 'Sheet1!A1:C1000',
+      });
+      
+      const nameRows = nameResponse.data.values || [];
+      if (nameRows.length > 0) {
+        // Create a map of ID -> {name, surname}
+        const nameMap: { [key: string]: { name: string, surname: string } } = {};
+        
+        // Skip header row (index 0)
+        for (let i = 1; i < nameRows.length; i++) {
+          const row = nameRows[i];
+          const id = row[0]?.toString().trim(); // ID column
+          const name = row[1]?.toString().trim(); // Name column  
+          const surname = row[2]?.toString().trim(); // Surname column
+          
+          if (id && name && surname) {
+            nameMap[id] = { name, surname };
+          }
+        }
+        
+        // Merge name data into students
+        students = students.map(student => {
+          const nameData = nameMap[student.username];
+          if (nameData) {
+            return {
+              ...student,
+              name: nameData.name,
+              surname: nameData.surname
+            };
+          }
+          return student;
+        });
+      }
+    } catch (error) {
+      console.warn('[getAllScores] Failed to fetch ITCS113 name data:', error);
+    }
+  }
+  
+  return students;
 }
 
 export async function getStudentAllScores(username: string, sheetName: string = 'Sheet1', bypassCache: boolean = false) {

@@ -11,6 +11,7 @@ interface MultiQuestionGradingProps {
   username?: string
   color?: string
   googleSheetId?: string
+  quizSectionEnabled?: boolean
 }
 
 export default function MultiQuestionGrading({
@@ -19,7 +20,8 @@ export default function MultiQuestionGrading({
   role = '',
   username = '',
   color = 'from-orange-500 to-red-500',
-  googleSheetId
+  googleSheetId,
+  quizSectionEnabled = false
 }: MultiQuestionGradingProps) {
   const [labs, setLabs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -51,6 +53,11 @@ export default function MultiQuestionGrading({
   })
   const [creatingLab, setCreatingLab] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Quiz Toggle States
+  const [localQuizSectionEnabled, setLocalQuizSectionEnabled] = useState(quizSectionEnabled)
+  const [togglingQuizSection, setTogglingQuizSection] = useState(false)
+  const [togglingQuiz, setTogglingQuiz] = useState<number | null>(null)
 
   // Fetch Labs and Prefixes
   useEffect(() => {
@@ -105,6 +112,55 @@ export default function MultiQuestionGrading({
           setTotalQuestions(["Q1"]);
       }
   }, [selectedLab, labs]);
+  
+  // Quiz Toggle Functions
+  async function toggleQuizSection() {
+    setTogglingQuizSection(true)
+    try {
+      const res = await fetch('/api/subjects/toggle-quiz-section', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          subjectCode,
+          enabled: !localQuizSectionEnabled 
+        })
+      })
+      
+      if (res.ok) {
+        setLocalQuizSectionEnabled(!localQuizSectionEnabled)
+      }
+    } catch (error) {
+      console.error('Failed to toggle quiz section:', error)
+    } finally {
+      setTogglingQuizSection(false)
+    }
+  }
+  
+  async function toggleQuiz(labId: number, currentStatus: boolean) {
+    setTogglingQuiz(labId)
+    try {
+      const res = await fetch('/api/labs', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: labId,
+          quizEnabled: !currentStatus
+        })
+      })
+      
+      if (res.ok) {
+        setLabs(labs.map(lab => 
+          lab.id === labId 
+            ? { ...lab, quizEnabled: !currentStatus }
+            : lab
+        ))
+      }
+    } catch (e) {
+      console.error("Failed to toggle quiz", e)
+    } finally {
+      setTogglingQuiz(null)
+    }
+  }
 
   async function handleGradeSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -218,7 +274,25 @@ export default function MultiQuestionGrading({
     <div className="flex-1 space-y-8">
       {/* Header */}
       <div className="animate-slide-up">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-200">{subjectCode} Dashboard</h1>
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-200">{subjectCode} Dashboard</h1>
+          {['Lecturer', 'Main Admin'].includes(role) && hasQuizManagement && (
+            <button
+              onClick={toggleQuizSection}
+              disabled={togglingQuizSection}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-all disabled:opacity-50 flex items-center gap-2 ${
+                localQuizSectionEnabled
+                  ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+               </svg>
+               Quiz Section: {localQuizSectionEnabled ? "ON" : "OFF"}
+            </button>
+          )}
+        </div>
         <p className="text-lg text-slate-600 dark:text-slate-400">Welcome back. Here's what's happening today.</p>
       </div>
 
@@ -446,6 +520,55 @@ export default function MultiQuestionGrading({
                     {l.subQuestions ? JSON.parse(l.subQuestions).length : 1} Questions
                   </span>
                 </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {['Lecturer', 'Main Admin'].includes(role) && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        const response = await fetch("/api/labs", {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ id: l.id, isActive: !l.isActive }),
+                        })
+                        if (response.ok) {
+                           const res = await fetch(`/api/labs?subject=${subjectCode}`, { cache: 'no-store' })
+                           if (res.ok) {
+                             const data = await res.json()
+                             if (data.success) {
+                               const sortedLabs = data.labs.sort((a: any, b: any) => a.labNumber.localeCompare(b.labNumber))
+                               setLabs(sortedLabs)
+                             }
+                           }
+                        } else {
+                         alert("Failed to toggle status")
+                        }
+                      } catch {
+                        alert("Failed to toggle status")
+                      }
+                    }}
+                    className={`px-3 py-2 text-xs font-medium rounded-lg transition-all ${
+                      l.isActive
+                        ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-200"
+                    }`}
+                  >
+                    {l.isActive ? "Active" : "Inactive"}
+                  </button>
+                )}
+                {hasQuizManagement && ['Lecturer', 'Main Admin'].includes(role) && l.quizQuestions && (
+                  <button
+                    onClick={() => toggleQuiz(l.id, l.quizEnabled)}
+                    disabled={togglingQuiz === l.id}
+                    className={`px-3 py-2 text-xs font-medium rounded-lg transition-all disabled:opacity-50 ${
+                      l.quizEnabled
+                        ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                    }`}
+                  >
+                    {l.quizEnabled ? "Quiz: ON" : "Quiz: OFF"}
+                  </button>
+                )}
               </div>
             </div>
           ))}

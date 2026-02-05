@@ -669,6 +669,17 @@ export async function updateUsername(currentUsername: string, newUsername: strin
     }
 }
 
+export async function updateUsernameById(userId: string, newUsername: string): Promise<boolean> {
+    await init();
+    const client = await getPool().connect();
+    try {
+        const res = await client.query('UPDATE users SET username = $1 WHERE id = $2', [newUsername, userId]);
+        return (res.rowCount || 0) > 0;
+    } finally {
+        client.release();
+    }
+}
+
 // -- LAB OPERATIONS --
 
 export async function getAllLabs(activeOnly: boolean = false, subject?: string): Promise<Lab[]> {

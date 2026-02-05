@@ -269,6 +269,7 @@ export default function DynamicAdminDashboard() {
             username={username}
             color={subject.color}
             hasQuizManagement={subject.hasQuizManagement}
+            quizSectionEnabled={subject.quizSectionEnabled}
             googleSheetId={subject.google_sheet_id}
           />
         ) : subject.hasGradingInterface && !subject.gradingType ? (

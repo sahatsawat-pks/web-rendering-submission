@@ -113,16 +113,36 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { id, role, password, username, newUsername } = body;
 
-    // Handle username change (main admin only, for their own account)
-    if (username && newUsername) {
-      if (authUser.username !== username) {
-        return NextResponse.json({ 
-          error: "You can only change your own username" 
-        }, { status: 403 });
-      }
-
+    // Handle username change by ID (main admin can change any user's username)
+    if (id && newUsername) {
       if (!newUsername.trim()) {
         return NextResponse.json({ error: "Username cannot be empty" }, { status: 400 });
+      }
+
+      // Check if new username already exists
+      const existingUser = await findUserByUsername(newUsername.trim());
+      if (existingUser) {
+        return NextResponse.json({ error: "Username already exists" }, { status: 400 });
+      }
+
+      const { updateUsernameById } = await import("@/lib/db");
+      const updated = await updateUsernameById(id, newUsername.trim());
+      if (updated) {
+        return NextResponse.json({ success: true, message: "Username updated successfully" });
+      }
+      return NextResponse.json({ error: "Failed to update username" }, { status: 500 });
+    }
+
+    // Legacy support: Handle username change by current username (for backward compatibility)
+    if (username && newUsername) {
+      if (!newUsername.trim()) {
+        return NextResponse.json({ error: "Username cannot be empty" }, { status: 400 });
+      }
+
+      // Check if new username already exists
+      const existingUser = await findUserByUsername(newUsername.trim());
+      if (existingUser) {
+        return NextResponse.json({ error: "Username already exists" }, { status: 400 });
       }
 
       const { updateUsername } = await import("@/lib/db");

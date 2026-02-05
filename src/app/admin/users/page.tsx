@@ -51,6 +51,7 @@ export default function UserManagement() {
   const [newUsername, setNewUsername] = useState("")
   const [usernameChangeLoading, setUsernameChangeLoading] = useState(false)
   const [usernameChangeMessage, setUsernameChangeMessage] = useState<{type: 'success' | 'error', text: string} | null>(null)
+  const [selectedUserForUsernameChange, setSelectedUserForUsernameChange] = useState<{id: string, username: string} | null>(null)
   
   // Add user dialog state
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false)
@@ -208,7 +209,9 @@ export default function UserManagement() {
     e.preventDefault()
     setUsernameChangeMessage(null)
     
-    if (!currentUser) {
+    const targetUser = selectedUserForUsernameChange || { username: currentUser, id: "" }
+    
+    if (!targetUser.username) {
       setUsernameChangeMessage({ type: 'error', text: 'User not found' })
       return
     }
@@ -218,7 +221,7 @@ export default function UserManagement() {
       return
     }
     
-    if (newUsername.trim() === currentUser) {
+    if (newUsername.trim() === targetUser.username) {
       setUsernameChangeMessage({ type: 'error', text: 'New username must be different from current username' })
       return
     }
@@ -226,13 +229,14 @@ export default function UserManagement() {
     setUsernameChangeLoading(true)
     
     try {
+      const requestBody = selectedUserForUsernameChange 
+        ? { id: selectedUserForUsernameChange.id, newUsername: newUsername.trim() }
+        : { username: currentUser, newUsername: newUsername.trim() }
+      
       const response = await fetch("/api/users", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: currentUser,
-          newUsername: newUsername.trim(),
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       const data = await response.json()
@@ -241,13 +245,25 @@ export default function UserManagement() {
         throw new Error(data.error || "Failed to change username")
       }
 
-      setUsernameChangeMessage({ type: 'success', text: 'Username changed successfully! Please log in with your new username.' })
-      setNewUsername("")
+      const isOwnUsername = !selectedUserForUsernameChange || selectedUserForUsernameChange.username === currentUser
       
-      // Redirect to login after 2 seconds
-      setTimeout(() => {
-        router.push("/admin/login")
-      }, 2000)
+      if (isOwnUsername) {
+        setUsernameChangeMessage({ type: 'success', text: 'Username changed successfully! Please log in with your new username.' })
+        // Redirect to login after 2 seconds for own username change
+        setTimeout(() => {
+          router.push("/admin/login")
+        }, 2000)
+      } else {
+        setUsernameChangeMessage({ type: 'success', text: `Username changed successfully for ${targetUser.username}!` })
+        // Refresh users list to show the updated username
+        setTimeout(() => {
+          fetchUsers()
+          setShowUsernameChangeDialog(false)
+          setSelectedUserForUsernameChange(null)
+        }, 1500)
+      }
+      
+      setNewUsername("")
     } catch (err: any) {
       setUsernameChangeMessage({ type: 'error', text: err.message })
     } finally {
@@ -483,9 +499,10 @@ export default function UserManagement() {
                         })}
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            {isMainAdmin && user.username === currentUser && (
+                            {isMainAdmin && (
                               <button
                                 onClick={() => {
+                                  setSelectedUserForUsernameChange({ id: user.id, username: user.username })
                                   setNewUsername("")
                                   setUsernameChangeMessage(null)
                                   setShowUsernameChangeDialog(true)
@@ -493,7 +510,7 @@ export default function UserManagement() {
                                 className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-medium text-sm px-3 py-1.5 rounded-lg hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-all"
                                 title="Change Username"
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <Edit className="w-4 h-4" />
                               </button>
                             )}
                             {isMainAdmin && (
@@ -550,13 +567,14 @@ export default function UserManagement() {
           <div className="glass-card p-8 max-w-md w-full animate-scale-in">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-slate-900 dark:text-slate-200">
-                Change Username
+                Change Username {selectedUserForUsernameChange ? `for ${selectedUserForUsernameChange.username}` : ''}
               </h3>
               <button
                 onClick={() => {
                   setShowUsernameChangeDialog(false)
                   setNewUsername("")
                   setUsernameChangeMessage(null)
+                  setSelectedUserForUsernameChange(null)
                 }}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
@@ -583,7 +601,7 @@ export default function UserManagement() {
                 </label>
                 <input
                   type="text"
-                  value={currentUser}
+                  value={selectedUserForUsernameChange?.username || currentUser}
                   disabled
                   className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed font-medium"
                 />
@@ -608,6 +626,7 @@ export default function UserManagement() {
                     setShowUsernameChangeDialog(false)
                     setNewUsername("")
                     setUsernameChangeMessage(null)
+                    setSelectedUserForUsernameChange(null)
                   }}
                   className="flex-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-200 font-bold py-3 px-6 rounded-2xl transition-all"
                 >

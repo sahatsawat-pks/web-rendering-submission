@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { Search, Loader2, ArrowLeft } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
@@ -19,11 +19,22 @@ interface LabRow {
     feedback?: string
 }
 
+interface MultiQuestionLabRow {
+    lab: string
+    title: string
+    isMultiQuestion: true
+    questions: { [key: string]: string } // e.g., { "Q1": "2", "Q2": "1" }
+    totalScore?: number
+}
+
+type LabRowType = LabRow | MultiQuestionLabRow
+
 interface ActiveLab {
     labNumber: string
     title: string
     totalScore?: number
     labType?: string
+    subQuestions?: string
 }
 
 interface QuizScore {
@@ -173,7 +184,7 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
     }
   }
 
-  const labRows: LabRow[] = []
+  const labRows: LabRowType[] = []
   
   if (scores && activeLabs.length > 0) {
       activeLabs.forEach(lab => {
@@ -181,6 +192,56 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
           // But we need to make sure we don't accidentally process them if logic changes
           if (isLabChallenge && lab.labType === 'Challenge') return;
 
+          // Check if this is a multi-question lab
+          const isMultiQuestion = lab.subQuestions && lab.subQuestions.trim() !== ''
+          
+          if (isMultiQuestion) {
+              try {
+                  const subQuestions = JSON.parse(lab.subQuestions!)
+                  const questions: { [key: string]: string } = {}
+                  
+                  // Get the lab number as integer
+                  const labNum = parseInt(lab.labNumber).toString()
+                  
+                  // Find all available question columns for this lab in the scores
+                  const availableQuestionKeys = Object.keys(scores).filter(key => 
+                      key.startsWith(`l${labNum}-q`)
+                  )
+                  
+                  // Extract question numbers from available keys
+                  const availableQuestions = availableQuestionKeys.map(key => {
+                      const match = key.match(/^l\d+-q(\d+)$/)
+                      return match ? match[1] : null
+                  }).filter(q => q !== null).sort((a, b) => parseInt(a!) - parseInt(b!))
+                  
+                  // Use available questions instead of configured subQuestions
+                  availableQuestions.forEach((questionNum) => {
+                      const qKey = `l${labNum}-q${questionNum}`
+                      questions[`Q${questionNum}`] = scores[qKey] !== undefined && scores[qKey] !== null && scores[qKey] !== '' 
+                          ? scores[qKey].toString() 
+                          : '0'
+                  })
+                  
+                  labRows.push({
+                      lab: lab.labNumber.padStart(2, '0'),
+                      title: lab.title,
+                      isMultiQuestion: true,
+                      questions,
+                      totalScore: lab.totalScore
+                  } as MultiQuestionLabRow)
+              } catch (e) {
+                  // Fall back to regular lab processing if parsing fails
+                  processRegularLab(lab, scores, labRows)
+              }
+          } else {
+              processRegularLab(lab, scores, labRows)
+          }
+      })
+      
+      labRows.sort((a, b) => a.lab.localeCompare(b.lab))
+  }
+  
+  function processRegularLab(lab: any, scores: any, labRows: LabRowType[]) {
           const plainNum = parseInt(lab.labNumber).toString()
           const exactKey = `Lab ${lab.labNumber}`
           const normalizedKey = `Lab ${plainNum}`
@@ -222,11 +283,14 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
               score: (scoreValue === undefined || scoreValue === null || scoreValue === '') ? '0' : scoreValue,
               totalScore: lab.totalScore,
               challengeScore: (chScoreValue === undefined || chScoreValue === null || chScoreValue === '') ? '0' : chScoreValue,
-              challengeTotalScore: lab.totalScore // Assuming challenge has same max weight? usually 2?
-          })
-      })
-      
-      labRows.sort((a, b) => a.lab.localeCompare(b.lab))
+              challengeTotalScore: lab.totalScore, // Assuming challenge has same max weight? usually 2?
+              isMultiQuestion: false
+          } as LabRow)
+      }
+  
+  // Type guard functions
+  function isMultiQuestionLab(row: LabRowType): row is MultiQuestionLabRow {
+      return 'isMultiQuestion' in row && row.isMultiQuestion === true
   }
 
   // Render Logic for Lab & Challenge Review
@@ -236,13 +300,26 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
       
       // Calculate totals
       const totalLab = labRows.reduce((acc, row) => {
-          const val = parseFloat(row.score);
-          return acc + (isNaN(val) ? 0 : val);
+          if (isMultiQuestionLab(row)) {
+              // Sum all question scores for multi-question labs
+              const questionTotal = Object.values(row.questions).reduce((qAcc, qScore) => {
+                  const val = parseFloat(qScore)
+                  return qAcc + (isNaN(val) ? 0 : val)
+              }, 0)
+              return acc + questionTotal
+          } else {
+              const val = parseFloat(row.score);
+              return acc + (isNaN(val) ? 0 : val);
+          }
       }, 0);
       
       const totalCh = labRows.reduce((acc, row) => {
-          const val = parseFloat(row.challengeScore || '0');
-          return acc + (isNaN(val) ? 0 : val);
+          if (isMultiQuestionLab(row)) {
+              return acc; // Multi-question labs don't have challenge scores in this context
+          } else {
+              const val = parseFloat(row.challengeScore || '0');
+              return acc + (isNaN(val) ? 0 : val);
+          }
       }, 0);
       
       const labPercentage = (totalLab / maxLabScore) * 10; // Lab scores count for 10% only
@@ -319,32 +396,69 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                             {labRows.length > 0 ? (
                                 <>
                                 {labRows.map((row) => (
-                                    <tr key={row.lab} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                        <td className="px-6 py-4 text-slate-900 dark:text-slate-200 font-mono">
-                                            <span className="inline-block bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-xs font-bold text-slate-600 dark:text-slate-400">
-                                                {row.lab}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-600 dark:text-slate-400 font-medium">
-                                            {row.title}
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                                ${row.score === '2' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 
-                                                  row.score === '1' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                                  'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
-                                                {row.score}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                                ${row.challengeScore === '2' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 
-                                                  row.challengeScore === '1' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                                  'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
-                                                {row.challengeScore}
-                                            </span>
-                                        </td>
-                                    </tr>
+                                    <React.Fragment key={row.lab}>
+                                        {isMultiQuestionLab(row) ? (
+                                            // Multi-question lab row
+                                            <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                                <td className="px-6 py-4 text-slate-900 dark:text-slate-200 font-mono" rowSpan={Object.keys(row.questions).length + 1}>
+                                                    <span className="inline-block bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-xs font-bold text-slate-600 dark:text-slate-400">
+                                                        {row.lab}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-600 dark:text-slate-400 font-medium" rowSpan={Object.keys(row.questions).length + 1}>
+                                                    {row.title}
+                                                    <div className="mt-1">
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
+                                                            Multi-Question
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-right" colSpan={2}>
+                                                    <div className="space-y-1">
+                                                        {Object.entries(row.questions).map(([question, score]) => (
+                                                            <div key={question} className="flex justify-between items-center">
+                                                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{question}:</span>
+                                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2
+                                                                    ${'2' === score ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 
+                                                                      '1' === score ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                                                      'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                                                    {score}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            // Regular lab row
+                                            <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                                <td className="px-6 py-4 text-slate-900 dark:text-slate-200 font-mono">
+                                                    <span className="inline-block bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-xs font-bold text-slate-600 dark:text-slate-400">
+                                                        {row.lab}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-600 dark:text-slate-400 font-medium">
+                                                    {row.title}
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                                        ${row.score === '2' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 
+                                                          row.score === '1' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                                          'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                                        {row.score}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                                        ${row.challengeScore === '2' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 
+                                                          row.challengeScore === '1' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                                          'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                                        {row.challengeScore}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
                                 ))}
                                 {/* Total Score Summary */}
                                 <tr className="bg-orange-50 dark:bg-orange-900/20 font-bold border-t-2 border-orange-200 dark:border-orange-800">
@@ -525,32 +639,83 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                             {labRows.length > 0 ? (
                                 <>
                                 {labRows.map((row) => (
-                                    <tr key={row.lab} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                        <td className="px-6 py-4 text-slate-900 dark:text-slate-200 font-mono">
-                                            <span className="inline-block bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-xs font-bold text-slate-600 dark:text-slate-400">
-                                                {row.lab}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-600 dark:text-slate-400 font-medium">
-                                            {row.title}
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getScoreColor(parseFloat(row.score) || 0, row.totalScore)}`}>
-                                                {row.score === '-' ? 'Not Graded' : 
-                                                 row.score === '-1' && (subject === 'ITCS251' || subject === 'ITCS255') ? `0${row.totalScore ? `/${row.totalScore}` : ''}` :
-                                                 `${row.score}${row.totalScore ? `/${row.totalScore}` : ''}`}
-                                            </span>
-                                        </td>
-                                    </tr>
+                                    <React.Fragment key={row.lab}>
+                                        {isMultiQuestionLab(row) ? (
+                                            // Multi-question lab row
+                                            <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                                <td className="px-6 py-4 text-slate-900 dark:text-slate-200 font-mono">
+                                                    <span className="inline-block bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-xs font-bold text-slate-600 dark:text-slate-400">
+                                                        {row.lab}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-600 dark:text-slate-400 font-medium">
+                                                    {row.title}
+                                                    <div className="mt-1">
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
+                                                            Multi-Question
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="space-y-1">
+                                                        {Object.entries(row.questions).map(([question, score]) => (
+                                                            <div key={question} className="flex justify-between items-center">
+                                                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{question}:</span>
+                                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 ${getScoreColor(parseFloat(score) || 0, row.totalScore)}`}>
+                                                                    {score === '-' ? 'Not Graded' : 
+                                                                     score === '-1' && (subject === 'ITCS251' || subject === 'ITCS255') ? `0${row.totalScore ? `/${row.totalScore}` : ''}` :
+                                                                     `${score}${row.totalScore ? `/${row.totalScore}` : ''}`}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            // Regular lab row
+                                            <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                                <td className="px-6 py-4 text-slate-900 dark:text-slate-200 font-mono">
+                                                    <span className="inline-block bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-xs font-bold text-slate-600 dark:text-slate-400">
+                                                        {row.lab}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-600 dark:text-slate-400 font-medium">
+                                                    {row.title}
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getScoreColor(parseFloat(row.score) || 0, row.totalScore)}`}>
+                                                        {row.score === '-' ? 'Not Graded' : 
+                                                         row.score === '-1' && (subject === 'ITCS251' || subject === 'ITCS255') ? `0${row.totalScore ? `/${row.totalScore}` : ''}` :
+                                                         `${row.score}${row.totalScore ? `/${row.totalScore}` : ''}`}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
                                 ))}
+                                {/* Commented out total score display
                                 {config.grading?.showCumulativeScore && subject !== 'ITCS251' && subject !== 'ITCS255' && (() => {
                                     // Calculate total {assignmentLabel} score
                                     const totalLabScore = labRows.reduce((acc, row) => {
-                                        const val = parseFloat(row.score);
-                                        return acc + (isNaN(val) ? 0 : val);
+                                        if (isMultiQuestionLab(row)) {
+                                            // Sum all question scores for multi-question labs
+                                            // Each question in multi-question labs contributes to the total
+                                            // For example: Lab 1 with Q1(2) + Q2(2) + Q3(2) = 6 total
+                                            const questionTotal = Object.values(row.questions).reduce((qAcc, qScore) => {
+                                                const val = parseFloat(qScore)
+                                                return qAcc + (isNaN(val) ? 0 : val)
+                                            }, 0)
+                                            return acc + questionTotal
+                                        } else {
+                                            const val = parseFloat(row.score);
+                                            return acc + (isNaN(val) ? 0 : val);
+                                        }
                                     }, 0);
                                     
                                     // Calculate max {assignmentLabel} score
+                                    // For multi-question labs: this represents the max possible score across all questions in all labs
+                                    // The percentage shows: (actualScore/maxScore) * labWeight
+                                    // Example: 38 out of 30 max = 126.67% efficiency, worth 20% of final grade
                                     const maxLabScore = config.grading.labMaxScore || labRows.length * 2;
                                     
                                     // Calculate percentage
@@ -587,7 +752,8 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                                             </tr>
                                         </>
                                     );
-                                })()}
+                                })()} 
+                                */}
                                 </>
                             ) : (
                                 <tr>
