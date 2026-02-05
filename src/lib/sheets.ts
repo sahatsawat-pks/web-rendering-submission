@@ -448,9 +448,18 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
     try {
       const nameSheetId = '1Sa8K_SPKuhqDHFuwlIrH_8lSdA3aMPqzuKsadwEkCXc';
       const sheets = await getSheetsClient();
+      
+      // First get sheet info to see the sheet names
+      const spreadsheetInfo = await sheets.spreadsheets.get({
+        spreadsheetId: nameSheetId,
+      });
+      
+      const firstSheetName = spreadsheetInfo.data.sheets?.[0]?.properties?.title || 'Sheet1';
+      console.log(`[ITCS113 Names] Sheet name: ${firstSheetName}`);
+      
       const nameResponse = await sheets.spreadsheets.values.get({
         spreadsheetId: nameSheetId,
-        range: 'Sheet1!A1:C1000',
+        range: `${firstSheetName}!A1:C1000`,
       });
       
       const nameRows = nameResponse.data.values || [];
