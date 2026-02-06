@@ -20,7 +20,7 @@ async function getCachedSubjects() {
         subjectsCacheTimestamp = Date.now();
         return cachedSubjects;
     } catch (e) {
-        console.error("[getCachedSubjects] Failed to fetch subjects:", e);
+        // console.error("[getCachedSubjects] Failed to fetch subjects:", e);
         return cachedSubjects || []; // Return stale data if fetch fails
     }
 }
@@ -181,7 +181,7 @@ async function getXlsxData(spreadsheetId: string, tabName: string) {
         return jsonData;
 
     } catch (e: any) {
-        console.error(`[getXlsxData] Failed to parse XLSX: ${e.message}`);
+        // console.error(`[getXlsxData] Failed to parse XLSX: ${e.message}`);
         return [];
     }
 }
@@ -265,7 +265,7 @@ async function getSubjectConfig(subjectCode: string) {
         const target = subjects.find(s => s.code === subjectCode);
         return target;
     } catch (e) {
-        console.error(`[getSubjectConfig] Failed to fetch config for ${subjectCode}`, e);
+        // console.error(`[getSubjectConfig] Failed to fetch config for ${subjectCode}`, e);
         return undefined;
     }
 }
@@ -322,7 +322,7 @@ function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] 
           const patternStr = config.columnPattern.replace('{labId}', '(\\d+)').replace('{questionId}', '(\\w+)');
           customRegex = new RegExp(patternStr, 'i');
       } catch (e) {
-          console.error(`[mapRows] Invalid Regex Pattern for ${subject}: ${config.columnPattern}`);
+        //   console.error(`[mapRows] Invalid Regex Pattern for ${subject}: ${config.columnPattern}`);
       }
   }
 
@@ -491,7 +491,7 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
             });
         }
       } catch (error: any) {
-        console.warn(`[getAllScores] Cannot access spreadsheet info for ${subject}, using fallback:`, error.message);
+        // console.warn(`[getAllScores] Cannot access spreadsheet info for ${subject}, using fallback:`, error.message);
         
         // Fallback: try common lab tab patterns
         const { getAllLabs } = await import("./db");
@@ -529,7 +529,7 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
       }
       
       if (labTabs.length === 0) {
-        console.warn(`[getAllScores] No lab tabs configured for ${subject}`);
+        // console.warn(`[getAllScores] No lab tabs configured for ${subject}`);
         return [];
       }
       
@@ -546,13 +546,13 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
             break;
           }
         } catch (e: any) {
-          console.warn(`[getAllScores] Cannot access ${tabName} for ${subject}:`, e.message);
+        //   console.warn(`[getAllScores] Cannot access ${tabName} for ${subject}:`, e.message);
           continue;
         }
       }
       
       if (!firstTabFound) {
-        console.warn(`[getAllScores] No accessible lab tabs found for ${subject}`);
+        // console.warn(`[getAllScores] No accessible lab tabs found for ${subject}`);
         return [];
       }
       
@@ -583,7 +583,7 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
               const actualLabNum = labNumMatch ? labNumMatch[0] : String(labNum);
               return mapRowsToStudents(rows, subject, { ...config, currentLabNumber: actualLabNum });
           } catch(e: any) {
-              console.warn(`[getAllScores] Failed to fetch ${tabName}: ${e.message}`);
+            //   console.warn(`[getAllScores] Failed to fetch ${tabName}: ${e.message}`);
               return [];
           }
       }));
@@ -618,10 +618,10 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
       });
       
       const result = Object.values(allStudentsMap);
-      console.log(`[getAllScores] Tab per lab strategy for ${subject}: found ${result.length} students from ${labTabs.length} tabs`);
-      if (result.length > 0) {
-        console.log(`[getAllScores] Sample student keys for ${subject}:`, Object.keys(result[0]));
-      }
+    //   console.log(`[getAllScores] Tab per lab strategy for ${subject}: found ${result.length} students from ${labTabs.length} tabs`);
+    //   if (result.length > 0) {
+        // console.log(`[getAllScores] Sample student keys for ${subject}:`, Object.keys(result[0]));
+    //   }
       return result;
   }
 
@@ -646,7 +646,7 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
       // console.log(`[getAllScores] Fetching multi-section: ${tabs.join(', ')}`);
       
       const promises = tabs.map(tab => getSheetData(subject, tab, bypassCache).catch(e => {
-          console.warn(`[getAllScores] Failed to fetch ${tab}: ${e.message}`);
+        //   console.warn(`[getAllScores] Failed to fetch ${tab}: ${e.message}`);
           return [];
       }));
       
@@ -879,7 +879,7 @@ export async function updateStudentLabScore(
 
 // Helper to update XLSX file directly (Download -> Modify -> Upload)
 async function updateXlsxData(spreadsheetId: string, tabName: string, updates: { col: number, row: number, value: any }[]) {
-    console.log(`[updateXlsxData] Attempting XLSX update for file: ${spreadsheetId}, Tab: ${tabName}, Updates: ${updates.length}`);
+    // console.log(`[updateXlsxData] Attempting XLSX update for file: ${spreadsheetId}, Tab: ${tabName}, Updates: ${updates.length}`);
     try {
         const drive = await getDriveClient();
         
@@ -899,7 +899,7 @@ async function updateXlsxData(spreadsheetId: string, tabName: string, updates: {
         }
         
         // 1. Download File
-        console.log(`[updateXlsxData] Downloading file: ${spreadsheetId}`);
+        // console.log(`[updateXlsxData] Downloading file: ${spreadsheetId}`);
         const res = await drive.files.get({
             fileId: spreadsheetId,
             alt: 'media',
@@ -1281,16 +1281,16 @@ async function updateCriteriaInTabWithPattern(subject: string, labNumber: string
         try {
             const result = await updateCriteriaInTab(subject, tabName, username, criteria);
             if (result) {
-                console.log(`[updateCriteriaInTabWithPattern] Successfully updated ${subject}-${tabName}`);
+                // console.log(`[updateCriteriaInTabWithPattern] Successfully updated ${subject}-${tabName}`);
                 return true;
             }
         } catch (e: any) {
-            console.warn(`[updateCriteriaInTabWithPattern] Failed to update ${subject}-${tabName}: ${e.message}`);
+            // console.warn(`[updateCriteriaInTabWithPattern] Failed to update ${subject}-${tabName}: ${e.message}`);
             continue;
         }
     }
     
-    console.error(`[updateCriteriaInTabWithPattern] Failed to find working tab for ${subject}-${labNumber}`);
+    // console.error(`[updateCriteriaInTabWithPattern] Failed to find working tab for ${subject}-${labNumber}`);
     return false;
 }
 
@@ -1373,11 +1373,11 @@ async function updateCriteriaInTab(subject: string, tabName: string, username: s
                     data: pendingUpdates,
                 },
             });
-            console.log(`[updateCriteriaInTab] Google Sheets API update successful`);
+            // console.log(`[updateCriteriaInTab] Google Sheets API update successful`);
         }
         return true;
     } catch (e: any) {
-        console.error(`[updateCriteriaInTab] Google Sheets API failed, trying XLSX update:`, e.message);
+        // console.error(`[updateCriteriaInTab] Google Sheets API failed, trying XLSX update:`, e.message);
         if (xlsxUpdates.length > 0) {
             return await updateXlsxData(spreadsheetId, tabName, xlsxUpdates);
         }

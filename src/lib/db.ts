@@ -81,10 +81,47 @@ export function getPool() {
       connectionString: process.env.DATABASE_URL,
       ssl: {
         rejectUnauthorized: false // Neon typically requires this
-      }
+      },
+      // Better configuration for Vercel serverless
+      max: 5, // Reduced pool size for serverless
+      connectionTimeoutMillis: 10000, // 10 seconds
+      idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
+      allowExitOnIdle: true // Allow process to exit when all connections are idle
+    });
+
+    // Handle pool errors
+    pool.on('error', (err) => {
+      console.error('Unexpected error on idle client', err);
     });
   }
   return pool;
+}
+
+// Helper function to execute database operations with retry logic
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  delay: number = 1000
+): Promise<T> {
+  let lastError: Error | undefined;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      lastError = error;
+      console.error(`Database operation failed (attempt ${attempt}/${maxRetries}):`, error.message);
+      
+      if (attempt === maxRetries) {
+        break;
+      }
+      
+      // Wait before retrying
+      await new Promise(resolve => setTimeout(resolve, delay * attempt));
+    }
+  }
+  
+  throw lastError;
 }
 
 // Initializer to create tables if they don't exist
@@ -667,19 +704,21 @@ export async function createUser(username: string, password: string, role: 'LA' 
 
 export async function getAllUsers(): Promise<User[]> {
     await init();
-    const client = await getPool().connect();
-    try {
-        const res = await client.query('SELECT * FROM users ORDER BY created_at DESC');
-        return res.rows.map(r => ({
-            id: r.id,
-            username: r.username,
-            password: r.password,
-            role: r.role || 'LA',
-            createdAt: r.created_at.toString()
-        }));
-    } finally {
-        client.release();
-    }
+    return withRetry(async () => {
+        const client = await getPool().connect();
+        try {
+            const res = await client.query('SELECT * FROM users ORDER BY created_at DESC');
+            return res.rows.map(r => ({
+                id: r.id,
+                username: r.username,
+                password: r.password,
+                role: r.role || 'LA',
+                createdAt: r.created_at.toString()
+            }));
+        } finally {
+            client.release();
+        }
+    });
 }
 
 export async function deleteUser(id: string): Promise<boolean> {
@@ -1067,77 +1106,83 @@ export async function getDb() {
 
 export async function getSubjects(visibleOnly: boolean = false): Promise<Subject[]> {
   await init();
-  const pool = getPool();
-  const client = await pool.connect();
-  
-  try {
-    const query = visibleOnly 
-      ? 'SELECT * FROM subjects WHERE is_visible = true ORDER BY display_order, code'
-      : 'SELECT * FROM subjects ORDER BY display_order, code';
+  return withRetry(async () => {
+    const pool = getPool();
+    const client = await pool.connect();
     
-    const result = await client.query(query);
-    return result.rows.map(row => ({
-      id: row.id,
-      code: row.code,
-      title: row.title,
-      description: row.description,
-      icon: row.icon,
-      color: row.color,
-      isVisible: row.is_visible,
-      displayOrder: row.display_order,
-      createScoreCheckPlaceholder: row.create_score_check_placeholder,
-      createLabRunnerPlaceholder: row.create_lab_runner_placeholder,
-      courseSummaryLink: row.course_summary_link,
-      quizSectionEnabled: row.quiz_section_enabled !== false,
-      hasGradingInterface: row.has_grading_interface || false,
-      hasQuizManagement: row.has_quiz_management || false,
-      hasTestCases: row.has_test_cases || false,
-      gradingType: row.grading_type,
-      googleSheetId: row.google_sheet_id,
-      headerRow: row.header_row,
-      columnPattern: row.column_pattern,
-      dataSourceType: row.data_source_type,
-      sheetTabs: row.sheet_tabs,
-      labWeight: row.lab_weight,
-      labMaxScore: row.lab_max_score,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at
-    }));
-  } finally {
-    client.release();
-  }
+    try {
+      const query = visibleOnly 
+        ? 'SELECT * FROM subjects WHERE is_visible = true ORDER BY display_order, code'
+        : 'SELECT * FROM subjects ORDER BY display_order, code';
+      
+      const result = await client.query(query);
+      return result.rows.map(row => ({
+        id: row.id,
+        code: row.code,
+        title: row.title,
+        description: row.description,
+        icon: row.icon,
+        color: row.color,
+        isVisible: row.is_visible,
+        displayOrder: row.display_order,
+        createScoreCheckPlaceholder: row.create_score_check_placeholder,
+        createLabRunnerPlaceholder: row.create_lab_runner_placeholder,
+        courseSummaryLink: row.course_summary_link,
+        quizSectionEnabled: row.quiz_section_enabled !== false,
+        hasGradingInterface: row.has_grading_interface || false,
+        hasQuizManagement: row.has_quiz_management || false,
+        hasTestCases: row.has_test_cases || false,
+        gradingType: row.grading_type,
+        googleSheetId: row.google_sheet_id,
+        headerRow: row.header_row,
+        columnPattern: row.column_pattern,
+        dataSourceType: row.data_source_type,
+        sheetTabs: row.sheet_tabs,
+        labWeight: row.lab_weight,
+        labMaxScore: row.lab_max_score,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }));
+    } finally {
+      client.release();
+    }
+  });
 }
 
 export async function updateSubjectVisibility(code: string, isVisible: boolean): Promise<void> {
   await init();
-  const pool = getPool();
-  const client = await pool.connect();
-  
-  try {
-    await client.query(`
-      UPDATE subjects 
-      SET is_visible = $1, updated_at = CURRENT_TIMESTAMP 
-      WHERE code = $2
-    `, [isVisible, code]);
-  } finally {
-    client.release();
-  }
+  return withRetry(async () => {
+    const pool = getPool();
+    const client = await pool.connect();
+    
+    try {
+      await client.query(`
+        UPDATE subjects 
+        SET is_visible = $1, updated_at = CURRENT_TIMESTAMP 
+        WHERE code = $2
+      `, [isVisible, code]);
+    } finally {
+      client.release();
+    }
+  });
 }
 
 export async function updateSubjectOrder(code: string, displayOrder: number): Promise<void> {
   await init();
-  const pool = getPool();
-  const client = await pool.connect();
-  
-  try {
-    await client.query(`
-      UPDATE subjects 
-      SET display_order = $1, updated_at = CURRENT_TIMESTAMP 
-      WHERE code = $2
-    `, [displayOrder, code]);
-  } finally {
-    client.release();
-  }
+  return withRetry(async () => {
+    const pool = getPool();
+    const client = await pool.connect();
+    
+    try {
+      await client.query(`
+        UPDATE subjects 
+        SET display_order = $1, updated_at = CURRENT_TIMESTAMP 
+        WHERE code = $2
+      `, [displayOrder, code]);
+    } finally {
+      client.release();
+    }
+  });
 }
 
 export async function updateSubjectQuizSection(code: string, enabled: boolean): Promise<boolean> {
@@ -1229,10 +1274,11 @@ export async function updateSubject(
   updates: Partial<Omit<Subject, 'id' | 'code' | 'createdAt' | 'updatedAt'>>
 ): Promise<Subject | null> {
   await init();
-  const pool = getPool();
-  const client = await pool.connect();
-  
-  try {
+  return withRetry(async () => {
+    const pool = getPool();
+    const client = await pool.connect();
+    
+    try {
     const fields: string[] = [];
     const values: any[] = [];
     let idx = 1;
@@ -1330,9 +1376,10 @@ export async function updateSubject(
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
-  } finally {
-    client.release();
-  }
+    } finally {
+      client.release();
+    }
+  });
 }
 
 // Credentials Management Functions

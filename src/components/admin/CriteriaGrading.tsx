@@ -58,10 +58,12 @@ export default function CriteriaGrading({
   })
   const [creatingLab, setCreatingLab] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [togglingQuiz, setTogglingQuiz] = useState<number | null>(null)
+  const [togglingQuiz, setTogglingQuiz] = useState<string | number | null>(null)
   
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [submissionLoading, setSubmissionLoading] = useState(false)
+  const [localQuizSectionEnabled, setLocalQuizSectionEnabled] = useState(quizSectionEnabled)
+  const [togglingQuizSection, setTogglingQuizSection] = useState(false)
 
   useEffect(() => {
     async function fetchLabs() {
@@ -100,6 +102,16 @@ export default function CriteriaGrading({
         }
       })
       .catch(err => console.error("Failed to fetch prefixes", err))
+
+    // Fetch current quiz section status
+    fetch(`/api/subjects?code=${subjectCode}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.subjects && data.subjects.length > 0) {
+          setLocalQuizSectionEnabled(data.subjects[0].quizSectionEnabled !== false)
+        }
+      })
+      .catch(err => console.error("Failed to fetch subject info", err))
   }, [subjectCode])
 
   async function handleGradeSubmit(e: React.FormEvent) {
@@ -247,7 +259,7 @@ export default function CriteriaGrading({
     }
   }
 
-  async function toggleQuiz(labId: number, currentStatus: boolean) {
+  async function toggleQuiz(labId: string | number, currentStatus: boolean) {
     setTogglingQuiz(labId)
     try {
       const res = await fetch('/api/admin/quiz-management', {
@@ -255,9 +267,9 @@ export default function CriteriaGrading({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ labId, quizEnabled: !currentStatus })
       })
-      const data = await res.json()
-      if (data.success) {
-        const labsRes = await fetch(`/api/labs?subject=${subjectCode}`)
+      
+      if (res.ok) {
+        const labsRes = await fetch(`/api/labs?subject=${subjectCode}`, { cache: 'no-store' })
         if (labsRes.ok) {
           const labsData = await labsRes.json()
           if (labsData.success) {
@@ -265,10 +277,32 @@ export default function CriteriaGrading({
           }
         }
       }
-    } catch (e) {
-      console.error("Failed to toggle quiz", e)
+    } catch (error) {
+      console.error("Failed to toggle quiz:", error)
     } finally {
       setTogglingQuiz(null)
+    }
+  }
+
+  async function toggleQuizSection() {
+    setTogglingQuizSection(true)
+    try {
+      const res = await fetch('/api/subjects/toggle-quiz-section', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subjectCode, enabled: !localQuizSectionEnabled })
+      })
+      
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) {
+          setLocalQuizSectionEnabled(data.quizSectionEnabled)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to toggle quiz section:', error)
+    } finally {
+      setTogglingQuizSection(false)
     }
   }
 
@@ -276,7 +310,25 @@ export default function CriteriaGrading({
     <div className="flex-1 space-y-8">
       {/* Welcome Section */}
       <div className="animate-slide-up">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-200">{subjectCode} Dashboard</h1>
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-200">{subjectCode} Dashboard</h1>
+          {['Lecturer', 'Main Admin'].includes(role) && hasQuizManagement && (
+            <button
+              onClick={toggleQuizSection}
+              disabled={togglingQuizSection}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-all disabled:opacity-50 flex items-center gap-2 ${
+                localQuizSectionEnabled
+                  ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Quiz: {localQuizSectionEnabled ? "ON" : "OFF"}
+            </button>
+          )}
+        </div>
         <p className="text-lg text-slate-600 dark:text-slate-400">Criteria-Based Grading (Ethics, Understanding, Reflection)</p>
       </div>
 
@@ -553,15 +605,15 @@ export default function CriteriaGrading({
                   )}
                   {hasQuizManagement && ['Lecturer', 'Main Admin'].includes(role) && lab.quizQuestions && (
                     <button
-                      onClick={() => toggleQuiz(lab.id, lab.quizEnabled)}
+                      onClick={() => toggleQuiz(lab.id, lab.quizEnabled || false)}
                       disabled={togglingQuiz === lab.id}
-                      className={`px-3 py-2 text-xs font-medium rounded-lg transition-all disabled:opacity-50 ${
+                      className={`px-3 py-2 text-xs font-semibold rounded-lg transition-all border disabled:opacity-50 ${
                         lab.quizEnabled
-                          ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
-                          : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                          ? "bg-pink-50 dark:bg-pink-900/20 text-pink-700 dark:text-pink-400 border-pink-200 dark:border-pink-800 hover:bg-pink-100"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-200"
                       }`}
                     >
-                      {lab.quizEnabled ? "Quiz: ON" : "Quiz: OFF"}
+                      {togglingQuiz === lab.id ? "..." : lab.quizEnabled ? "Quiz ON" : "Quiz OFF"}
                     </button>
                   )}
                 </div>

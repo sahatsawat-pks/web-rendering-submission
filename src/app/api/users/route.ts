@@ -5,38 +5,43 @@ export const dynamic = 'force-dynamic';
 import { createUser, findUserByUsername, getAllUsers, deleteUser, getUserPermissions, updateUserRole, updateUserPassword, getSubjects } from "@/lib/db";
 
 export async function GET() {
-  const user = await getAuthUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const user = await getAuthUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const users = await getAllUsers();
-  const allSubjects = await getSubjects(); // Get all subjects from database
-  
-  // Return users without passwords, but with permissions
-  const safeUsers = await Promise.all(users.map(async ({ password, ...u }) => {
-    // Get permissions for this user
-    const userPerms = await getUserPermissions(u.id);
+    const users = await getAllUsers();
+    const allSubjects = await getSubjects(); // Get all subjects from database
     
-    // Dynamically build permissions object for all subjects
-    const permissions: { [key: string]: boolean } = {};
-    allSubjects.forEach(subject => {
-      permissions[subject.code.toLowerCase()] = userPerms.some(p => p.subjectCode === subject.code.toLowerCase() && p.canEdit);
-    });
+    // Return users without passwords, but with permissions
+    const safeUsers = await Promise.all(users.map(async ({ password, ...u }) => {
+      // Get permissions for this user
+      const userPerms = await getUserPermissions(u.id);
+      
+      // Dynamically build permissions object for all subjects
+      const permissions: { [key: string]: boolean } = {};
+      allSubjects.forEach(subject => {
+        permissions[subject.code.toLowerCase()] = userPerms.some(p => p.subjectCode === subject.code.toLowerCase() && p.canEdit);
+      });
 
-    return { ...u, permissions };
-  }));
-  
-  return NextResponse.json({ users: safeUsers });
+      return { ...u, permissions };
+    }));
+    
+    return NextResponse.json({ users: safeUsers });
+  } catch (error: any) {
+    console.error('Error in GET /api/users:', error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
 
 export async function POST(request: NextRequest) {
-  const user = await getAuthUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
+    const user = await getAuthUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { username, password, role } = await request.json();
 
     if (!username || !password) {

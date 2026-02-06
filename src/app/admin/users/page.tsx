@@ -418,6 +418,18 @@ export default function UserManagement() {
         )}
 
         {/* Users List with Permissions */}
+        {loading ? (
+          <div className="animate-fade-in">
+            <div className="glass-card overflow-hidden">
+              <div className="px-8 py-12 text-center">
+                <div className="inline-flex items-center gap-3">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                  <span className="text-lg text-slate-600 dark:text-slate-400">Loading users and permissions...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
         <div className="animate-fade-in">
             <div className="glass-card overflow-hidden hover:shadow-2xl hover:shadow-purple-500/5 transition-all duration-300 border-white/40 dark:border-slate-700/40">
               <div className="px-8 py-6 border-b border-white/20 dark:border-slate-700/50 bg-gradient-to-r from-purple-50/50 to-pink-50/50 dark:from-purple-950/20 dark:to-pink-950/20">
@@ -559,6 +571,7 @@ export default function UserManagement() {
               </div>
             </div>
           </div>
+        )}
       </div>
 
       {/* Username Change Modal */}

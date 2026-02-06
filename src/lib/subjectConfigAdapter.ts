@@ -181,8 +181,8 @@ export function adaptSubjectConfig(subject: Subject): SubjectConfig {
     })
   }
 
-  // 4. Quiz Card
-  if (subject.hasQuizManagement || subject.quizSectionEnabled) {
+  // 4. Quiz Card - Only show when quiz management is enabled AND quiz section is enabled
+  if (subject.hasQuizManagement && subject.quizSectionEnabled) {
     cards.push({
         title: "Check Your Understanding",
         description: "Test your knowledge with quizzes for each lab.",

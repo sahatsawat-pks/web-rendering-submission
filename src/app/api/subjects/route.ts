@@ -165,12 +165,19 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Subject not found" }, { status: 404 });
     }
 
-    // Clear cache so updated subject configuration is immediately available
-    const { clearSubjectsCache, clearSheetsCache } = await import('@/lib/sheets');
-    const { invalidateSubjectConfigCache } = await import('@/lib/subjectConfigCache');
-    clearSubjectsCache();
-    clearSheetsCache(code); // Clear sheets data cache for this subject
-    invalidateSubjectConfigCache(code); // Clear specific subject's config cache
+    // Clear cache in background to avoid blocking the response
+    // This prevents timeouts during subject toggle operations
+    setImmediate(async () => {
+      try {
+        const { clearSubjectsCache, clearSheetsCache } = await import('@/lib/sheets');
+        const { invalidateSubjectConfigCache } = await import('@/lib/subjectConfigCache');
+        clearSubjectsCache();
+        clearSheetsCache(code);
+        invalidateSubjectConfigCache(code);
+      } catch (error) {
+        console.error('Background cache clearing failed:', error);
+      }
+    });
 
     return NextResponse.json({ success: true, message: "Subject updated successfully", subject: updated });
   } catch (error: any) {

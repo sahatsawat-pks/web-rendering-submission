@@ -124,15 +124,27 @@ export default function SubjectManagementPage() {
 
   async function fetchSubjects() {
     try {
-      const res = await fetch("/api/subjects")
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout
+
+      const res = await fetch("/api/subjects", {
+        signal: controller.signal
+      })
+      
+      clearTimeout(timeoutId)
+      
       if (res.ok) {
         const data = await res.json()
         if (data.success) {
           setSubjects(data.subjects)
         }
       }
-    } catch (e) {
-      // Error handled by UI
+    } catch (e: any) {
+      if (e.name === 'AbortError') {
+        console.error('Fetch subjects timed out')
+      } else {
+        console.error('Failed to fetch subjects:', e)
+      }
     } finally {
       setLoading(false)
     }
@@ -194,19 +206,33 @@ export default function SubjectManagementPage() {
   async function toggleVisibility(code: string, currentValue: boolean) {
     setSaving(code)
     try {
+      // Add timeout to prevent hanging
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 25000) // 25 second timeout
+
       const res = await fetch("/api/subjects", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, isVisible: !currentValue })
+        body: JSON.stringify({ code, isVisible: !currentValue }),
+        signal: controller.signal
       })
+
+      clearTimeout(timeoutId)
 
       if (res.ok) {
         await fetchSubjects()
       } else {
-        alert("Failed to update subject visibility")
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
+        console.error('Toggle visibility failed:', errorData)
+        alert(`Failed to update subject visibility: ${errorData.error || 'Unknown error'}`)
       }
-    } catch (e) {
-      alert("An error occurred")
+    } catch (e: any) {
+      if (e.name === 'AbortError') {
+        alert('Request timed out. Please try again.')
+      } else {
+        console.error('Toggle visibility error:', e)
+        alert(`An error occurred: ${e.message || 'Unknown error'}`)
+      }
     } finally {
       setSaving(null)
     }
@@ -231,18 +257,28 @@ export default function SubjectManagementPage() {
 
     setSaving(code)
     try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout for multiple operations
+
       await Promise.all(
         updates.map(u =>
           fetch("/api/subjects", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(u)
+            body: JSON.stringify(u),
+            signal: controller.signal
           })
         )
       )
+      
+      clearTimeout(timeoutId)
       await fetchSubjects()
-    } catch (e) {
-      alert("Failed to reorder subjects")
+    } catch (e: any) {
+      if (e.name === 'AbortError') {
+        alert('Request timed out. Please try again.')
+      } else {
+        alert("Failed to reorder subjects")
+      }
     } finally {
       setSaving(null)
     }
@@ -355,7 +391,8 @@ export default function SubjectManagementPage() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-slate-200 dark:border-slate-800 border-t-slate-600 dark:border-t-slate-400"></div>
-          <p className="text-slate-600 dark:text-slate-400 mt-4 font-medium">Loading...</p>
+          <p className="text-slate-600 dark:text-slate-400 mt-4 font-medium">Loading subjects and configurations...</p>
+          <p className="text-slate-500 dark:text-slate-500 text-sm mt-2">This may take a moment in serverless environments</p>
         </div>
       </div>
     )
