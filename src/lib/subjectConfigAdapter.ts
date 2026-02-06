@@ -3,6 +3,35 @@ import { SubjectConfig, SubjectCard } from "@/lib/subjectConfig"
 import { getIconByName } from "@/lib/iconMap"
 
 /**
+ * Maps Tailwind color names to RGB values for shadows
+ */
+const colorMap: Record<string, string> = {
+  lime: '132, 204, 22', // lime-500
+  green: '34, 197, 94', // green-500
+  blue: '59, 130, 246', // blue-500
+  indigo: '99, 102, 241', // indigo-500
+  purple: '168, 85, 247', // purple-500
+  pink: '236, 72, 153', // pink-500
+  red: '239, 68, 68', // red-500
+  orange: '249, 115, 22', // orange-500
+  amber: '245, 158, 11', // amber-500
+  yellow: '234, 179, 8', // yellow-500
+  emerald: '16, 185, 129', // emerald-500
+  teal: '20, 184, 166', // teal-500
+  cyan: '6, 182, 212', // cyan-500
+  sky: '14, 165, 233', // sky-500
+  rose: '244, 63, 94', // rose-500
+}
+
+/**
+ * Generates CSS shadow color from Tailwind color name
+ */
+function getShadowColor(colorName: string, opacity: number = 0.2): string {
+  const rgb = colorMap[colorName] || colorMap.blue
+  return `rgba(${rgb}, ${opacity})`
+}
+
+/**
  * Parses a color string (Tailwind classes or Hex) into gradient components
  */
 function parseColorToComponents(color: string): {
@@ -80,30 +109,60 @@ export function adaptSubjectConfig(subject: Subject): SubjectConfig {
       iconColor: `text-${baseColor}-600 dark:text-${baseColor}-400`,
       gradientFrom: `from-${baseColor}-500/5`,
       gradientTo: `to-${secondaryColor}-500/5`,
-      shadowColor: `shadow-${baseColor}-500/20`
+      shadowColor: `[box-shadow:0_4px_14px_0_${getShadowColor(baseColor)}]`
     })
   }
 
-  // 2. Test Runner Card
+  // 2. Test Runner Card(s)
   if (subject.hasTestCases) {
     const runnerIconName = subject.gradingType === 'sql' ? 'Database' : 'Terminal'
-    const runnerTitle = subject.gradingType === 'sql' 
-      ? 'SQL Test Runner' 
-      : subject.gradingType === 'java' 
-      ? 'Java Test Runner' 
-      : 'Python Test Runner'
     
-    cards.push({
-      title: runnerTitle,
-      description: "Execute and test your code with automated test cases.",
-      href: `/${codeLower}/test-case`,
-      icon: getIconByName(runnerIconName),
-      iconBg: `bg-${baseColor}-100 dark:bg-${baseColor}-900/30`,
-      iconColor: `text-${baseColor}-600 dark:text-${baseColor}-400`,
-      gradientFrom: `from-${baseColor}-500/5`,
-      gradientTo: `to-${secondaryColor}-500/5`,
-      shadowColor: `shadow-${baseColor}-500/20`
-    })
+    // Handle lab_challenge as Java with separate Lab and Challenge cards
+    if (subject.gradingType === 'lab_challenge') {
+      // Create separate Lab and Challenge cards for lab_challenge grading
+      cards.push({
+        title: "Java Test Runner - Labs",
+        description: "Compile and run JUnit tests for your Java lab submissions.",
+        href: `/${codeLower}/test-case`,
+        icon: getIconByName(runnerIconName),
+        iconBg: `bg-${baseColor}-100 dark:bg-${baseColor}-900/30`,
+        iconColor: `text-${baseColor}-600 dark:text-${baseColor}-400`,
+        gradientFrom: `from-${baseColor}-500/5`,
+        gradientTo: `to-${secondaryColor}-500/5`,
+        shadowColor: `[box-shadow:0_4px_14px_0_${getShadowColor(baseColor)}]`
+      })
+      
+      cards.push({
+        title: "Java Test Runner - Challenges",
+        description: "Test your advanced Java problem-solving skills.",
+        href: `/${codeLower}/test-case`,
+        icon: getIconByName(runnerIconName),
+        iconBg: `bg-${baseColor}-100 dark:bg-${baseColor}-900/30`,
+        iconColor: `text-${baseColor}-600 dark:text-${baseColor}-400`,
+        gradientFrom: `from-${baseColor}-500/5`,
+        gradientTo: `to-${secondaryColor}-500/5`,
+        shadowColor: `[box-shadow:0_4px_14px_0_${getShadowColor(baseColor)}]`
+      })
+    } else {
+      // Single test runner card for other grading types
+      const runnerTitle = subject.gradingType === 'sql' 
+        ? 'SQL Test Runner' 
+        : subject.gradingType === 'java' 
+        ? 'Java Test Runner' 
+        : 'Python Test Runner'
+      
+      cards.push({
+        title: runnerTitle,
+        description: "Execute and test your code with automated test cases.",
+        href: `/${codeLower}/test-case`,
+        icon: getIconByName(runnerIconName),
+        iconBg: `bg-${baseColor}-100 dark:bg-${baseColor}-900/30`,
+        iconColor: `text-${baseColor}-600 dark:text-${baseColor}-400`,
+        gradientFrom: `from-${baseColor}-500/5`,
+        gradientTo: `to-${secondaryColor}-500/5`,
+        shadowColor: `[box-shadow:0_4px_14px_0_${getShadowColor(baseColor)}]`
+      })
+    }
   }
 
   // 3. Lab Scores Card (Always included if there is a grading interface)
@@ -118,7 +177,7 @@ export function adaptSubjectConfig(subject: Subject): SubjectConfig {
       iconColor: "text-blue-600 dark:text-blue-400",
       gradientFrom: "from-teal-500/5",
       gradientTo: "to-indigo-500/5",
-      shadowColor: `shadow-${baseColor}-500/20`
+      shadowColor: `[box-shadow:0_4px_14px_0_${getShadowColor(baseColor)}]`
     })
   }
 
@@ -133,7 +192,7 @@ export function adaptSubjectConfig(subject: Subject): SubjectConfig {
         iconColor: "text-purple-600 dark:text-purple-400",
         gradientFrom: "from-purple-500/5",
         gradientTo: "to-pink-500/5",
-        shadowColor: "shadow-purple-500/20"
+        shadowColor: "[box-shadow:0_4px_14px_0_rgba(168,85,247,0.2)]"
     })
   }
 
@@ -148,7 +207,7 @@ export function adaptSubjectConfig(subject: Subject): SubjectConfig {
         iconColor: "text-orange-600 dark:text-orange-400",
         gradientFrom: "from-orange-500/5",
         gradientTo: "to-amber-500/5",
-        shadowColor: "shadow-orange-500/20",
+        shadowColor: "[box-shadow:0_4px_14px_0_rgba(249,115,22,0.2)]",
         isExternal: true
     })
   }
@@ -165,7 +224,7 @@ export function adaptSubjectConfig(subject: Subject): SubjectConfig {
     bgGradient: `from-${baseColor}-50 via-white to-${secondaryColor}-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950`, // Approximate reconstruction
     iconBg: `bg-${baseColor}-100 dark:bg-${baseColor}-900/30`,
     iconColor: `text-${baseColor}-600 dark:text-${baseColor}-400`,
-    shadowColor: `shadow-${baseColor}-500/20`,
+    shadowColor: `[box-shadow:0_4px_14px_0_${getShadowColor(baseColor)}]`,
     accentColor: `text-${baseColor}-600 dark:text-${baseColor}-400`,
     accentColorDark: `text-${baseColor}-400`,
     
@@ -177,8 +236,10 @@ export function adaptSubjectConfig(subject: Subject): SubjectConfig {
     hasCourseSummary: !!subject.courseSummaryLink,
     courseSummaryLink: subject.courseSummaryLink,
     
-    testRunnerType: subject.gradingType as any,
-    testRunnerLabel: `${subject.gradingType} Runner`, // Simplification
+    testRunnerType: subject.gradingType === 'lab_challenge' ? 'java' : subject.gradingType as any,
+    testRunnerLabel: subject.gradingType === 'lab_challenge' 
+      ? "Java Test Runner" 
+      : `${subject.gradingType.charAt(0).toUpperCase() + subject.gradingType.slice(1)} Test Runner`,
     testRunnerIcon: getIconByName(subject.gradingType === 'sql' ? 'Database' : 'Terminal'),
     
     cards,

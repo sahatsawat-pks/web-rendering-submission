@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="p-8 bg-gray-100">
+    <h1 class="text-2xl mb-4">Shadow Test for ITCS258</h1>
+    
+    <div class="grid grid-cols-2 gap-4">
+        <div class="space-y-4">
+            <h2 class="text-lg font-semibold">Current ITCS258 Style</h2>
+            <div class="h-14 w-14 rounded-2xl bg-gradient-to-br from-lime-500 to-green-500 flex items-center justify-center text-white shadow-lg shadow-lime-500/20 mb-6">
+                <span>✓</span>
+            </div>
+            <p>Should show lime green shadow</p>
+        </div>
+        
+        <div class="space-y-4">
+            <h2 class="text-lg font-semibold">Expected vs Actual</h2>
+            <div class="h-14 w-14 rounded-2xl bg-gradient-to-br from-lime-500 to-green-500 flex items-center justify-center text-white shadow-lg shadow-lime-500/50 mb-6">
+                <span>✓</span>
+            </div>
+            <p>Higher opacity lime shadow</p>
+        </div>
+    </div>
+    
+    <div class="mt-8">
+        <h2 class="text-lg font-semibold mb-4">Color Test Grid</h2>
+        <div class="grid grid-cols-4 gap-4">
+            <div class="h-16 w-16 rounded-xl bg-gradient-to-br from-lime-500 to-green-500 shadow-lg shadow-lime-500/20"></div>
+            <div class="h-16 w-16 rounded-xl bg-gradient-to-br from-lime-500 to-green-500 shadow-lg shadow-green-500/20"></div>
+            <div class="h-16 w-16 rounded-xl bg-gradient-to-br from-lime-500 to-green-500 shadow-lg shadow-lime-400/30"></div>
+            <div class="h-16 w-16 rounded-xl bg-gradient-to-br from-lime-500 to-green-500 shadow-lg shadow-emerald-500/20"></div>
+        </div>
+    </div>
+</body>
+</html>

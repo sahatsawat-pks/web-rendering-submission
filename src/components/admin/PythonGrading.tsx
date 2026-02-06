@@ -4,6 +4,8 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { getGradientStyleProps, getShadowColorClass } from "@/lib/colors"
+import GradeSubmissionDialog from "./GradeSubmissionDialog"
+import SuccessNotification from "./SuccessNotification"
 
 interface PythonGradingProps {
   subjectCode: string
@@ -45,6 +47,10 @@ export default function PythonGrading({
   const [togglingQuiz, setTogglingQuiz] = useState<string | null>(null)
   const [localQuizSectionEnabled, setLocalQuizSectionEnabled] = useState(quizSectionEnabled)
   const [togglingQuizSection, setTogglingQuizSection] = useState(false)
+  
+  // Confirmation dialog states
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [submissionLoading, setSubmissionLoading] = useState(false)
   
   // New Lab Dialog state
   const [showNewLabDialog, setShowNewLabDialog] = useState(false)

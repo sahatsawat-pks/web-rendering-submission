@@ -22,6 +22,20 @@ export default async function LandingPage() {
       const config = adaptSubjectConfig(s);
       const IconComponent = getIconByName(s.icon || 'Code');
       const colorGradient = `${config.gradientFrom} ${config.gradientTo}`;
+      
+      // Parse shadowColor for CSS vs class usage
+      let shadowClass = '';
+      let shadowStyle = {};
+      if (config.shadowColor.startsWith('[box-shadow:')) {
+        // Extract CSS from arbitrary value
+        const cssMatch = config.shadowColor.match(/\[box-shadow:([^\]]+)\]/);
+        if (cssMatch) {
+          shadowStyle = { boxShadow: cssMatch[1].replace(/_/g, ' ') };
+        }
+      } else {
+        shadowClass = config.shadowColor;
+      }
+      
       return {
         id: s.code.toLowerCase(),
         code: s.code,
@@ -29,7 +43,8 @@ export default async function LandingPage() {
         description: config.description,
         icon: IconComponent ? <IconComponent className="w-6 h-6" /> : <Zap className="w-6 h-6" />,
         color: colorGradient,
-        shadow: config.shadowColor,
+        shadow: shadowClass,
+        shadowStyle: shadowStyle,
         link: `/${s.code.toLowerCase()}`
       };
     })
@@ -72,7 +87,10 @@ export default async function LandingPage() {
                 style={{ animationDelay: `${index * 100}ms` }}
             >
                 <div className="glass-card flex-1 p-8 text-left hover:scale-[1.03] transition-all duration-300 border-2 border-white/60 dark:border-slate-700/60 group-hover:shadow-2xl flex flex-col">
-                    <div className={`h-14 w-14 rounded-2xl bg-gradient-to-br ${subject.color} flex items-center justify-center text-white shadow-lg ${subject.shadow} mb-6 group-hover:scale-110 transition-transform duration-300`}>
+                    <div 
+                        className={`h-14 w-14 rounded-2xl bg-gradient-to-br ${subject.color} flex items-center justify-center text-white shadow-lg ${subject.shadow} mb-6 group-hover:scale-110 transition-transform duration-300`}
+                        style={subject.shadowStyle}
+                    >
                         {subject.icon}
                     </div>
                     <div className="mb-4">

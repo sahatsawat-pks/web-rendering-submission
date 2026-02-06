@@ -3,6 +3,19 @@
 import React from 'react'
 import { AlertCircle, User, Hash, FileText, CheckCircle, X, Star, Award, Target } from 'lucide-react'
 
+// Grading type definitions
+type GradingType = 'simple' | 'lab_challenge' | 'criteria' | 'multi_question' | 'python' | 'sql'
+
+interface CriteriaScores {
+  ethics: string | number
+  understanding: string | number
+  reflection: string | number
+}
+
+interface MultiQuestionScores {
+  [questionId: string]: string | number
+}
+
 interface GradeSubmissionDialogProps {
   isOpen: boolean
   onClose: () => void
@@ -11,10 +24,16 @@ interface GradeSubmissionDialogProps {
   studentName?: string
   studentSurname?: string
   labNumber: string
-  score: string | number
-  challengeScore?: string | number
   subjectCode: string
   isLoading?: boolean
+  
+  // Grading type and scores
+  gradingType: GradingType
+  score?: string | number  // For simple/python/sql scoring
+  challengeScore?: string | number  // For lab_challenge scoring
+  criteriaScores?: CriteriaScores  // For criteria scoring
+  multiQuestionScores?: MultiQuestionScores  // For multi-question scoring
+  questionLabels?: string[]  // Labels for multi-question scoring
 }
 
 export default function GradeSubmissionDialog({
@@ -25,16 +44,99 @@ export default function GradeSubmissionDialog({
   studentName,
   studentSurname,
   labNumber,
+  subjectCode,
+  isLoading = false,
+  gradingType,
   score,
   challengeScore,
-  subjectCode,
-  isLoading = false
+  criteriaScores,
+  multiQuestionScores,
+  questionLabels
 }: GradeSubmissionDialogProps) {
   if (!isOpen) return null
 
   const displayName = studentName && studentSurname 
     ? `${studentName} ${studentSurname}`
     : 'Name not available'
+
+  // Function to render score details based on grading type
+  const renderScoreDetails = () => {
+    switch (gradingType) {
+      case 'lab_challenge':
+        return (
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-white dark:bg-slate-700 p-2 rounded-lg border border-amber-200 dark:border-amber-800">
+              <p className="text-xs text-slate-600 dark:text-slate-400">Lab Score</p>
+              <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{score}</p>
+            </div>
+            <div className="bg-white dark:bg-slate-700 p-2 rounded-lg border border-amber-200 dark:border-amber-800">
+              <p className="text-xs text-slate-600 dark:text-slate-400">Challenge</p>
+              <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{challengeScore}</p>
+            </div>
+          </div>
+        )
+      
+      case 'criteria':
+        return (
+          <div className="grid gap-2">
+            {criteriaScores && Object.entries(criteriaScores).map(([criterion, value]) => (
+              <div key={criterion} className="bg-white dark:bg-slate-700 p-2 rounded-lg border border-amber-200 dark:border-amber-800">
+                <p className="text-xs text-slate-600 dark:text-slate-400 capitalize">{criterion}</p>
+                <p className="text-sm font-bold text-amber-600 dark:text-amber-400">{value}/2</p>
+              </div>
+            ))}
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-2 rounded-lg border border-amber-300 dark:border-amber-700">
+              <p className="text-xs text-slate-600 dark:text-slate-400">Total Score</p>
+              <p className="text-lg font-bold text-amber-600 dark:text-amber-400">
+                {criteriaScores ? Object.values(criteriaScores).reduce((acc: number, val) => acc + Number(val), 0) : 0}/6
+              </p>
+            </div>
+          </div>
+        )
+      
+      case 'multi_question':
+        return (
+          <div className="grid gap-2">
+            {multiQuestionScores && Object.entries(multiQuestionScores).map(([questionId, value], index) => (
+              <div key={questionId} className="bg-white dark:bg-slate-700 p-2 rounded-lg border border-amber-200 dark:border-amber-800">
+                <p className="text-xs text-slate-600 dark:text-slate-400">
+                  {questionLabels?.[index] || `Question ${index + 1}`}
+                </p>
+                <p className="text-sm font-bold text-amber-600 dark:text-amber-400">{value}</p>
+              </div>
+            ))}
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-2 rounded-lg border border-amber-300 dark:border-amber-700">
+              <p className="text-xs text-slate-600 dark:text-slate-400">Total Score</p>
+              <p className="text-lg font-bold text-amber-600 dark:text-amber-400">
+                {multiQuestionScores ? Object.values(multiQuestionScores).reduce((acc: number, val) => acc + Number(val), 0) : 0}
+              </p>
+            </div>
+          </div>
+        )
+      
+      default: // simple, python, sql
+        return (
+          <div className="bg-white dark:bg-slate-700 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
+            <p className="text-xs text-slate-600 dark:text-slate-400">Score</p>
+            <p className="text-xl font-bold text-amber-600 dark:text-amber-400">{score}</p>
+          </div>
+        )
+    }
+  }
+
+  // Get assignment title based on grading type
+  const getAssignmentTitle = () => {
+    switch (gradingType) {
+      case 'criteria':
+        return `Lab ${labNumber} - Criteria Assessment`
+      case 'multi_question':
+        return `Lab ${labNumber} - Multi-Question Assessment`
+      case 'lab_challenge':
+        return `Lab ${labNumber} - Lab & Challenge`
+      default:
+        return `Lab ${labNumber} - ${subjectCode}`
+    }
+  }
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
@@ -100,7 +202,7 @@ export default function GradeSubmissionDialog({
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Assignment</p>
-                    <p className="text-base text-purple-700 dark:text-purple-300 font-medium">Lab {labNumber} - {subjectCode}</p>
+                    <p className="text-base text-purple-700 dark:text-purple-300 font-medium">{getAssignmentTitle()}</p>
                   </div>
                 </div>
 
@@ -111,23 +213,7 @@ export default function GradeSubmissionDialog({
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Score Details</p>
                     <div className="mt-2">
-                      {challengeScore !== undefined ? (
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="bg-white dark:bg-slate-700 p-2 rounded-lg border border-amber-200 dark:border-amber-800">
-                            <p className="text-xs text-slate-600 dark:text-slate-400">Lab Score</p>
-                            <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{score}</p>
-                          </div>
-                          <div className="bg-white dark:bg-slate-700 p-2 rounded-lg border border-amber-200 dark:border-amber-800">
-                            <p className="text-xs text-slate-600 dark:text-slate-400">Challenge</p>
-                            <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{challengeScore}</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="bg-white dark:bg-slate-700 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
-                          <p className="text-xs text-slate-600 dark:text-slate-400">Total Score</p>
-                          <p className="text-xl font-bold text-amber-600 dark:text-amber-400">{score}</p>
-                        </div>
-                      )}
+                      {renderScoreDetails()}
                     </div>
                   </div>
                 </div>

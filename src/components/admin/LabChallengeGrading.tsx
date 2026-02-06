@@ -885,10 +885,11 @@ export default function LabChallengeGrading({
         studentName={studentDetails?.name}
         studentSurname={studentDetails?.surname}
         labNumber={selectedLab}
-        score={pendingSubmission?.scoreType === 'lab' || pendingSubmission?.scoreType === 'both' ? labScore : ''}
-        challengeScore={pendingSubmission?.scoreType === 'challenge' || pendingSubmission?.scoreType === 'both' ? challengeScore : undefined}
         subjectCode={subjectCode}
         isLoading={submissionLoading}
+        gradingType="lab_challenge"
+        score={pendingSubmission?.scoreType === 'lab' || pendingSubmission?.scoreType === 'both' ? labScore : ''}
+        challengeScore={pendingSubmission?.scoreType === 'challenge' || pendingSubmission?.scoreType === 'both' ? challengeScore : undefined}
       />
 
       <SuccessNotification

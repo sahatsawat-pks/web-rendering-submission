@@ -3,6 +3,7 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { getGradientStyleProps, getShadowColorClass } from "@/lib/colors"
+import GradeSubmissionDialog from "./GradeSubmissionDialog"
 import SuccessNotification from "./SuccessNotification"
 
 interface CriteriaGradingProps {
@@ -58,6 +59,9 @@ export default function CriteriaGrading({
   const [creatingLab, setCreatingLab] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [togglingQuiz, setTogglingQuiz] = useState<number | null>(null)
+  
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [submissionLoading, setSubmissionLoading] = useState(false)
 
   useEffect(() => {
     async function fetchLabs() {
@@ -102,7 +106,28 @@ export default function CriteriaGrading({
     e.preventDefault()
     setGradingError(null)
     setGradingSuccess(false)
-    setIsSubmitting(true)
+    
+    // Fetch student details before showing confirmation dialog
+    try {
+      const detailsRes = await fetch(`/api/scores?username=${studentId}&subject=${subjectCode}`)
+      if (detailsRes.ok) {
+        const detailsData = await detailsRes.json()
+        if (detailsData.success && detailsData.scores) {
+          setStudentDetails(detailsData.scores)
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch student details", error)
+    }
+    
+    // Show confirmation dialog
+    setShowConfirmDialog(true)
+  }
+  
+  async function confirmAndSubmitGrade() {
+    setSubmissionLoading(true)
+    setGradingError(null)
+    setGradingSuccess(false)
 
     try {
         // For criteria-based subjects, we need to update specific columns within the selected lab tab
@@ -163,6 +188,7 @@ export default function CriteriaGrading({
              setEthicsScore("2");
              setUnderstandingScore("2");
              setReflectionScore("2");
+             setShowConfirmDialog(false)
         } else {
             const data = await res.json();
             setGradingError(data.error || "Failed to update scores");
@@ -170,6 +196,7 @@ export default function CriteriaGrading({
     } catch (err: any) {
         setGradingError(err.message || "An unexpected error occurred");
     } finally {
+        setSubmissionLoading(false)
         setIsSubmitting(false)
     }
   }
@@ -650,6 +677,24 @@ export default function CriteriaGrading({
           </div>
         </div>
       )}
+      
+      <GradeSubmissionDialog
+        isOpen={showConfirmDialog}
+        onClose={() => setShowConfirmDialog(false)}
+        onConfirm={confirmAndSubmitGrade}
+        studentId={studentId}
+        studentName={studentDetails?.name}
+        studentSurname={studentDetails?.surname}
+        labNumber={selectedLab}
+        subjectCode={subjectCode}
+        isLoading={submissionLoading}
+        gradingType="criteria"
+        criteriaScores={{
+          ethics: ethicsScore,
+          understanding: understandingScore,
+          reflection: reflectionScore
+        }}
+      />
       
       <SuccessNotification
         isVisible={gradingSuccess}

@@ -776,9 +776,10 @@ export default function SimpleScoreGrading({
         studentName={studentDetails?.name}
         studentSurname={studentDetails?.surname}
         labNumber={selectedLab}
-        score={score}
         subjectCode={subjectCode}
         isLoading={submissionLoading}
+        gradingType="simple"
+        score={score}
       />
 
       <SuccessNotification
