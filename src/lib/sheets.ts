@@ -283,10 +283,6 @@ function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] 
 
   const headers = rows[headerRowIndex];
   
-  if (subject === 'ITCS251' || subject === 'ITCS255') {
-    console.log(`[mapRowsToStudents] DEBUG: ${subject} - using headerRowIndex=${headerRowIndex} (row ${headerRowIndex + 1}) from config`);
-    console.log(`[mapRowsToStudents] DEBUG: ${subject} - headers from row ${headerRowIndex + 1}:`, headers?.slice(0, 10));
-  }
   const data = rows.slice(headerRowIndex + 1);
   
   // Determine ID Column Index

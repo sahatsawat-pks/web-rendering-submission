@@ -48,9 +48,8 @@ export default function PythonGrading({
   const [localQuizSectionEnabled, setLocalQuizSectionEnabled] = useState(quizSectionEnabled)
   const [togglingQuizSection, setTogglingQuizSection] = useState(false)
   
-  // Confirmation dialog states
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
-  const [submissionLoading, setSubmissionLoading] = useState(false)
+  // Grade submission dialog state
+  const [showGradeDialog, setShowGradeDialog] = useState(false)
   
   // New Lab Dialog state
   const [showNewLabDialog, setShowNewLabDialog] = useState(false)
@@ -137,6 +136,28 @@ export default function PythonGrading({
     }
   }, [selectedLab, labs, isITCS251or255])
 
+  // Fetch student details when studentId changes
+  useEffect(() => {
+    if (studentId && studentId.length >= 7) {
+      const fetchStudentDetails = async () => {
+        try {
+          const detailsRes = await fetch(`/api/scores?username=${studentId}&subject=${subjectCode}`)
+          if (detailsRes.ok) {
+            const detailsData = await detailsRes.json()
+            if (detailsData.success && detailsData.scores) {
+              setStudentDetails(detailsData.scores)
+            }
+          }
+        } catch (error) {
+          console.error("Failed to fetch student details", error)
+        }
+      }
+      fetchStudentDetails()
+    } else {
+      setStudentDetails(null)
+    }
+  }, [studentId, subjectCode])
+
   async function toggleQuizSection() {
     setTogglingQuizSection(true)
     try {
@@ -163,6 +184,13 @@ export default function PythonGrading({
     e.preventDefault()
     setGradingError(null)
     setGradingSuccess(false)
+    
+    // Show grade submission dialog
+    setShowGradeDialog(true)
+  }
+
+  async function handleConfirmSubmission() {
+    setShowGradeDialog(false)
     setIsSubmitting(true)
 
     try {
@@ -181,19 +209,6 @@ export default function PythonGrading({
 
         if (res.ok) {
              setLastSubmittedStudentId(studentId);
-             
-             try {
-                const detailsRes = await fetch(`/api/scores?username=${studentId}&subject=${subjectCode}`)
-                if (detailsRes.ok) {
-                    const detailsData = await detailsRes.json()
-                    if (detailsData.success && detailsData.scores) {
-                        setStudentDetails(detailsData.scores)
-                    }
-                }
-             } catch (error) {
-                 console.error("Failed to fetch student details", error)
-             }
-             
              setGradingSuccess(true);
              setStudentId("");
              setRemainingDigits("");
@@ -557,7 +572,7 @@ export default function PythonGrading({
                       className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 focus:ring-2"
                     />
                     <label htmlFor="inClass" className="text-sm text-slate-700 dark:text-slate-300 cursor-pointer select-none">
-                      In-Class Attendance
+                      In-Class
                     </label>
                   </div>
                 )}
@@ -1002,6 +1017,33 @@ export default function PythonGrading({
           </div>
         </div>
       )}
+
+      {/* Grade Submission Dialog */}
+      <GradeSubmissionDialog
+        isOpen={showGradeDialog}
+        onClose={() => setShowGradeDialog(false)}
+        onConfirm={handleConfirmSubmission}
+        studentId={studentId}
+        studentName={studentDetails?.name}
+        studentSurname={studentDetails?.surname}
+        labNumber={selectedLab}
+        subjectCode={subjectCode}
+        isLoading={isSubmitting}
+        gradingType="python"
+        score={score}
+        additionalInfo={isITCS251or255 ? `In-Class: ${inClass ? 'Yes' : 'No'}` : undefined}
+      />
+
+      <SuccessNotification
+        isVisible={gradingSuccess}
+        onHide={() => setGradingSuccess(false)}
+        studentId={lastSubmittedStudentId}
+        studentName={studentDetails ? `${studentDetails.name || ''} ${studentDetails.surname || ''}`.trim() : undefined}
+        labNumber={selectedLab}
+        score={score}
+        subjectCode={subjectCode}
+        additionalInfo={isITCS251or255 ? `In-Class: ${inClass ? 'Yes' : 'No'}` : undefined}
+      />
     </div>
   )
 }

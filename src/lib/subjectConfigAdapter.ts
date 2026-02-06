@@ -239,7 +239,9 @@ export function adaptSubjectConfig(subject: Subject): SubjectConfig {
     testRunnerType: subject.gradingType === 'lab_challenge' ? 'java' : subject.gradingType as any,
     testRunnerLabel: subject.gradingType === 'lab_challenge' 
       ? "Java Test Runner" 
-      : `${subject.gradingType.charAt(0).toUpperCase() + subject.gradingType.slice(1)} Test Runner`,
+      : subject.gradingType 
+        ? `${subject.gradingType.charAt(0).toUpperCase() + subject.gradingType.slice(1)} Test Runner`
+        : "Test Runner",
     testRunnerIcon: getIconByName(subject.gradingType === 'sql' ? 'Database' : 'Terminal'),
     
     cards,

@@ -4,6 +4,8 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { getGradientStyleProps, getShadowColorClass } from "@/lib/colors"
+import GradeSubmissionDialog from "./GradeSubmissionDialog"
+import SuccessNotification from "./SuccessNotification"
 
 interface SQLGradingProps {
   subjectCode: string
@@ -46,6 +48,9 @@ export default function SQLGrading({
   const [localQuizSectionEnabled, setLocalQuizSectionEnabled] = useState(quizSectionEnabled)
   const [togglingQuizSection, setTogglingQuizSection] = useState(false)
   
+  // Grade submission dialog state
+  const [showGradeDialog, setShowGradeDialog] = useState(false)
+  
   // New Lab Dialog state
   const [showNewLabDialog, setShowNewLabDialog] = useState(false)
   const [newLabData, setNewLabData] = useState({
@@ -68,6 +73,10 @@ export default function SQLGrading({
   const [csvLoading, setCsvLoading] = useState(false)
   const [csvSelectedLab, setCsvSelectedLab] = useState("")
   const [selectedScores, setSelectedScores] = useState<{[key: string]: 'sheet' | 'csv'}>({})
+  const [inClass, setInClass] = useState(true)
+  
+  // Helper to check if this is ITCS251 or ITCS255
+  const isITCS251or255 = subjectCode === 'ITCS251' || subjectCode === 'ITCS255'
 
   useEffect(() => {
     async function fetchLabs() {
@@ -117,6 +126,38 @@ export default function SQLGrading({
       .catch(err => console.error("Failed to fetch prefixes", err))
   }, [subjectCode])
 
+  // Set default score to max score for ITCS251/255 when lab is selected
+  useEffect(() => {
+    if (isITCS251or255 && selectedLab && labs.length > 0) {
+      const selectedLabData = labs.find(lab => lab.labNumber === selectedLab)
+      if (selectedLabData && selectedLabData.totalScore) {
+        setScore(selectedLabData.totalScore.toString())
+      }
+    }
+  }, [selectedLab, labs, isITCS251or255])
+
+  // Fetch student details when studentId changes
+  useEffect(() => {
+    if (studentId && studentId.length >= 7) {
+      const fetchStudentDetails = async () => {
+        try {
+          const detailsRes = await fetch(`/api/scores?username=${studentId}&subject=${subjectCode}`)
+          if (detailsRes.ok) {
+            const detailsData = await detailsRes.json()
+            if (detailsData.success && detailsData.scores) {
+              setStudentDetails(detailsData.scores)
+            }
+          }
+        } catch (error) {
+          console.error("Failed to fetch student details", error)
+        }
+      }
+      fetchStudentDetails()
+    } else {
+      setStudentDetails(null)
+    }
+  }, [studentId, subjectCode])
+
   async function toggleQuizSection() {
     setTogglingQuizSection(true)
     try {
@@ -143,6 +184,13 @@ export default function SQLGrading({
     e.preventDefault()
     setGradingError(null)
     setGradingSuccess(false)
+    
+    // Show grade submission dialog
+    setShowGradeDialog(true)
+  }
+
+  async function handleConfirmSubmission() {
+    setShowGradeDialog(false)
     setIsSubmitting(true)
 
     try {
@@ -154,25 +202,13 @@ export default function SQLGrading({
                 username: studentId,
                 labNumber: selectedLab,
                 score: parseInt(score),
-                subject: subjectCode
+                subject: subjectCode,
+                ...(isITCS251or255 && { inClass })
             })
         });
 
         if (res.ok) {
              setLastSubmittedStudentId(studentId);
-             
-             try {
-                const detailsRes = await fetch(`/api/scores?username=${studentId}&subject=${subjectCode}`)
-                if (detailsRes.ok) {
-                    const detailsData = await detailsRes.json()
-                    if (detailsData.success && detailsData.scores) {
-                        setStudentDetails(detailsData.scores)
-                    }
-                }
-             } catch (error) {
-                 console.error("Failed to fetch student details", error)
-             }
-             
              setGradingSuccess(true);
              setStudentId("");
              setRemainingDigits("");
@@ -526,6 +562,20 @@ export default function SQLGrading({
                   step="0.5"
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 shadow-sm"
                 />
+                {isITCS251or255 && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <input
+                      type="checkbox"
+                      id="inClass"
+                      checked={inClass}
+                      onChange={(e) => setInClass(e.target.checked)}
+                      className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    />
+                    <label htmlFor="inClass" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      In-Class
+                    </label>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -967,6 +1017,33 @@ export default function SQLGrading({
           </div>
         </div>
       )}
+
+      {/* Grade Submission Dialog */}
+      <GradeSubmissionDialog
+        isOpen={showGradeDialog}
+        onClose={() => setShowGradeDialog(false)}
+        onConfirm={handleConfirmSubmission}
+        studentId={studentId}
+        studentName={studentDetails?.name}
+        studentSurname={studentDetails?.surname}
+        labNumber={selectedLab}
+        subjectCode={subjectCode}
+        isLoading={isSubmitting}
+        gradingType="sql"
+        score={score}
+        additionalInfo={isITCS251or255 ? `In-Class: ${inClass ? 'Yes' : 'No'}` : undefined}
+      />
+
+      <SuccessNotification
+        isVisible={gradingSuccess}
+        onHide={() => setGradingSuccess(false)}
+        studentId={lastSubmittedStudentId}
+        studentName={studentDetails ? `${studentDetails.name || ''} ${studentDetails.surname || ''}`.trim() : undefined}
+        labNumber={selectedLab}
+        score={score}
+        subjectCode={subjectCode}
+        additionalInfo={isITCS251or255 ? `In-Class: ${inClass ? 'Yes' : 'No'}` : undefined}
+      />
     </div>
   )
 }

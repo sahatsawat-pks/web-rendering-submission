@@ -12,6 +12,7 @@ interface SuccessNotificationProps {
   score: string | number
   challengeScore?: string | number
   subjectCode: string
+  additionalInfo?: string
 }
 
 export default function SuccessNotification({
@@ -22,14 +23,15 @@ export default function SuccessNotification({
   labNumber,
   score,
   challengeScore,
-  subjectCode
+  subjectCode,
+  additionalInfo
 }: SuccessNotificationProps) {
   useEffect(() => {
     if (isVisible) {
       const timer = setTimeout(() => {
         onHide()
       }, 4000) // Auto-hide after 4 seconds
-      
+
       return () => clearTimeout(timer)
     }
   }, [isVisible, onHide])
@@ -43,24 +45,24 @@ export default function SuccessNotification({
           <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-pulse">
             <Trophy className="w-6 h-6 text-white" />
           </div>
-          
+
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
               <CheckCircle className="w-5 h-5 text-white" />
               <h4 className="font-bold text-white">Score Submitted Successfully!</h4>
             </div>
-            
+
             <div className="space-y-1 text-green-50 text-sm">
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4" />
                 <span>{studentName || `Student ${studentId}`}</span>
               </div>
-              
+
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4" />
                 <span>Lab {labNumber} - {subjectCode}</span>
               </div>
-              
+
               <div className="mt-3 bg-white/20 rounded-lg p-2">
                 {challengeScore !== undefined ? (
                   <div className="grid grid-cols-2 gap-2 text-xs">
@@ -77,14 +79,19 @@ export default function SuccessNotification({
                   <div className="text-xs">
                     <span className="opacity-90">Score:</span>
                     <span className="font-bold ml-1 text-lg">{score}</span>
+                    {additionalInfo && (
+                      <div className="mt-2 text-xs text-green-50 italic opacity-90">
+                        {additionalInfo}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             </div>
           </div>
         </div>
-        
-        <button 
+
+        <button
           onClick={onHide}
           className="absolute top-2 right-2 w-6 h-6 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-all duration-200"
         >

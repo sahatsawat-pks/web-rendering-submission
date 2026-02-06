@@ -34,6 +34,7 @@ interface GradeSubmissionDialogProps {
   criteriaScores?: CriteriaScores  // For criteria scoring
   multiQuestionScores?: MultiQuestionScores  // For multi-question scoring
   questionLabels?: string[]  // Labels for multi-question scoring
+  additionalInfo?: string  // Optional additional information to display
 }
 
 export default function GradeSubmissionDialog({
@@ -51,7 +52,8 @@ export default function GradeSubmissionDialog({
   challengeScore,
   criteriaScores,
   multiQuestionScores,
-  questionLabels
+  questionLabels,
+  additionalInfo
 }: GradeSubmissionDialogProps) {
   if (!isOpen) return null
 
@@ -215,6 +217,11 @@ export default function GradeSubmissionDialog({
                     <div className="mt-2">
                       {renderScoreDetails()}
                     </div>
+                    {additionalInfo && (
+                      <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 italic">
+                        {additionalInfo}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

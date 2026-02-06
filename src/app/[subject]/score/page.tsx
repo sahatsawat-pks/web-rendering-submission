@@ -89,8 +89,9 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
   const isLabChallenge = config.grading?.hasChallenge === true
   const isPythonSqlMultiCriteria = config.grading?.showCumulativeScore === false
   const isNormal = config.grading?.showCumulativeScore === true && !config.grading?.hasChallenge
+  const isPythonOrSql = subject === 'ITCS251' || subject === 'ITCS255'
   
-  const assignmentLabel = (subject === 'ITCS251' || subject === 'ITCS255') ? 'Week' : 'Lab'
+  const assignmentLabel = isPythonOrSql ? 'Week' : 'Lab'
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -245,10 +246,21 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
   
   function processRegularLab(lab: any, scores: any, labRows: LabRowType[]) {
           const plainNum = parseInt(lab.labNumber).toString()
-          const exactKey = `Lab ${lab.labNumber}`
-          const normalizedKey = `Lab ${plainNum}`
-          const inClassKey = `In-Class ${lab.labNumber}`
-          const inClassKeyNormalized = `In-Class ${plainNum}`
+          
+          // For ITCS251/ITCS255, look for "W X" format instead of "Lab X"
+          let exactKey, normalizedKey, inClassKey, inClassKeyNormalized;
+          
+          if (isPythonOrSql) {
+              exactKey = `W ${lab.labNumber}`
+              normalizedKey = `W ${plainNum}`
+              inClassKey = `In-Class ${lab.labNumber}`
+              inClassKeyNormalized = `In-Class ${plainNum}`
+          } else {
+              exactKey = `Lab ${lab.labNumber}`
+              normalizedKey = `Lab ${plainNum}`
+              inClassKey = `In-Class ${lab.labNumber}`
+              inClassKeyNormalized = `In-Class ${plainNum}`
+          }
           
           // Challenge Mapping
           const chKeyExact = `Challenge ${lab.labNumber}`
@@ -272,11 +284,14 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
               if (lab.totalScore) scoreValue = lab.totalScore.toString()
           }
 
-          // Challenge Score Logic
+          // Challenge Score Logic (not applicable for Python/SQL)
           let chScoreValue: string | undefined = undefined;
-          if (scores[chKeyExact] !== undefined) chScoreValue = scores[chKeyExact]
-          else if (scores[chKeyNorm] !== undefined) chScoreValue = scores[chKeyNorm]
-          else if (scores[chKeyShort] !== undefined) chScoreValue = scores[chKeyShort]
+          if (!isPythonOrSql) {
+              if (scores[chKeyExact] !== undefined) chScoreValue = scores[chKeyExact]
+              else if (scores[chKeyNorm] !== undefined) chScoreValue = scores[chKeyNorm]
+              else if (scores[chKeyShort] !== undefined) chScoreValue = scores[chKeyShort]
+              else if (scores[chKeyShortExact] !== undefined) chScoreValue = scores[chKeyShortExact]
+          }
           else if (scores[chKeyShortExact] !== undefined) chScoreValue = scores[chKeyShortExact]
 
           labRows.push({
@@ -391,8 +406,14 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                             <tr>
                                 <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300">{assignmentLabel}</th>
                                 <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300">Title</th>
-                                <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300 text-right">Main Score (Max 2)</th>
-                                <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300 text-right">Challenge (Max 2)</th>
+                                {isPythonOrSql ? (
+                                    <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300 text-right">Score</th>
+                                ) : (
+                                    <>
+                                        <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300 text-right">Main Score (Max 2)</th>
+                                        <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300 text-right">Challenge (Max 2)</th>
+                                    </>
+                                )}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
