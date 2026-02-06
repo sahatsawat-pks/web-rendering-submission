@@ -17,6 +17,11 @@ interface LabRow {
     challengeScore?: string
     challengeTotalScore?: number
     feedback?: string
+    // Criteria scoring
+    ethics?: string
+    understanding?: string
+    reflection?: string
+    isCriteria?: boolean
 }
 
 interface MultiQuestionLabRow {
@@ -247,6 +252,46 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
   function processRegularLab(lab: any, scores: any, labRows: LabRowType[]) {
           const plainNum = parseInt(lab.labNumber).toString()
           
+          // Check for criteria scoring columns
+          // For tab-per-lab subjects (ITCS258): "Lab 1 Ethics", "Lab 2 Ethics", etc.
+          // For single-sheet subjects (ITCS362): "Ethics", "Code Understanding", "Reflection"
+          
+          // Try lab-specific criteria columns first (tab-per-lab format)
+          let ethicsKey = `Lab ${plainNum} Ethics`
+          let understandingKey = `Lab ${plainNum} Code Understanding`
+          let reflectionKey = `Lab ${plainNum} Reflection`
+          
+          let hasEthics = scores[ethicsKey] !== undefined
+          let hasUnderstanding = scores[understandingKey] !== undefined
+          let hasReflection = scores[reflectionKey] !== undefined
+          
+          // If not found, try plain column names (single-sheet format)
+          if (!hasEthics && !hasUnderstanding && !hasReflection) {
+              ethicsKey = 'Ethics'
+              understandingKey = 'Code Understanding'
+              reflectionKey = 'Reflection'
+              
+              hasEthics = scores[ethicsKey] !== undefined
+              hasUnderstanding = scores[understandingKey] !== undefined
+              hasReflection = scores[reflectionKey] !== undefined
+          }
+          
+          // If any criteria columns exist, this is a criteria-based lab
+          if (hasEthics || hasUnderstanding || hasReflection) {
+              labRows.push({
+                  lab: lab.labNumber.padStart(2, '0'),
+                  title: lab.title,
+                  score: '0', // Not used for criteria
+                  totalScore: lab.totalScore,
+                  ethics: (scores[ethicsKey] === undefined || scores[ethicsKey] === null || scores[ethicsKey] === '') ? '0' : scores[ethicsKey],
+                  understanding: (scores[understandingKey] === undefined || scores[understandingKey] === null || scores[understandingKey] === '') ? '0' : scores[understandingKey],
+                  reflection: (scores[reflectionKey] === undefined || scores[reflectionKey] === null || scores[reflectionKey] === '') ? '0' : scores[reflectionKey],
+                  isCriteria: true,
+                  isMultiQuestion: false
+              } as LabRow)
+              return
+          }
+          
           // For ITCS251/ITCS255, look for "W X" format instead of "Lab X"
           let exactKey, normalizedKey, inClassKey, inClassKeyNormalized;
           
@@ -301,6 +346,7 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
               totalScore: lab.totalScore,
               challengeScore: (chScoreValue === undefined || chScoreValue === null || chScoreValue === '') ? '0' : chScoreValue,
               challengeTotalScore: lab.totalScore, // Assuming challenge has same max weight? usually 2?
+              isCriteria: false,
               isMultiQuestion: false
           } as LabRow)
       }
@@ -695,6 +741,40 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                                                     </div>
                                                 </td>
                                             </tr>
+                                        ) : row.isCriteria ? (
+                                            // Criteria-based lab row
+                                            <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                                <td className="px-6 py-4 text-slate-900 dark:text-slate-200 font-mono">
+                                                    <span className="inline-block bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-xs font-bold text-slate-600 dark:text-slate-400">
+                                                        {row.lab}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-600 dark:text-slate-400 font-medium">
+                                                    {row.title}
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="space-y-1">
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Ethics:</span>
+                                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 ${getScoreColor(parseFloat(row.ethics || '0') || 0, 2)}`}>
+                                                                {row.ethics}/2
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Code Understanding:</span>
+                                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 ${getScoreColor(parseFloat(row.understanding || '0') || 0, 2)}`}>
+                                                                {row.understanding}/2
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Reflection:</span>
+                                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 ${getScoreColor(parseFloat(row.reflection || '0') || 0, 2)}`}>
+                                                                {row.reflection}/2
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
                                         ) : (
                                             // Regular lab row
                                             <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
@@ -720,6 +800,16 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                                 
                                 {/* Conditional Total Score Display based on grading type */}
                                 {isNormal && config.grading?.showCumulativeScore && subject !== 'ITCS251' && subject !== 'ITCS255' && (() => {
+                                    // Check if any labs are multi-question or criteria-based
+                                    const hasMultiQuestionOrCriteria = labRows.some(row => 
+                                        isMultiQuestionLab(row) || row.isCriteria
+                                    );
+                                    
+                                    // Don't show total score for multi-question or criteria subjects
+                                    if (hasMultiQuestionOrCriteria) {
+                                        return null;
+                                    }
+                                    
                                     // Calculate total {assignmentLabel} score
                                     const totalLabScore = labRows.reduce((acc, row) => {
                                         if (isMultiQuestionLab(row)) {

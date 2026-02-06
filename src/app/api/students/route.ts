@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     // If not found in ITCS113, search across all subjects via Google Sheets
     // Try fetching from scores API with list_all for each subject
-    const subjects = ['ITCS251', 'ITCS255', 'ITCS258', 'ITCS283', 'ITDS283', 'ITDS382', 'ITDS317', 'ITCS362'];
+    const subjects = ['ITCS251', 'ITCS255', 'ITCS258', 'ITCS283', 'ITDS283', 'ITDS382'];
     
     for (const subject of subjects) {
       try {

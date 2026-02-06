@@ -354,15 +354,10 @@ function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] 
         student['nicknameEng'] = row[9];
         student['email'] = row[10];
     } else if (isCriteriaBasedFormat) {
-        // Criteria-based format: ID(1), Name(2), Surname(3), Email(4), GitHub(5), Total(6), Ethics(7), Code Understanding(8), Reflection(9)
+        // For criteria-based format, discover columns dynamically from headers
+        // Don't hardcode indices as different tabs may have different structures
         student['name'] = fixMashedName(row[2]);
         student['surname'] = fixMashedName(row[3]);
-        student['email'] = row[4];
-        student['github'] = row[5];
-        student['Ethics'] = row[7];
-        student['Code Understanding'] = row[8];
-        student['Reflection'] = row[9];
-        student['note'] = row[10];
     }
     
     let lastLabNumber: string | null = null;
@@ -417,9 +412,15 @@ function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] 
              student['total'] = cellValue;
              const match = header.match(/\((\d+)\)/);
              if (match) student['max_score'] = match[1];
-        } else if (isCriteriaBasedFormat && (header.match(/^Ethics$/i) || header.match(/^Code Understanding$/i) || header.match(/^Reflection$/i))) {
-             // Handle criteria columns directly (already mapped above)
-             student[header] = cellValue;
+        } else if (header === 'Ethics' || header === 'Code Understanding' || header === 'Reflection') {
+             // For tab-per-lab subjects, prefix with lab number
+             if (config?.currentLabNumber) {
+               const labKey = `Lab ${config.currentLabNumber} ${header}`;
+               student[labKey] = cellValue;
+             } else {
+               // Single sheet: use plain column name
+               student[header] = cellValue;
+             }
         } else if (String(header).toLowerCase().trim() === 'in-class') {
              if (lastLabNumber) {
                  student[`In-Class ${lastLabNumber}`] = cellValue;
@@ -572,11 +573,15 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
       });
       
       // Fetch scores from each lab tab (skip errors)
-      const labDataResults = await Promise.all(labTabs.map(async (tabName) => {
+      const labDataResults = await Promise.all(labTabs.map(async (tabName, index) => {
           try {
               const rows = await getSheetData(subject, tabName, bypassCache);
               if (rows.length === 0) return [];
-              return mapRowsToStudents(rows, subject, config);
+              // Extract lab number from tab name for criteria column naming
+              const labNum = index + 1; // Or extract from tabName if it contains the number
+              const labNumMatch = tabName.match(/\d+/);
+              const actualLabNum = labNumMatch ? labNumMatch[0] : String(labNum);
+              return mapRowsToStudents(rows, subject, { ...config, currentLabNumber: actualLabNum });
           } catch(e: any) {
               console.warn(`[getAllScores] Failed to fetch ${tabName}: ${e.message}`);
               return [];
@@ -587,9 +592,22 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
       labDataResults.flat().forEach(student => {
           if (!student.username || !allStudentsMap[student.username]) return;
           
-          // Merge lab scores but keep original student info
+          // Merge lab scores and criteria scores but keep original student info
           Object.keys(student).forEach(key => {
+            // Include multi-question format (l1-q1, l2-q1, etc.)
             if (key.startsWith('l') && key.includes('-q')) {
+              allStudentsMap[student.username][key] = student[key];
+            }
+            // Include criteria columns (Ethics, Code Understanding, Reflection)
+            else if (key === 'Ethics' || key === 'Code Understanding' || key === 'Reflection') {
+              allStudentsMap[student.username][key] = student[key];
+            }
+            // Include Lab-specific criteria columns (Lab 1 Ethics, Lab 2 Code Understanding, etc.)
+            else if (key.match(/^Lab \d+ (Ethics|Code Understanding|Reflection)$/)) {
+              allStudentsMap[student.username][key] = student[key];
+            }
+            // Include Lab scores (Lab 1, Lab 2, etc.)
+            else if (key.startsWith('Lab ')) {
               allStudentsMap[student.username][key] = student[key];
             }
           });
@@ -601,6 +619,9 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
       
       const result = Object.values(allStudentsMap);
       console.log(`[getAllScores] Tab per lab strategy for ${subject}: found ${result.length} students from ${labTabs.length} tabs`);
+      if (result.length > 0) {
+        console.log(`[getAllScores] Sample student keys for ${subject}:`, Object.keys(result[0]));
+      }
       return result;
   }
 
