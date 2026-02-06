@@ -275,8 +275,13 @@ function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] 
   if (rows.length === 0) return [];
 
   // Determine header row index (0-based)
-  // config.headerRow is 1-based (default 1)
-  const headerRowIndex = (config?.headerRow || 1) - 1;
+  // For ITCS251/255, header is at row 5, for others use config or default to 1
+  let headerRowIndex;
+  if (subject === 'ITCS251' || subject === 'ITCS255') {
+    headerRowIndex = 4; // Row 5 - 1 (0-based index)
+  } else {
+    headerRowIndex = (config?.headerRow || 1) - 1;
+  }
   
   // Safety check
   if (headerRowIndex >= rows.length) return [];
