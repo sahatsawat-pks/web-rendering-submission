@@ -363,6 +363,68 @@ async function ensureTables() {
             END $$;
         `);
         
+        // Create ITCS113 students table
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS itcs113_students (
+                id SERIAL PRIMARY KEY,
+                student_id VARCHAR(50) NOT NULL UNIQUE,
+                name VARCHAR(100) NOT NULL,
+                surname VARCHAR(100) NOT NULL,
+                section VARCHAR(20) DEFAULT '',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        
+        // Insert ITCS113 students if table is empty
+        const itcs113Count = await client.query('SELECT COUNT(*) FROM itcs113_students');
+        if (parseInt(itcs113Count.rows[0].count) === 0) {
+            await client.query(`
+                INSERT INTO itcs113_students (student_id, name, surname) VALUES
+                ('6888011', 'Kotchapond', 'Chaingka'),
+                ('6888022', 'Phunyisa', 'Dechtarathorn'),
+                ('6888026', 'Jolinda', 'Fangfuengfu'),
+                ('6888035', 'Kitchanan', 'Kaewma'),
+                ('6888038', 'Samuch', 'Keadkaew'),
+                ('6888062', 'Pudit', 'Ninparkobkul'),
+                ('6888064', 'Koranit', 'Nisub'),
+                ('6888066', 'Nontawat', 'Nontree'),
+                ('6888067', 'Sasinan', 'Nontree'),
+                ('6888073', 'Pensurat', 'Panryheng'),
+                ('6888074', 'Pornrawin', 'Pantharuksakul'),
+                ('6888086', 'Kamonchanok', 'Rub'),
+                ('6888092', 'Theppachai', 'Sakulruangrak'),
+                ('6888094', 'Paphawin', 'Sanitwong na ayutthaya'),
+                ('6888095', 'Manita', 'Sanyangyuen'),
+                ('6888096', 'Thanathat', 'Satianpanich'),
+                ('6888110', 'Wongsathorn', 'Sukkhaphoksakul'),
+                ('6888115', 'Sirikorn', 'Tachakumput'),
+                ('6888119', 'Chayada', 'Thepmongkol'),
+                ('6888122', 'Sirawit', 'Tongrod'),
+                ('6888127', 'Chang', 'Gao'),
+                ('6888128', 'Ruoyi', 'Niu'),
+                ('6888129', 'Shuhan', 'Mei'),
+                ('6888139', 'Nateenon', 'Satsanathai'),
+                ('6888144', 'Lerot', 'Apilertthanapong'),
+                ('6888153', 'Wanrutch', 'Kittisagsereekul'),
+                ('6888154', 'Phatsawich', 'Klinprachum'),
+                ('6888159', 'Varattaya', 'Nakanupap'),
+                ('6888164', 'Siravit', 'Phanpairoj'),
+                ('6888165', 'Chanapa', 'Piriyatanalag'),
+                ('6888167', 'Kamjira', 'Prayai'),
+                ('6888170', 'Thitikon', 'Sansom'),
+                ('6888171', 'Virada', 'Saithong'),
+                ('6888172', 'Thatchakron', 'Sompong'),
+                ('6888182', 'Piyawan', 'Thanakularporn'),
+                ('6888184', 'Nisha', 'Tiyawattanaroj'),
+                ('6888189', 'Thanakrit', 'Horjun'),
+                ('6888193', 'Keyue', 'Zhao'),
+                ('6888195', 'Pabhikul', 'Thaiwattananon'),
+                ('6888196', 'Chakatorn', 'Into'),
+                ('6888197', 'Chanyanan', 'Jatuteerapat'),
+                ('6888198', 'Kittakorn', 'Kaewloi'),
+                ('6888202', 'Wachirawit', 'Sukwattanawinakul')
+            `);
+        }
         
         // Seed subjects if table is empty
         const subjectsCount = await client.query('SELECT COUNT(*) FROM subjects');
@@ -1603,6 +1665,45 @@ export async function deleteQuizScores(
       [subject, labNumber]
     );
     return result.rowCount || 0;
+  } finally {
+    client.release();
+  }
+}
+
+// ITCS113 Student interface and functions
+export interface ITCS113Student {
+  id: number;
+  studentId: string;
+  name: string;
+  surname: string;
+  section: string;
+  createdAt: string;
+}
+
+export async function getITCS113Student(studentId: string): Promise<ITCS113Student | null> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+  
+  try {
+    const result = await client.query(
+      'SELECT * FROM itcs113_students WHERE student_id = $1',
+      [studentId]
+    );
+    
+    if (result.rows.length === 0) {
+      return null;
+    }
+    
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      studentId: row.student_id,
+      name: row.name,
+      surname: row.surname,
+      section: row.section || '',
+      createdAt: row.created_at
+    };
   } finally {
     client.release();
   }

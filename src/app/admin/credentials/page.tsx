@@ -133,6 +133,28 @@ export default function UniversalCredentialsPage() {
         }
       })
 
+      // For students with empty name (not in sheet), try to fetch from API
+      const studentsToFetch = mergedList.filter(s => !s.name)
+      if (studentsToFetch.length > 0) {
+        await Promise.all(
+          studentsToFetch.map(async (student) => {
+            try {
+              const response = await fetch(`/api/students?id=${student.studentId}`)
+              if (response.ok) {
+                const data = await response.json()
+                if (data.students && data.students.length > 0) {
+                  student.name = data.students[0].name || ''
+                  student.surname = data.students[0].surname || ''
+                  student.section = student.section || data.students[0].section || ''
+                }
+              }
+            } catch (error) {
+              console.error(`Error fetching student ${student.studentId}:`, error)
+            }
+          })
+        )
+      }
+
       setCredentials(mergedList)
     } catch (error) {
       console.error('❌ Error loading data:', error)

@@ -3,6 +3,8 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { getGradientStyleProps, getShadowColorClass } from "@/lib/colors"
+import SuccessNotification from "@/components/admin/SuccessNotification"
+import GradeSubmissionDialog from "@/components/admin/GradeSubmissionDialog"
 
 interface MultiQuestionGradingProps {
   subjectCode: string
@@ -37,6 +39,8 @@ export default function MultiQuestionGrading({
   const [gradingSuccess, setGradingSuccess] = useState(false)
   const [gradingError, setGradingError] = useState<string | null>(null)
   const [lastSubmittedStudentId, setLastSubmittedStudentId] = useState("")
+  const [studentDetails, setStudentDetails] = useState<any>(null)
+  const [submittedScores, setSubmittedScores] = useState<{ lab?: number; challenge?: number }>({})
   
   const [prefixes, setPrefixes] = useState<string[]>([])
   const [selectedPrefix, setSelectedPrefix] = useState("6788")
@@ -53,6 +57,10 @@ export default function MultiQuestionGrading({
   })
   const [creatingLab, setCreatingLab] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Confirmation Dialog State
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [submissionLoading, setSubmissionLoading] = useState(false)
   
   // Quiz Toggle States
   const [localQuizSectionEnabled, setLocalQuizSectionEnabled] = useState(quizSectionEnabled)
@@ -89,6 +97,28 @@ export default function MultiQuestionGrading({
         }
     }).catch(console.error)
   }, [subjectCode])
+
+  // Fetch student details when studentId changes
+  useEffect(() => {
+    if (studentId && studentId.length >= 7) {
+      const fetchStudentDetails = async () => {
+        try {
+          const res = await fetch(`/api/students?id=${studentId}`)
+          if (res.ok) {
+            const data = await res.json()
+            if (data.success && data.students && data.students.length > 0) {
+              setStudentDetails(data.students[0])
+            }
+          }
+        } catch (e) {
+          console.error('Failed to fetch student details:', e)
+        }
+      }
+      fetchStudentDetails()
+    } else {
+      setStudentDetails(null)
+    }
+  }, [studentId])
 
   // Update questions based on selected lab
   useEffect(() => {
@@ -166,6 +196,15 @@ export default function MultiQuestionGrading({
     e.preventDefault()
     setGradingError(null)
     setGradingSuccess(false)
+
+    // Show confirmation dialog
+    setShowConfirmDialog(true)
+  }
+
+  async function confirmAndSubmitGrade() {
+    setSubmissionLoading(true)
+    setGradingError(null)
+    setGradingSuccess(false)
     setIsSubmitting(true)
 
     try {
@@ -211,7 +250,14 @@ export default function MultiQuestionGrading({
 
         if (res.ok) {
              setLastSubmittedStudentId(studentId);
+             
+             // Extract Lab and Challenge scores for notification
+             const labScore = questionScores['Q1'] ? parseInt(questionScores['Q1']) : undefined;
+             const challengeScore = questionScores['Q2'] ? parseInt(questionScores['Q2']) : undefined;
+             setSubmittedScores({ lab: labScore, challenge: challengeScore });
+             
              setGradingSuccess(true);
+             setShowConfirmDialog(false);
              setStudentId("");
              setRemainingDigits("");
              // Reset scores
@@ -226,6 +272,7 @@ export default function MultiQuestionGrading({
         setGradingError(err.message || "An unexpected error occurred");
     } finally {
         setIsSubmitting(false)
+        setSubmissionLoading(false)
     }
   }
 
@@ -369,6 +416,13 @@ export default function MultiQuestionGrading({
                  />
                </div>
                <p className="text-xs text-slate-500 mt-1">Select prefix, then enter remaining digits</p>
+               {studentDetails && (
+                 <div className="mt-2 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                   <p className="text-sm font-semibold text-orange-900 dark:text-orange-300">
+                     {studentDetails.name} {studentDetails.surname}
+                   </p>
+                 </div>
+               )}
              </div>
            </div>
 
@@ -415,32 +469,6 @@ export default function MultiQuestionGrading({
              )}
              Submit All Scores
            </button>
-
-           {gradingSuccess && (
-             <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 px-6 py-4 rounded-xl shadow-lg animate-scale-in relative">
-               <button 
-                 onClick={() => setGradingSuccess(false)}
-                 className="absolute top-2 right-2 p-1 hover:bg-emerald-200 dark:hover:bg-emerald-800 rounded-full transition-colors"
-               >
-                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-               </button>
-
-               <div className="flex items-start gap-4">
-                 <div className="p-2 bg-emerald-100 dark:bg-emerald-800 rounded-full">
-                   <svg className="w-6 h-6 text-emerald-600 dark:text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                   </svg>
-                 </div>
-                 <div>
-                   <span className="font-bold text-lg mb-1 block">Success!</span>
-                   <div className="space-y-1 text-sm mt-2">
-                     <p><span className="font-semibold opacity-70">Student ID:</span> {lastSubmittedStudentId}</p>
-                     <p><span className="font-semibold opacity-70">Lab {selectedLab}:</span> <span className="font-bold text-emerald-600 dark:text-emerald-400">All scores saved</span></p>
-                   </div>
-                 </div>
-               </div>
-             </div>
-           )}
 
            {gradingError && (
              <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 px-6 py-4 rounded-xl">
@@ -599,6 +627,34 @@ export default function MultiQuestionGrading({
               </div>
           </div>
       )}
+
+      {/* Grade Submission Confirmation Dialog */}
+      <GradeSubmissionDialog
+        isOpen={showConfirmDialog}
+        onClose={() => setShowConfirmDialog(false)}
+        onConfirm={confirmAndSubmitGrade}
+        studentId={studentId}
+        studentName={studentDetails?.name}
+        studentSurname={studentDetails?.surname}
+        labNumber={selectedLab}
+        subjectCode={subjectCode}
+        isLoading={submissionLoading}
+        gradingType="multi_question"
+        multiQuestionScores={questionScores}
+        questionLabels={totalQuestions}
+      />
+
+      {/* Success Notification */}
+      <SuccessNotification
+        isVisible={gradingSuccess}
+        onHide={() => setGradingSuccess(false)}
+        studentId={lastSubmittedStudentId}
+        studentName={studentDetails?.name && studentDetails?.surname ? `${studentDetails.name} ${studentDetails.surname}` : undefined}
+        labNumber={selectedLab}
+        score={submittedScores.lab || 0}
+        challengeScore={submittedScores.challenge}
+        subjectCode={subjectCode}
+      />
     </div>
   )
 }

@@ -6,7 +6,7 @@ import Link from "next/link"
 
 export default function CredentialLookupPage() {
   const [studentId, setStudentId] = useState("")
-  const [result, setResult] = useState<{ studentId: string, credential: string } | null>(null)
+  const [result, setResult] = useState<{ studentId: string, credential: string, name?: string, surname?: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -50,7 +50,25 @@ export default function CredentialLookupPage() {
       const data = await res.json()
 
       if (data.success && data.credentials && data.credentials.length > 0) {
-        setResult(data.credentials[0])
+        const credential = data.credentials[0]
+        
+        // Fetch student details
+        try {
+          const studentRes = await fetch(`/api/students?id=${studentId.trim()}`)
+          const studentData = await studentRes.json()
+          
+          if (studentData.success && studentData.student) {
+            setResult({
+              ...credential,
+              name: studentData.student.name,
+              surname: studentData.student.surname
+            })
+          } else {
+            setResult(credential)
+          }
+        } catch {
+          setResult(credential)
+        }
       } else {
         setError("No credential found for this Student ID.")
       }
@@ -153,7 +171,14 @@ export default function CredentialLookupPage() {
               <div className="text-4xl font-mono font-bold text-white tracking-wider">
                 {result.credential}
               </div>
-              <p className="text-slate-500 text-sm mt-2">ID: {result.studentId}</p>
+              {result.name || result.surname ? (
+                <>
+                  <p className="text-teal-300 text-lg font-semibold mt-3">{result.name} {result.surname}</p>
+                  <p className="text-slate-500 text-sm mt-1">ID: {result.studentId}</p>
+                </>
+              ) : (
+                <p className="text-slate-500 text-sm mt-2">ID: {result.studentId}</p>
+              )}
             </div>
 
             <button 

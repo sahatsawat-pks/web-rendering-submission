@@ -43,6 +43,7 @@ export default function LabChallengeGrading({
   const [lastSubmittedStudentId, setLastSubmittedStudentId] = useState("")
   const [lastScoreType, setLastScoreType] = useState<'lab' | 'challenge' | 'both' | null>(null)
   const [studentDetails, setStudentDetails] = useState<any>(null)
+  const [submittedScores, setSubmittedScores] = useState<{ lab?: string | number; challenge?: string | number }>({})
   const [prefixes, setPrefixes] = useState<string[]>([])
   const [selectedPrefix, setSelectedPrefix] = useState("6888")
   const [remainingDigits, setRemainingDigits] = useState("")
@@ -283,6 +284,16 @@ export default function LabChallengeGrading({
              } catch (error) {
                  console.error("Failed to fetch student details", error)
              }
+
+             // Store the submitted scores for the notification
+             const submittedData: { lab?: string | number; challenge?: string | number } = {};
+             if (scoreType === 'lab' || scoreType === 'both') {
+                 submittedData.lab = labScore;
+             }
+             if (scoreType === 'challenge' || scoreType === 'both') {
+                 submittedData.challenge = challengeScore;
+             }
+             setSubmittedScores(submittedData);
 
              setGradingSuccess(true);
              setLastScoreType(scoreType);
@@ -898,8 +909,8 @@ export default function LabChallengeGrading({
         studentId={lastSubmittedStudentId}
         studentName={studentDetails ? `${studentDetails.title || ''} ${studentDetails.name || ''} ${studentDetails.surname || ''}`.trim() : undefined}
         labNumber={selectedLab}
-        score={pendingSubmission?.scoreType === 'lab' || pendingSubmission?.scoreType === 'both' ? labScore : ''}
-        challengeScore={pendingSubmission?.scoreType === 'challenge' || pendingSubmission?.scoreType === 'both' ? challengeScore : undefined}
+        score={submittedScores.lab || ''}
+        challengeScore={submittedScores.challenge}
         subjectCode={subjectCode}
       />
     </div>
