@@ -183,10 +183,12 @@ export function adaptSubjectConfig(subject: Subject): SubjectConfig {
     
     cards,
     
-    // Grading - using defaults or values if we had them in DB
+    // Grading - using database values or defaults
     grading: {
       showCumulativeScore: true,
-      labWeight: 20 // Default
+      labWeight: subject.labWeight || 20, // Use database value or default
+      labMaxScore: subject.labMaxScore || undefined, // Use database value or undefined for auto-calculate
+      hasChallenge: subject.gradingType === 'lab_challenge' // Enable challenge grading for lab_challenge type
     },
     
     // Blob colors - deriving from base color

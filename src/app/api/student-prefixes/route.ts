@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAllScores } from '@/lib/sheets';
+import { getAllScores, clearSheetsCache, clearSubjectsCache } from '@/lib/sheets';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,9 +13,14 @@ export async function GET(request: Request) {
     }
 
     // Fetch all student data from Google Sheets
-    const students = await getAllScores(subject);
+    let students = await getAllScores(subject);
 
-    console.log(students);
+    // If no students found, clear cache and try once more (for new subjects)
+    if (!students || students.length === 0) {
+      clearSheetsCache(subject);
+      clearSubjectsCache();
+      students = await getAllScores(subject);
+    }
 
     if (!students || students.length === 0) {
       return NextResponse.json({ prefixes: [] });

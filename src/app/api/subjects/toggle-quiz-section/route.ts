@@ -16,6 +16,13 @@ export async function POST(req: Request) {
 
     const quizSectionEnabled = await updateSubjectQuizSection(subjectCode, enabled)
     
+    // Clear cache so updated subject configuration is immediately available
+    const { clearSubjectsCache, clearSheetsCache } = await import('@/lib/sheets');
+    const { invalidateSubjectConfigCache } = await import('@/lib/subjectConfigCache');
+    clearSubjectsCache();
+    clearSheetsCache(subjectCode); // Clear sheets data cache for this subject
+    invalidateSubjectConfigCache(subjectCode); // Clear specific subject's config cache
+    
     // console.log('✅ Updated quiz section:', { subjectCode, quizSectionEnabled })
 
     return NextResponse.json({

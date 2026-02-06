@@ -1,11 +1,13 @@
-import { Zap, Code2, Layers, BarChart3, Terminal, Smartphone, Code, Database } from "lucide-react"
+import { Zap } from "lucide-react"
 import Link from "next/link"
 import Footer from "@/components/Footer"
 import Navbar from "@/components/Navbar"
 import { getSubjects } from "@/lib/db"
 import { getAuthUser } from "@/lib/auth"
+import { adaptSubjectConfig } from "@/lib/subjectConfigAdapter"
+import { getIconByName } from "@/lib/iconMap"
 
-export const revalidate = 3600; // Cache for 1 hour
+export const revalidate = 60;
 
 export default async function LandingPage() {
   const [subjectsData, authUser] = await Promise.all([
@@ -13,63 +15,24 @@ export default async function LandingPage() {
     getAuthUser()
   ]);
 
-  const iconMap: Record<string, React.ReactNode> = {
-    'ITCS223': <Code2 className="w-6 h-6" />,
-    'ITCS227': <BarChart3 className="w-6 h-6" />,
-    'ITGE162': <Layers className="w-6 h-6" />,
-    'ITCS123': <Terminal className="w-6 h-6" />,
-    'ITCS251': <Code className="w-6 h-6" />,
-    'ITCS255': <Database className="w-6 h-6" />,
-    'ITDS283': <Smartphone className="w-6 h-6" />,
-    'ITCS113': <Terminal className="w-6 h-6" />
-  }
-  
-  const colorMap: Record<string, string> = {
-    'ITCS223': 'from-teal-500 to-cyan-500',
-    'ITCS227': 'from-indigo-500 to-violet-500',
-    'ITGE162': 'from-emerald-500 to-green-500',
-    'ITCS123': 'from-orange-500 to-amber-500',
-    'ITCS251': 'from-blue-500 to-sky-500',
-    'ITCS255': 'from-purple-500 to-pink-500',
-    'ITDS283': 'from-rose-500 to-red-500',
-    'ITCS113': 'from-yellow-500 to-orange-500'
-  }
-  
-  const shadowMap: Record<string, string> = {
-    'ITCS223': 'shadow-teal-500/30',
-    'ITCS227': 'shadow-indigo-500/30',
-    'ITGE162': 'shadow-emerald-500/30',
-    'ITCS123': 'shadow-orange-500/30',
-    'ITCS251': 'shadow-blue-500/30',
-    'ITCS255': 'shadow-purple-500/30',
-    'ITDS283': 'shadow-rose-500/30',
-    'ITCS113': 'shadow-yellow-500/30'
-  }
-
-  const descriptionMap: Record<string, string> = {
-    'ITCS223': 'Full-stack web submission rendering & testing.',
-    'ITCS227': 'Lab score tracking and grading system.',
-    'ITGE162': 'Physical Science and Computation.',
-    'ITCS123': 'Java JUnit test runner and code validator.',
-    'ITCS251': 'Python code execution and test validation.',
-    'ITCS255': 'SQL score tracking and grading system.',
-    'ITDS283': 'Mobile dev labs gradebook and score tracking.',
-    'ITCS113': 'Python fundamentals with automated testing.'
-  }
-
   const mappedSubjects = (subjectsData || [])
     .filter((s: any) => s.isVisible)
     .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
-    .map((s: any) => ({
-      id: s.code.toLowerCase(),
-      code: s.code,
-      title: s.name || s.title,
-      description: descriptionMap[s.code] || s.description || 'Subject information.',
-      icon: iconMap[s.code] || <Code2 className="w-6 h-6" />,
-      color: colorMap[s.code] || 'from-slate-500 to-gray-500',
-      shadow: shadowMap[s.code] || 'shadow-slate-500/30',
-      link: `/${s.code.toLowerCase()}`
-    }))
+    .map((s: any) => {
+      const config = adaptSubjectConfig(s);
+      const IconComponent = getIconByName(s.icon || 'Code');
+      const colorGradient = `${config.gradientFrom} ${config.gradientTo}`;
+      return {
+        id: s.code.toLowerCase(),
+        code: s.code,
+        title: config.title,
+        description: config.description,
+        icon: IconComponent ? <IconComponent className="w-6 h-6" /> : <Zap className="w-6 h-6" />,
+        color: colorGradient,
+        shadow: config.shadowColor,
+        link: `/${s.code.toLowerCase()}`
+      };
+    })
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950 relative overflow-hidden animate-fade-in flex flex-col font-sans">

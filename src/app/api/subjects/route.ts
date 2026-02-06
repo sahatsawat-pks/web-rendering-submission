@@ -46,6 +46,8 @@ export async function POST(request: NextRequest) {
     const { 
       code, title, description, icon, color, isVisible, displayOrder, 
       courseSummaryLink,
+      editingSubject,
+      googleSheetId,
       // Dynamic routing configuration
       hasGradingInterface,
       hasQuizManagement,
@@ -54,7 +56,10 @@ export async function POST(request: NextRequest) {
       headerRow,
       columnPattern,
       dataSourceType,
-      sheetTabs
+      sheetTabs,
+      // Grading configuration
+      labWeight,
+      labMaxScore
     } = body;
 
     if (!code || !title) {
@@ -97,8 +102,27 @@ export async function POST(request: NextRequest) {
         headerRow: headerRow || 1,
         columnPattern: columnPattern || '',
         dataSourceType: dataSourceType || 'single_sheet',
-        sheetTabs: sheetTabs || ''
+        sheetTabs: sheetTabs || '',
+        labWeight: labWeight || null,
+        labMaxScore: labMaxScore || null
       });
+    }
+
+    // Clear cache so new subject is immediately available
+    const { clearSubjectsCache, clearSheetsCache } = await import('@/lib/sheets');
+    const { invalidateSubjectConfigCache } = await import('@/lib/subjectConfigCache');
+    clearSubjectsCache();
+    clearSheetsCache(); // Clear sheets data cache as well
+    invalidateSubjectConfigCache(); // Clear all subject config cache
+
+    // Auto-fetch student prefixes once to warm up cache for new subjects
+    if (!editingSubject && googleSheetId) {
+      try {
+        await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/student-prefixes?subject=${code}`);
+      } catch (e: any) {
+        // Silently ignore cache warming errors
+        console.warn(`[Subject Creation] Cache warming failed for ${code}:`, e.message);
+      }
     }
 
     return NextResponse.json({ 
@@ -141,6 +165,13 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Subject not found" }, { status: 404 });
     }
 
+    // Clear cache so updated subject configuration is immediately available
+    const { clearSubjectsCache, clearSheetsCache } = await import('@/lib/sheets');
+    const { invalidateSubjectConfigCache } = await import('@/lib/subjectConfigCache');
+    clearSubjectsCache();
+    clearSheetsCache(code); // Clear sheets data cache for this subject
+    invalidateSubjectConfigCache(code); // Clear specific subject's config cache
+
     return NextResponse.json({ success: true, message: "Subject updated successfully", subject: updated });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -170,6 +201,13 @@ export async function DELETE(request: NextRequest) {
     if (!success) {
       return NextResponse.json({ error: "Subject not found or could not be deleted" }, { status: 404 });
     }
+
+    // Clear cache so deleted subject is immediately removed from cache
+    const { clearSubjectsCache, clearSheetsCache } = await import('@/lib/sheets');
+    const { invalidateSubjectConfigCache } = await import('@/lib/subjectConfigCache');
+    clearSubjectsCache();
+    clearSheetsCache(code); // Clear sheets data cache for this subject
+    invalidateSubjectConfigCache(code); // Clear specific subject's config cache
 
     return NextResponse.json({ success: true, message: "Subject deleted successfully" });
   } catch (error: any) {

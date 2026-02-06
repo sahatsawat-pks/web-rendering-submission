@@ -4,6 +4,8 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { getGradientStyleProps, getShadowColorClass } from "@/lib/colors"
+import GradeSubmissionDialog from "./GradeSubmissionDialog"
+import SuccessNotification from "./SuccessNotification"
 
 interface LabChallengeGradingProps {
   subjectCode: string
@@ -60,6 +62,10 @@ export default function LabChallengeGrading({
   const [creatingLab, setCreatingLab] = useState(false)
   const [isFilling, setIsFilling] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [pendingSubmission, setPendingSubmission] = useState<{scoreType: 'lab' | 'challenge' | 'both'} | null>(null)
+  const [submissionLoading, setSubmissionLoading] = useState(false)
 
   const assignmentLabel = (subjectCode === 'ITCS251' || subjectCode === 'ITCS255') ? 'Week' : 'Lab'
 
@@ -208,13 +214,39 @@ export default function LabChallengeGrading({
     e.preventDefault()
     setGradingError(null)
     setGradingSuccess(false)
-    setIsSubmitting(true)
 
     if (!showScoreDialog) {
       setShowScoreDialog(true)
-      setIsSubmitting(false)
       return
     }
+
+    // Fetch student details before showing confirmation dialog
+    try {
+      const detailsRes = await fetch(`/api/scores?username=${studentId}&subject=${subjectCode}`)
+      if (detailsRes.ok) {
+        const detailsData = await detailsRes.json()
+        if (detailsData.success && detailsData.scores) {
+          setStudentDetails(detailsData.scores)
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch student details", error)
+    }
+
+    // Show confirmation dialog
+    setPendingSubmission({ scoreType })
+    setShowConfirmDialog(true)
+  }
+
+  async function confirmAndSubmitGrade() {
+    if (!pendingSubmission) return
+    
+    setSubmissionLoading(true)
+    setGradingError(null)
+    setGradingSuccess(false)
+    setIsSubmitting(true)
+
+    const { scoreType } = pendingSubmission
 
     try {
         const payload: any = {
@@ -256,6 +288,8 @@ export default function LabChallengeGrading({
              setLastScoreType(scoreType);
              setStudentId("");
              setRemainingDigits("");
+             setShowConfirmDialog(false);
+             setPendingSubmission(null);
         } else {
             const data = await res.json();
             setGradingError(data.error || "Failed to update score");
@@ -264,6 +298,7 @@ export default function LabChallengeGrading({
         setGradingError(err.message || "An unexpected error occurred");
     } finally {
         setIsSubmitting(false)
+        setSubmissionLoading(false)
     }
   }
 
@@ -550,41 +585,6 @@ export default function LabChallengeGrading({
               </button>
               )}
           </div>
-
-          {gradingSuccess && (
-            <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 px-6 py-4 rounded-xl shadow-lg animate-scale-in relative">
-               <button 
-                  onClick={() => setGradingSuccess(false)}
-                  className="absolute top-2 right-2 p-1 hover:bg-emerald-200 dark:hover:bg-emerald-800 rounded-full transition-colors"
-               >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-               </button>
-
-               <div className="flex items-start gap-4">
-                  <div className="p-2 bg-emerald-100 dark:bg-emerald-800 rounded-full">
-                     <svg className="w-6 h-6 text-emerald-600 dark:text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                     </svg>
-                  </div>
-                  <div>
-                    <span className="font-bold text-lg mb-1 block">Success!</span>
-                    {studentDetails ? (
-                         <div className="space-y-1 text-sm mt-2">
-                            <p><span className="font-semibold opacity-70">Student ID:</span> {studentDetails.username || lastSubmittedStudentId}</p>
-                            <p><span className="font-semibold opacity-70">Name:</span> {studentDetails.name} {studentDetails.surname}</p>
-                            <p><span className="font-semibold opacity-70">Lab {selectedLab}:</span> <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                                {lastScoreType === 'lab' ? `Lab: ${labScore}` : lastScoreType === 'challenge' ? `Challenge: ${challengeScore}` : `L: ${labScore} / C: ${challengeScore}`}
-                            </span></p>
-                         </div>
-                     ) : (
-                        <p className="text-sm opacity-90 mt-0.5">
-                           Lab & Challenge scores updated for Student {lastSubmittedStudentId} in {subjectCode} Sheet.
-                        </p>
-                     )}
-                  </div>
-               </div>
-            </div>
-          )}
 
           {gradingError && (
             <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 px-6 py-4 rounded-xl">
@@ -873,6 +873,34 @@ export default function LabChallengeGrading({
           </div>
         </div>
       )}
+
+      <GradeSubmissionDialog
+        isOpen={showConfirmDialog}
+        onClose={() => {
+          setShowConfirmDialog(false)
+          setPendingSubmission(null)
+        }}
+        onConfirm={confirmAndSubmitGrade}
+        studentId={studentId}
+        studentName={studentDetails?.name}
+        studentSurname={studentDetails?.surname}
+        labNumber={selectedLab}
+        score={pendingSubmission?.scoreType === 'lab' || pendingSubmission?.scoreType === 'both' ? labScore : ''}
+        challengeScore={pendingSubmission?.scoreType === 'challenge' || pendingSubmission?.scoreType === 'both' ? challengeScore : undefined}
+        subjectCode={subjectCode}
+        isLoading={submissionLoading}
+      />
+
+      <SuccessNotification
+        isVisible={gradingSuccess}
+        onHide={() => setGradingSuccess(false)}
+        studentId={lastSubmittedStudentId}
+        studentName={studentDetails ? `${studentDetails.title || ''} ${studentDetails.name || ''} ${studentDetails.surname || ''}`.trim() : undefined}
+        labNumber={selectedLab}
+        score={pendingSubmission?.scoreType === 'lab' || pendingSubmission?.scoreType === 'both' ? labScore : ''}
+        challengeScore={pendingSubmission?.scoreType === 'challenge' || pendingSubmission?.scoreType === 'both' ? challengeScore : undefined}
+        subjectCode={subjectCode}
+      />
     </div>
   )
 }

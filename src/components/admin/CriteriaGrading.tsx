@@ -3,6 +3,7 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { getGradientStyleProps, getShadowColorClass } from "@/lib/colors"
+import SuccessNotification from "./SuccessNotification"
 
 interface CriteriaGradingProps {
   subjectCode: string
@@ -39,6 +40,7 @@ export default function CriteriaGrading({
   const [gradingSuccess, setGradingSuccess] = useState(false)
   const [gradingError, setGradingError] = useState<string | null>(null)
   const [lastSubmittedStudentId, setLastSubmittedStudentId] = useState("")
+  const [studentDetails, setStudentDetails] = useState<any>(null)
   
   const [prefixes, setPrefixes] = useState<string[]>([])
   const [selectedPrefix, setSelectedPrefix] = useState("6788")
@@ -55,6 +57,7 @@ export default function CriteriaGrading({
   })
   const [creatingLab, setCreatingLab] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [togglingQuiz, setTogglingQuiz] = useState<number | null>(null)
 
   useEffect(() => {
     async function fetchLabs() {
@@ -102,52 +105,67 @@ export default function CriteriaGrading({
     setIsSubmitting(true)
 
     try {
-        // Calculate total score or submit individual criteria?
-        // Sheets usually have 1 column for Lab Score. 
-        // If we want criteria, we probably need 3 columns OR aggregate them.
-        // For now, let's Aggregate them into 1 score and put breakdown in Feedback?
-        // OR better: Update multiple columns if the backend supports it.
-        // The backend `updateStudentLabScore` is designed for 1 primary score column.
-        // Modification: We will send total score as main score, and JSON detail as feedback/notes.
-        // OR we request backend to update 3 separate columns: "Lab X Ethics", "Lab X Understanding", etc.
-        // But `updateStudentLabScore` takes minimal args.
-        // Let's pack the criteria into the `updates` array for `batch` action, which is flexible!
-        // Actually, let's use the standard `update` action but pack details into `feedback` or `comment`.
-        // Wait, the user request says: "Each has 2 scores". Total = 6.
-        // Let's sum it up for the main "Lab X" column, and maybe append details to a feedback column.
-        
-        const total = parseInt(ethicsScore) + parseInt(understandingScore) + parseInt(reflectionScore);
-        const details = `Ethics: ${ethicsScore}, Understanding: ${understandingScore}, Reflection: ${reflectionScore}`;
+        // For criteria-based subjects, we need to update specific columns within the selected lab tab
+        // Use the lab number directly - the backend will handle tab pattern resolution
+        const updates = [
+            {
+                username: studentId,
+                labNumber: selectedLab, // Backend will resolve to correct tab name using tabPattern config
+                score: parseInt(ethicsScore),
+                subject: subjectCode,
+                criteriaType: "Ethics" // Specify which criteria column to update
+            },
+            {
+                username: studentId,
+                labNumber: selectedLab, // Backend will resolve to correct tab name using tabPattern config
+                score: parseInt(understandingScore),
+                subject: subjectCode,
+                criteriaType: "Code Understanding" // Specify which criteria column to update
+            },
+            {
+                username: studentId,
+                labNumber: selectedLab, // Backend will resolve to correct tab name using tabPattern config
+                score: parseInt(reflectionScore),
+                subject: subjectCode,
+                criteriaType: "Reflection" // Specify which criteria column to update
+            }
+        ];
 
-        // Create updates for multiple columns if we support dynamic columns in sheets.ts
-        // Current sheets.ts targets "Lab X".
-        // Let's stick to accumulating to "Lab X" for compatibility, adding details to "Lab X Feedback".
-        
         const res = await fetch('/api/scores', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                action: 'update',
-                username: studentId,
-                labNumber: selectedLab,
-                score: total,
-                feedback: details, // Storing breakdown in feedback
+                action: 'batch',
+                updates: updates,
                 subject: subjectCode
             })
         });
 
         if (res.ok) {
              setLastSubmittedStudentId(studentId);
+             
+             try {
+                const detailsRes = await fetch(`/api/scores?username=${studentId}&subject=${subjectCode}`)
+                if (detailsRes.ok) {
+                    const detailsData = await detailsRes.json()
+                    if (detailsData.success && detailsData.scores) {
+                        setStudentDetails(detailsData.scores)
+                    }
+                }
+             } catch (error) {
+                console.error("Failed to fetch student details", error)
+             }
+             
              setGradingSuccess(true);
              setStudentId("");
              setRemainingDigits("");
-             // Reset scores to default?
+             // Reset scores to default
              setEthicsScore("2");
              setUnderstandingScore("2");
              setReflectionScore("2");
         } else {
             const data = await res.json();
-            setGradingError(data.error || "Failed to update score");
+            setGradingError(data.error || "Failed to update scores");
         }
     } catch (err: any) {
         setGradingError(err.message || "An unexpected error occurred");
@@ -199,6 +217,31 @@ export default function CriteriaGrading({
       alert("Failed to create lab")
     } finally {
       setCreatingLab(false)
+    }
+  }
+
+  async function toggleQuiz(labId: number, currentStatus: boolean) {
+    setTogglingQuiz(labId)
+    try {
+      const res = await fetch('/api/admin/quiz-management', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ labId, quizEnabled: !currentStatus })
+      })
+      const data = await res.json()
+      if (data.success) {
+        const labsRes = await fetch(`/api/labs?subject=${subjectCode}`)
+        if (labsRes.ok) {
+          const labsData = await labsRes.json()
+          if (labsData.success) {
+            setLabs(labsData.labs.sort((a: any, b: any) => a.labNumber.localeCompare(b.labNumber)))
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to toggle quiz", e)
+    } finally {
+      setTogglingQuiz(null)
     }
   }
 
@@ -350,13 +393,6 @@ export default function CriteriaGrading({
             Submit Criteria Assessment
           </button>
 
-          {gradingSuccess && (
-            <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 px-6 py-4 rounded-xl shadow-lg animate-scale-in text-center">
-                <p className="font-bold">Assessment Saved!</p>
-                <p className="text-sm">Student {lastSubmittedStudentId} recorded with scores {ethicsScore}-{understandingScore}-{reflectionScore}</p>
-            </div>
-          )}
-
           {gradingError && (
             <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 px-6 py-4 rounded-xl">
               <p className="font-semibold">Error: {gradingError}</p>
@@ -365,69 +401,265 @@ export default function CriteriaGrading({
         </form>
       </div>
 
-      {/* Labs Management Section (Simplified) */}
-      <div className="glass-card p-8 border-white/40">
-          <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-200">Labs</h3>
+      {/* Labs Section */}
+      <div className="glass-card p-8 animate-scale-in transition-all duration-300 border-white/40">
+        <div className="flex items-center justify-between mb-8">
+          <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2">
+            <svg className="w-5 h-5 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            Labs
+          </h3>
+          <div className="flex gap-2">
+            {/* Badge */}
+            <span className={`px-3 py-1.5 rounded-lg text-xs font-bold border shadow-md text-white ${getGradientStyleProps(color).className}`}
+                  style={getGradientStyleProps(color).style}
+            >
+              {labs.length} Total
+            </span>
+
+            {hasQuizManagement && ['Lecturer', 'Main Admin'].includes(role) && (
+              <a href={`/admin/${subjectCode.toLowerCase()}/quiz`} className="px-3 py-1.5 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded-lg text-xs font-medium border border-pink-200 dark:border-pink-800 shadow-sm hover:bg-pink-200 dark:hover:bg-pink-900/50 transition-colors">
+                Manage Quiz
+              </a>
+            )}
+            {(['Lecturer', 'Main Admin'].includes(role) || username === 'kanzaki_aito') && (
+              <a href={`/admin/labs?subject=${subjectCode}`} className="px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-medium border border-indigo-200 dark:border-indigo-800 shadow-sm hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors">
+                Lab Management
+              </a>
+            )}
+            {(['Lecturer', 'Main Admin'].includes(role) || username === 'kanzaki_aito') && (
               <button 
                 onClick={() => setShowNewLabDialog(true)} 
-                className={`px-4 py-2 text-white rounded-lg text-sm font-bold shadow-sm hover:opacity-90 transition-all ${getGradientStyleProps(color).className}`}
+                className={`px-3 py-1.5 hover:opacity-90 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1 ${getGradientStyleProps(color).className}`}
                 style={getGradientStyleProps(color).style}
               >
-                 + New Lab
+                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                 New Lab
               </button>
+            )}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {labs.map(lab => (
-                  <div key={lab.id} className={`p-4 rounded-xl border ${lab.isActive ? "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700" : "bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 opacity-60"}`}>
-                      <div className="flex justify-between items-start">
-                          <div>
-                              <h4 className="font-bold text-slate-900 dark:text-slate-200">Lab {lab.labNumber}</h4>
-                              <p className="text-xs text-slate-500">{lab.title}</p>
-                          </div>
-                          {!lab.isActive && <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-1 rounded">Inactive</span>}
-                      </div>
-                  </div>
-              ))}
+        </div>
+
+        {loading ? (
+          <div className="py-12 text-center">
+            <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-teal-200 dark:border-teal-800 border-t-teal-600 dark:border-t-teal-400"></div>
+            <p className="text-slate-500 dark:text-slate-400 mt-4">Loading labs...</p>
           </div>
+        ) : labs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-slate-400 dark:text-slate-500">
+            <p className="text-base font-medium">No labs found</p>
+            <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Create a new lab to get started</p>
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {labs.map((lab) => (
+              <div key={lab.id} className={`flex items-center gap-5 p-5 rounded-2xl border transition-all group ${
+                lab.isActive
+                  ? "border-slate-100 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 hover:border-teal-300 dark:hover:border-teal-600 hover:shadow-lg"
+                  : "border-slate-200 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-900/30 opacity-75"
+              }`}>
+                <div 
+                    className={`flex-shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg transition-transform duration-300 ${
+                    lab.isActive
+                        ? `text-white group-hover:scale-105 ${getGradientStyleProps(color).className}`
+                        : "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 shadow-none"
+                    }`}
+                    style={lab.isActive ? getGradientStyleProps(color).style : undefined}
+                >
+                  {lab.labNumber}
+                </div>
+                <div className="flex-grow">
+                  <h4 className={`text-base font-semibold mb-1 ${lab.isActive ? "text-slate-900 dark:text-slate-200" : "text-slate-500 dark:text-slate-500"}`}>
+                     {lab.title}
+                    {!lab.isActive && <span className="ml-2 px-2 py-0.5 rounded text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 uppercase tracking-wide">Inactive</span>}
+                  </h4>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    {lab.deadline ? `Due: ${lab.deadline}` : "No deadline set"}
+                  </p>
+                  {lab.quizQuestions && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                      </svg>
+                      {JSON.parse(lab.quizQuestions).length} quiz questions
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                   {['Lecturer', 'Main Admin'].includes(role) && (
+                     <button
+                       onClick={async () => {
+                         try {
+                           const response = await fetch("/api/labs", {
+                             method: "PUT",
+                             headers: { "Content-Type": "application/json" },
+                             body: JSON.stringify({ id: lab.id, isActive: !lab.isActive }),
+                           })
+                           if (response.ok) {
+                              const labsRes = await fetch(`/api/labs?subject=${subjectCode}`, { cache: 'no-store' })
+                              if (labsRes.ok) {
+                                const data = await labsRes.json()
+                                if (data.success) {
+                                  setLabs(data.labs.sort((a: any, b: any) => a.labNumber.localeCompare(b.labNumber)))
+                                }
+                              }
+                           } else {
+                             alert("Failed to toggle status")
+                           }
+                         } catch (err) {
+                           console.error(err)
+                           alert("Failed to toggle status")
+                         }
+                       }}
+                       className={`px-3 py-2 text-xs font-semibold rounded-lg transition-all border ${
+                         lab.isActive
+                           ? "bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-800 hover:bg-teal-100"
+                           : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-200"
+                       }`}
+                     >
+                       {lab.isActive ? "Active" : "Inactive"}
+                     </button>
+                  )}
+                  {hasQuizManagement && ['Lecturer', 'Main Admin'].includes(role) && lab.quizQuestions && (
+                    <button
+                      onClick={() => toggleQuiz(lab.id, lab.quizEnabled)}
+                      disabled={togglingQuiz === lab.id}
+                      className={`px-3 py-2 text-xs font-medium rounded-lg transition-all disabled:opacity-50 ${
+                        lab.quizEnabled
+                          ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
+                          : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                      }`}
+                    >
+                      {lab.quizEnabled ? "Quiz: ON" : "Quiz: OFF"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* New Lab Dialog */}
       {showNewLabDialog && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-scale-in">
-            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-200 mb-4">Create Criteria Lab</h3>
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-200">Create New Lab</h3>
+                <button 
+                    onClick={() => setShowNewLabDialog(false)}
+                    className="text-slate-400 hover:text-slate-500 dark:hover:text-slate-300 transition-colors"
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            
             <form onSubmit={handleCreateLab} className="space-y-4">
-              {/* ... Same as SimpleScore but tailored ... */}
-              <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold mb-1">Lab Number</label>
-                    <input type="text" value={newLabData.labNumber} onChange={e => setNewLabData({...newLabData, labNumber: e.target.value})} className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900" placeholder="e.g. 1" required />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold mb-1">Total Score</label>
-                    <input type="number" value={newLabData.totalScore} disabled className="w-full px-4 py-2 rounded-xl border bg-slate-100 dark:bg-slate-700 text-slate-500" />
-                  </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Lab Number</label>
+                <input
+                  type="text"
+                  value={newLabData.labNumber}
+                  onChange={(e) => setNewLabData({...newLabData, labNumber: e.target.value})}
+                  className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/50"
+                  placeholder="e.g. 01"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Title</label>
+                <input
+                  type="text"
+                  value={newLabData.title}
+                  onChange={(e) => setNewLabData({...newLabData, title: e.target.value})}
+                  className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/50"
+                  placeholder="Lab Title"
+                  required
+                />
               </div>
               
-              <div>
-                <label className="block text-sm font-semibold mb-1">Title</label>
-                <input type="text" value={newLabData.title} onChange={e => setNewLabData({...newLabData, title: e.target.value})} className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900" placeholder="Lab Title" required />
+              <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Total Score</label>
+                    <input
+                      type="number"
+                      value={newLabData.totalScore}
+                      disabled
+                      className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-500 focus:outline-none"
+                      placeholder="Default: 6"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Deadline (Optional)</label>
+                    <input
+                      type="text"
+                      value={newLabData.deadline}
+                      onChange={(e) => setNewLabData({...newLabData, deadline: e.target.value})}
+                      className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/50"
+                      placeholder="e.g. 2024-12-31"
+                    />
+                  </div>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-1">Filename</label>
-                <input type="text" value={newLabData.fileName} onChange={e => setNewLabData({...newLabData, fileName: e.target.value})} className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900" placeholder="e.g. index.html" />
+                <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">File Name (Optional)</label>
+                <input
+                  type="text"
+                  value={newLabData.fileName}
+                  onChange={(e) => setNewLabData({...newLabData, fileName: e.target.value})}
+                  className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/50"
+                  placeholder="e.g. index.html"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="labActive"
+                  checked={newLabData.isActive}
+                  onChange={(e) => setNewLabData({...newLabData, isActive: e.target.checked})}
+                  className="w-5 h-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                />
+                <label htmlFor="labActive" className="text-sm font-semibold text-slate-900 dark:text-slate-200 cursor-pointer">
+                  Active (Visible to students)
+                </label>
               </div>
 
               <div className="flex gap-3 justify-end mt-6">
-                <button type="button" onClick={() => setShowNewLabDialog(false)} className="px-4 py-2 text-slate-500">Cancel</button>
-                <button type="submit" disabled={creatingLab} className={`px-6 py-2 text-white rounded-xl ${getGradientStyleProps(color).className}`} style={getGradientStyleProps(color).style}>Create</button>
+                <button
+                  type="button"
+                  onClick={() => setShowNewLabDialog(false)}
+                  className="px-4 py-2 text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingLab}
+                  className={`px-6 py-2 text-white rounded-xl shadow-lg font-medium transition-all ${getGradientStyleProps(color).className}`}
+                  style={getGradientStyleProps(color).style}
+                >
+                  {creatingLab ? 'Creating...' : 'Create Lab'}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
+      
+      <SuccessNotification
+        isVisible={gradingSuccess}
+        onHide={() => setGradingSuccess(false)}
+        studentId={lastSubmittedStudentId}
+        studentName={studentDetails ? `${studentDetails.title || ''} ${studentDetails.name || ''} ${studentDetails.surname || ''}`.trim() : undefined}
+        labNumber={selectedLab}
+        score={`E:${ethicsScore} U:${understandingScore} R:${reflectionScore}`}
+        subjectCode={subjectCode}
+      />
     </div>
   )
 }

@@ -6,7 +6,7 @@ import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
 import Footer from "@/components/Footer"
 import { useParams, useRouter, notFound } from "next/navigation"
-import { getSubjectConfig, isValidSubject, SubjectConfig } from "@/lib/subjectConfig"
+import { getSubjectConfig, isValidSubjectAsync, SubjectConfig } from "@/lib/subjectConfig"
 import { fetchSubjectConfig } from "@/lib/subjectConfigCache"
 
 interface LabRow {
@@ -85,8 +85,10 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
   const [error, setError] = useState<string | null>(null)
   const [searchedId, setSearchedId] = useState("")
 
-  // Determine if this is a Lab & Challenge subject
+  // Determine grading types
   const isLabChallenge = config.grading?.hasChallenge === true
+  const isPythonSqlMultiCriteria = config.grading?.showCumulativeScore === false
+  const isNormal = config.grading?.showCumulativeScore === true && !config.grading?.hasChallenge
   
   const assignmentLabel = (subject === 'ITCS251' || subject === 'ITCS255') ? 'Week' : 'Lab'
 
@@ -295,8 +297,9 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
 
   // Render Logic for Lab & Challenge Review
   if (isLabChallenge && scores) {
-      const maxLabScore = 26; // Maximum possible lab score (13 labs × 2 points)
-      const maxChallengeScore = 26; // Maximum possible challenge score (13 challenges × 2 points)
+      // Use config value if available, otherwise calculate based on active labs
+      const maxLabScore = config.grading?.labMaxScore || (activeLabs.length * 2); // Use database value or calculate dynamically
+      const maxChallengeScore = activeLabs.length * 2; // Maximum possible challenge score (active challenges × 2 points)
       
       // Calculate totals
       const totalLab = labRows.reduce((acc, row) => {
@@ -693,8 +696,9 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                                         )}
                                     </React.Fragment>
                                 ))}
-                                {/* Commented out total score display
-                                {config.grading?.showCumulativeScore && subject !== 'ITCS251' && subject !== 'ITCS255' && (() => {
+                                
+                                {/* Conditional Total Score Display based on grading type */}
+                                {isNormal && config.grading?.showCumulativeScore && subject !== 'ITCS251' && subject !== 'ITCS255' && (() => {
                                     // Calculate total {assignmentLabel} score
                                     const totalLabScore = labRows.reduce((acc, row) => {
                                         if (isMultiQuestionLab(row)) {
@@ -752,8 +756,29 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                                             </tr>
                                         </>
                                     );
-                                })()} 
-                                */}
+                                })()}
+
+                                {/* Python/SQL/Multi-Question/Criteria Grading: No total score display */}
+                                {isPythonSqlMultiCriteria && (
+                                    <tr className="bg-slate-50 dark:bg-slate-900/80 border-t border-slate-200 dark:border-slate-700">
+                                        <td colSpan={3} className="px-6 py-3">
+                                            <div className="flex flex-wrap items-center gap-6 text-xs text-slate-600 dark:text-slate-400">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-3 h-3 rounded-full bg-red-200 dark:bg-red-500/30 border border-red-500/50"></div>
+                                                    <span>0 = No Submission</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-3 h-3 rounded-full bg-yellow-200 dark:bg-yellow-500/30 border border-yellow-500/50"></div>
+                                                    <span>1 = Incomplete</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-3 h-3 rounded-full bg-green-200 dark:bg-green-500/30 border border-green-500/50"></div>
+                                                    <span>2 = Complete</span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )} 
                                 </>
                             ) : (
                                 <tr>
@@ -824,13 +849,10 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
 
 export default function SubjectScorePage() {
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isValidSubject, setIsValidSubject] = useState<boolean | null>(null)
   const params = useParams()
   const router = useRouter()
   const subject = typeof params?.subject === 'string' ? params.subject : ""
-  
-  if (!isValidSubject(subject)) {
-    notFound()
-  }
 
   /* REMOVED: const config = subject ? getSubjectConfig(subject) : null */
   const [config, setConfig] = useState<SubjectConfig | null>(null)
@@ -841,17 +863,24 @@ export default function SubjectScorePage() {
 
   useEffect(() => {
     if (subject) {
-      fetchSubjectConfig(subject)
-        .then(data => {
-          if (data) setConfig(data)
-          else if (staticConfig) setConfig(staticConfig)
-          else notFound()
-        })
-        .catch(err => {
-          console.error(err)
-          if (staticConfig) setConfig(staticConfig)
-        })
-        .finally(() => setLoadingConfig(false))
+      // Check if subject is valid first
+      isValidSubjectAsync(subject).then(valid => {
+        setIsValidSubject(valid)
+        if (!valid) {
+          notFound()
+          return
+        }
+        
+        // If valid, fetch the config
+        return fetchSubjectConfig(subject)
+      }).then(data => {
+        if (data) setConfig(data)
+        else if (staticConfig) setConfig(staticConfig)
+        else notFound()
+      }).catch(err => {
+        console.error(err)
+        if (staticConfig) setConfig(staticConfig)
+      }).finally(() => setLoadingConfig(false))
     }
   }, [subject, staticConfig])
   
@@ -864,7 +893,7 @@ export default function SubjectScorePage() {
       .catch(err => console.error(err))
   }, [subject, router])
 
-  if (loadingConfig || !config) return null
+  if (loadingConfig || !config || isValidSubject === null) return null
 
   return (
     <div className={`min-h-screen bg-gradient-to-br ${config.bgGradient} relative overflow-hidden animate-fade-in`}>

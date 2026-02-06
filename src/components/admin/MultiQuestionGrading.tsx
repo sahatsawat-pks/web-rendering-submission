@@ -200,8 +200,6 @@ export default function MultiQuestionGrading({
              }
         }).filter(update => update.score !== null); // Only submit non-blank scores
 
-        console.log(`[MultiQuestionGrading] Submitting batch updates for ${subjectCode}:`, updates);
-
         const res = await fetch('/api/scores', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

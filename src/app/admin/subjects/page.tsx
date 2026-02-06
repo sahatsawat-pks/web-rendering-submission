@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
-import { Eye, EyeOff, ArrowUp, ArrowDown, Plus, X, FolderPlus, Edit, Check, Settings, Beaker, Trash, Copy, FileCode, AlertTriangle, Blocks, Workflow, Network, Laptop, Component, Layout, Box, AppWindow, Braces } from "lucide-react"
+import { Eye, EyeOff, ArrowUp, ArrowDown, Plus, X, FolderPlus, Edit, Check, Settings, Beaker, Trash, Copy, FileCode, AlertTriangle, Blocks, Workflow, Network, Laptop, Component, Layout, Box, AppWindow, Braces, BarChart3 } from "lucide-react"
 import { getTextGradientStyle } from "@/lib/colors"
 import { generateQuickTemplate } from "@/lib/subjectConfigGenerator"
 
@@ -28,6 +28,9 @@ interface Subject {
   columnPattern?: string
   dataSourceType?: 'single_sheet' | 'tab_per_section' | 'tab_per_lab'
   sheetTabs?: string
+  // Grading Configuration
+  labWeight?: number
+  labMaxScore?: number
 }
 
 const ICON_OPTIONS = [
@@ -92,7 +95,9 @@ export default function SubjectManagementPage() {
     headerRow: 1,
     columnPattern: '',
     dataSourceType: 'single_sheet',
-    sheetTabs: ''
+    sheetTabs: '',
+    labWeight: 20,
+    labMaxScore: 0
   })
   
   // Tab State for Modal
@@ -152,7 +157,9 @@ export default function SubjectManagementPage() {
       headerRow: 1,
       columnPattern: '',
       dataSourceType: 'single_sheet',
-      sheetTabs: ''
+      sheetTabs: '',
+      labWeight: 20,
+      labMaxScore: 0
     })
     setActiveTab('basic')
     setShowSubjectDialog(true)
@@ -176,7 +183,9 @@ export default function SubjectManagementPage() {
       headerRow: subject.headerRow || 1,
       columnPattern: subject.columnPattern || '',
       dataSourceType: (subject.dataSourceType as any) || 'single_sheet',
-      sheetTabs: subject.sheetTabs || ''
+      sheetTabs: subject.sheetTabs || '',
+      labWeight: subject.labWeight || 20,
+      labMaxScore: subject.labMaxScore || 0
     })
     setActiveTab('basic')
     setShowSubjectDialog(true)
@@ -898,6 +907,51 @@ export default function SubjectManagementPage() {
                             </div>
                          </div>
                       )}
+                   </div>
+                   
+                   {/* Grading Configuration */}
+                   <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center gap-3 mb-4">
+                         <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg text-orange-600 dark:text-orange-400">
+                            <BarChart3 className="w-6 h-6" />
+                         </div>
+                         <h3 className="font-bold text-slate-900 dark:text-slate-200">Score Calculation Settings</h3>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-2">
+                         <div>
+                            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                              Lab Weight (%)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={formData.labWeight}
+                              onChange={(e) => setFormData({ ...formData, labWeight: parseInt(e.target.value) || 0 })}
+                              className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
+                            />
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                              Weight of lab scores in final grade calculation (e.g., 20 for 20%).
+                            </p>
+                         </div>
+                         
+                         <div>
+                            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                              Lab Max Score
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={formData.labMaxScore}
+                              onChange={(e) => setFormData({ ...formData, labMaxScore: parseInt(e.target.value) || 0 })}
+                              className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
+                            />
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                              Maximum possible total lab score (0 = auto-calculate from labs).
+                            </p>
+                         </div>
+                      </div>
                    </div>
                    
                    {/* Modules */}

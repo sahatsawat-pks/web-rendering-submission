@@ -5,7 +5,7 @@ import SubjectNavbar from "@/components/SubjectNavbar"
 import { getSubjectConfigServer } from "@/lib/subjectServer"
 import { getAuthUser } from "@/lib/auth"
 
-export const revalidate = 3600; // Cache for 1 hour
+export const revalidate = 60; // Cache for 1 minute for faster updates
 
 export default async function SubjectLandingPage(props: { params: Promise<{ subject: string }> }) {
   const params = await props.params;

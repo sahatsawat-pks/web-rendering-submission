@@ -98,9 +98,15 @@ export default function SubjectTestRunner() {
   // Expanded results state
   const [expandedTestId, setExpandedTestId] = useState<string | null>(null)
   
-  // Custom Run State
   const [customInput, setCustomInput] = useState("")
   const [customOutput, setCustomOutput] = useState<string | null>(null)
+
+  // Student Score Checking States
+  const [studentId, setStudentId] = useState("")
+  const [studentScores, setStudentScores] = useState<any>(null)
+  const [scoreLoading, setScoreLoading] = useState(false)
+  const [scoreError, setScoreError] = useState<string | null>(null)
+  const [showScoreSection, setShowScoreSection] = useState(false)
 
   useEffect(() => {
     if (config && !config.hasTestRunner) {

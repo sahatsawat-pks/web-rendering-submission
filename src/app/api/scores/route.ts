@@ -7,13 +7,9 @@ import {
   getStudentAllScores,
   updateStudentLabScore,
   batchUpdateScores,
+  batchUpdateCriteriaScores,
   fillMissingScores,
 } from "@/lib/sheets";
-
-
-import { getOneDriveScores } from "@/lib/onedrive";
-
-const ITCS223_ONEDRIVE_URL = "https://studentmahidolac-my.sharepoint.com/:x:/r/personal/wudhichart_saw_mahidol_ac_th/_layouts/15/Doc.aspx?sourcedoc=%7B8DEAE777-D52D-4BFE-8610-A99ACC9153ED%7D&file=682_ITCS223_LabScore.xlsx&action=default&mobileredirect=true";
 
 export async function GET(request: NextRequest) {
   try {
@@ -84,7 +80,6 @@ export async function GET(request: NextRequest) {
                 });
             }
         } else {
-            console.log(`[Scores API] Credential API request failed`);
             return NextResponse.json({ 
                 success: false, 
                 error: "Failed to validate credential. Please try again." 
@@ -94,8 +89,6 @@ export async function GET(request: NextRequest) {
 
     // Special Handling for ITCS223 (Now on Sheets)
     if (subject === 'ITCS223') {        
-        console.log(`[Scores API] Fetching ITCS223 data from Google Sheets...`);
-        
         // Use Google Sheets Logic (now updated to handle Sections)
         // If targetUsername is provided, return that student's object
         // NOTE: targetUsername might be "u64...\" or "64...". Sheets usually stored as "64..." in ID column.
@@ -105,11 +98,8 @@ export async function GET(request: NextRequest) {
         // So we just need to pass the target ID.
         
         let allScores = await getAllScores(subject, bypassCache);
-        console.log(`[Scores API] Fetched ${allScores.length} students from ITCS223 sheets`);
         
         if (targetUsername) {
-             console.log(`[Scores API] Looking for student: ${targetUsername}`);
-             
              // Flexible matching: Try exact match, or match without 'u' prefix
              const student = allScores.find(s => {
                 const sheetId = String(s.username || '').trim();
@@ -121,14 +111,11 @@ export async function GET(request: NextRequest) {
              });
              
              if (!student) {
-                 console.log(`[Scores API] Student not found in ITCS223 sheets. Searched IDs: ${targetUsername}`);
                  return NextResponse.json({ 
                      success: false, 
                      error: `Student ID ${targetUsername} not found in ITCS223 records. Please verify your student ID.` 
                  });
              }
-             
-             console.log(`[Scores API] Student found:`, { username: student.username, name: student.name, section: student.Section });
              
              // Map to expected frontend structure if needed, or pass as is?
              // Sheets returns { username, Lab 1, Lab 2, ... }
@@ -152,18 +139,15 @@ export async function GET(request: NextRequest) {
              return NextResponse.json({ success: true, scores: student });
         }
         
-        console.log(`[Scores API] Returning all ITCS223 students: ${allScores.length} records`);
         return NextResponse.json({ success: true, scores: allScores });
     }
 
     if (targetUsername) {
-        console.log(`[Scores API] Standard lookup for ${targetUsername} in subject ${subject || 'default'}`);
         const scores = await getStudentAllScores(targetUsername, subject, bypassCache);
         
         // Merge feedback from DB if subject is ITCS251 or ITCS255
 
 
-        console.log(`[Scores API] Standard lookup result:`, scores ? 'Found' : 'Not found');
         return NextResponse.json({ success: true, scores });
     }
     
@@ -226,7 +210,16 @@ export async function POST(request: NextRequest) {
         }
 
     } else if (action === 'batch') {
-        await batchUpdateScores(updates); // updates arr should contain subject if mixed, or we pass global subject
+        // Check if this is a criteria-based batch update
+        const hasCriteriaType = updates && updates.length > 0 && updates[0].criteriaType;
+        
+        if (hasCriteriaType) {
+            // Use specialized criteria batch update
+            await batchUpdateCriteriaScores(updates);
+        } else {
+            // Use standard batch update
+            await batchUpdateScores(updates);
+        }
     } else if (action === 'fill_missing') {
         const result = await fillMissingScores(subject, labNumber, '0', section);
         return NextResponse.json(result);

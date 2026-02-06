@@ -63,6 +63,8 @@ export interface Subject {
   columnPattern?: string;
   dataSourceType?: string;
   sheetTabs?: string;
+  labWeight?: number;
+  labMaxScore?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -70,7 +72,7 @@ export interface Subject {
 // Singleton Pool
 let pool: Pool;
 
-function getPool() {
+export function getPool() {
   if (!pool) {
     if (!process.env.DATABASE_URL) {
       throw new Error("DATABASE_URL is missing in environment variables");
@@ -1030,6 +1032,12 @@ export async function getSubjects(visibleOnly: boolean = false): Promise<Subject
       hasTestCases: row.has_test_cases || false,
       gradingType: row.grading_type,
       googleSheetId: row.google_sheet_id,
+      headerRow: row.header_row,
+      columnPattern: row.column_pattern,
+      dataSourceType: row.data_source_type,
+      sheetTabs: row.sheet_tabs,
+      labWeight: row.lab_weight,
+      labMaxScore: row.lab_max_score,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     }));
@@ -1186,6 +1194,8 @@ export async function updateSubject(
     if (updates.columnPattern !== undefined) { fields.push(`column_pattern = $${idx++}`); values.push(updates.columnPattern); }
     if (updates.dataSourceType !== undefined) { fields.push(`data_source_type = $${idx++}`); values.push(updates.dataSourceType); }
     if (updates.sheetTabs !== undefined) { fields.push(`sheet_tabs = $${idx++}`); values.push(updates.sheetTabs); }
+    if (updates.labWeight !== undefined) { fields.push(`lab_weight = $${idx++}`); values.push(updates.labWeight); }
+    if (updates.labMaxScore !== undefined) { fields.push(`lab_max_score = $${idx++}`); values.push(updates.labMaxScore); }
 
     if (fields.length === 0) {
       const existing = await client.query('SELECT * FROM subjects WHERE code = $1', [code]);
@@ -1213,6 +1223,8 @@ export async function updateSubject(
         columnPattern: row.column_pattern,
         dataSourceType: row.data_source_type,
         sheetTabs: row.sheet_tabs,
+        labWeight: row.lab_weight,
+        labMaxScore: row.lab_max_score,
         createdAt: row.created_at,
         updatedAt: row.updated_at
       };
@@ -1251,6 +1263,8 @@ export async function updateSubject(
       columnPattern: row.column_pattern,
       dataSourceType: row.data_source_type,
       sheetTabs: row.sheet_tabs,
+      labWeight: row.lab_weight,
+      labMaxScore: row.lab_max_score,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
