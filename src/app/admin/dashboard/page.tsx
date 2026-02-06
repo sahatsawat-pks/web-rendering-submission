@@ -274,7 +274,33 @@ export default function AdminHub() {
                 
                 // Extract base color from gradientFrom for shadow (e.g., "from-teal-500" -> "teal")
                 const baseColor = config?.gradientFrom?.match(/from-(\w+)-/)?.[1] || 'slate'
-                const shadowClass = `shadow-${baseColor}-500/30`
+                
+                // Use consistent shadow approach with subjectConfigAdapter
+                const getShadowColor = (colorName: string, opacity: number = 0.3): string => {
+                  const colorMap: Record<string, string> = {
+                    lime: '132, 204, 22',
+                    green: '34, 197, 94',
+                    blue: '59, 130, 246',
+                    indigo: '99, 102, 241',
+                    purple: '168, 85, 247',
+                    pink: '236, 72, 153',
+                    red: '239, 68, 68',
+                    orange: '249, 115, 22',
+                    amber: '245, 158, 11',
+                    yellow: '234, 179, 8',
+                    emerald: '16, 185, 129',
+                    teal: '20, 184, 166',
+                    cyan: '6, 182, 212',
+                    sky: '14, 165, 233',
+                    rose: '244, 63, 94',
+                  }
+                  const rgb = colorMap[colorName] || colorMap.blue
+                  return `rgba(${rgb}, ${opacity})`
+                }
+                
+                const shadowStyle = {
+                  boxShadow: `0 4px 14px 0 ${getShadowColor(baseColor)}, 0 4px 6px -1px rgba(0, 0, 0, 0.1)`
+                }
                 
                 const colorForText = config ? `${config.gradientFrom} ${config.gradientTo}` : mod.color
                 const textGradient = getTextGradientStyle(colorForText)
@@ -285,7 +311,8 @@ export default function AdminHub() {
                 <Link 
                     key={mod.code} 
                     href={href}
-                    className={`group relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg hover:shadow-2xl ${shadowClass} transition-all duration-300 hover:-translate-y-1`}
+                    style={shadowStyle}
+                    className={`group relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1`}
                 >
                     <div 
                         className={`h-2 animate-pulse ${gradientClass}`}

@@ -233,9 +233,9 @@ export default function MultiQuestionGrading({
     e.preventDefault()
     setCreatingLab(true)
     
-    // Generate Sub Questions JSON
+    // Generate Sub Questions JSON - only create subQuestions if more than 1 question
     const count = parseInt(newLabData.questionCount) || 1;
-    const subQuestions = Array.from({length: count}, (_, i) => `Q${i+1}`); // ["Q1", "Q2"...]
+    const subQuestions = count > 1 ? Array.from({length: count}, (_, i) => `Q${i+1}`) : undefined; // ["Q1", "Q2"...] or undefined
     
     try {
       const response = await fetch("/api/labs", {
@@ -244,7 +244,7 @@ export default function MultiQuestionGrading({
         body: JSON.stringify({
           ...newLabData,
           subject: subjectCode,
-          subQuestions: JSON.stringify(subQuestions) // Store Q structure
+          subQuestions: subQuestions ? JSON.stringify(subQuestions) : undefined // Only store Q structure if multiple questions
         })
       })
       

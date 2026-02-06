@@ -40,9 +40,16 @@ export function clearSheetsCache(subject?: string) {
                 sheetsCache.delete(key);
             }
         }
+        // Also clear student row cache for this subject
+        for (const key of studentRowCache.keys()) {
+            if (key.includes(subject)) {
+                studentRowCache.delete(key);
+            }
+        }
     } else {
         // Clear all sheets cache
         sheetsCache.clear();
+        studentRowCache.clear();
     }
 }
 
@@ -328,6 +335,11 @@ function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] 
         student['surname'] = fixMashedName(row[4]);
         student['nickname'] = row[5];
     } else if (subject === 'ITCS223') {
+        student['name'] = fixMashedName(row[2]);
+        student['surname'] = fixMashedName(row[3]);
+    } else if (subject === 'ITCS251' || subject === 'ITCS255') {
+        // ITCS251 and ITCS255 have similar structure with header starting at row 5
+        // Based on the data structure, names appear to be in specific columns
         student['name'] = fixMashedName(row[2]);
         student['surname'] = fixMashedName(row[3]);
     } else if (subject === 'ITCS227') {
@@ -938,19 +950,29 @@ async function updateXlsxData(spreadsheetId: string, tabName: string, updates: {
     }
 }
 
+// Student lookup cache to avoid re-scanning rows for each update
+const studentRowCache = new Map<string, { spreadsheetId: string, rowIndex: number, timestamp: number }>();
+const STUDENT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 // Internal helper for actual update logic
 async function updateSpecificTab(subject: string, tabName: string, username: string, labNumber: string, score: number, feedback?: string, isCsv: boolean = false, config?: any, inClass?: boolean) {
   const sheets = await getSheetsClient();
   const spreadsheetId = await getSubjectSheetId(subject);
   
-  const rows = await getSheetData(subject, tabName);
+  // Use cached sheet data to avoid repeated API calls
+  const rows = await getSheetData(subject, tabName, false); // Use cache
   
-  // Header Config
-  const headerRow = config?.headerRow || (subject === 'ITCS251' || subject === 'ITCS255' ? 5 : 1);
+  // Header Config - For ITCS251/255, both header and data start at row 5
+  const headerRow = (subject === 'ITCS251' || subject === 'ITCS255') ? 5 : (config?.headerRow || 1);
   const startRow = (subject === 'ITCS251' || subject === 'ITCS255') ? 5 : 1;
   const headerIdx = headerRow - startRow; // Relative index in 'rows' array
 
-  let headers = rows.length > headerIdx ? rows[headerIdx] : [];
+  let headers = (rows.length > headerIdx && rows[headerIdx]) ? rows[headerIdx] : [];
+  
+  // Ensure headers is always an array
+  if (!Array.isArray(headers)) {
+    headers = [];
+  }
   
   // ... [Existing init logic if empty sheet, but using headerRow] ...
   if (rows.length === 0) {
@@ -964,7 +986,7 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
   const labInt = parseInt(labNumber.toString().replace(/[^\d]/g, '')).toString(); 
   const labNumPad = labInt.length === 1 ? `0${labInt}` : labInt;
   
-  // console.log(`[updateSpecificTab] Finding column for: ${labNumber} (Int: ${labInt})`);
+
   
   // 1. Exact Match
   let labIndex = headers.findIndex((h: string) => h === labNumber);
@@ -973,7 +995,17 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
       labIndex = headers.findIndex((h: string) => h.toLowerCase() === labNumber.toLowerCase());
   }
   
-  // 2. Regex Match (Enhanced)
+  // 2. Subject-specific pattern matching
+  if (labIndex === -1) {
+      if (subject === 'ITCS251' || subject === 'ITCS255') {
+          // For Python and SQL courses, look for "W {labNumber}" pattern
+          const labInt = parseInt(labNumber.toString().replace(/[^\d]/g, '')).toString();
+          const wPattern = `W ${labInt}`;
+          labIndex = headers.findIndex((h: string) => String(h).trim() === wPattern);
+      }
+  }
+  
+  // 3. Regex Match (Enhanced)
   if (labIndex === -1) {
       if (config?.columnPattern) {
            const safePattern = config.columnPattern.replace('{labId}', `(${labInt}|${labNumPad})`).replace('{questionId}', '.*');
@@ -994,6 +1026,11 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
   // Usually adjacent or named specifically
   let feedbackIndex = headers.findIndex((h: string) => h === `${labNumber} Feedback` || h === `Lab ${labInt} Feedback`);
   
+  // Subject-specific feedback patterns
+  if (feedbackIndex === -1 && (subject === 'ITCS251' || subject === 'ITCS255')) {
+      feedbackIndex = headers.findIndex((h: string) => h === `W ${labInt} Feedback`);
+  }
+  
   const pendingUpdates : any[] = [];
   const xlsxUpdates : { col: number, row: number, value: any }[] = [];
 
@@ -1007,6 +1044,10 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
           const labInt = parseInt(labNumber.toString().replace(/[^\d]/g, '')).toString();
           const labNumPadded = labInt.padStart(2, '0');
           headerValue = `Lab${labNumPadded}`;
+      } else if (subject === 'ITCS251' || subject === 'ITCS255') {
+          // For Python and SQL courses, use "W {labNumber}" format
+          const labInt = parseInt(labNumber.toString().replace(/[^\d]/g, '')).toString();
+          headerValue = `W ${labInt}`;
       }
       
       // If we need to respect pattern for creation, it's hard. Just use passed Value.
@@ -1038,11 +1079,41 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
        if (found !== -1) idIndex = found;
   }
 
-  let rowIndex = rows.findIndex((row, idx) => {
-      if (idx < headerIdx) return false; // Skip pre-header
-      const val = row[idIndex];
-      return String(val).trim() === String(username).trim();
-  });
+  // Optimized student row finding with cache
+  const cacheKey = `${spreadsheetId}_${tabName}_${username}`;
+  const cached = studentRowCache.get(cacheKey);
+  let rowIndex = -1;
+  
+  if (cached && cached.spreadsheetId === spreadsheetId && (Date.now() - cached.timestamp < STUDENT_CACHE_TTL)) {
+    // Use cached row index, but verify it's still valid
+    if (cached.rowIndex < rows.length) {
+      const val = rows[cached.rowIndex][idIndex];
+      if (String(val).trim() === String(username).trim()) {
+        rowIndex = cached.rowIndex;
+      }
+    }
+  }
+  
+  // Fall back to search if cache miss or invalid
+  if (rowIndex === -1) {
+    rowIndex = rows.findIndex((row, idx) => {
+        if (idx < headerIdx) return false; // Skip pre-header
+        const val = row[idIndex];
+        const isMatch = String(val).trim() === String(username).trim();
+        return isMatch;
+    });
+    
+    // Cache the found row index
+    if (rowIndex !== -1) {
+      studentRowCache.set(cacheKey, { 
+        spreadsheetId, 
+        rowIndex, 
+        timestamp: Date.now() 
+      });
+    }
+  }
+  
+
   
   if (rowIndex === -1) {
     rowIndex = rows.length;
@@ -1070,7 +1141,7 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
   const actualSheetRow = rowIndex + startRow;
 
   const scoreRange = `${tabName}!${getColumnLetter(labIndex + 1)}${actualSheetRow}`;
-  // console.log(`[updateSpecificTab] Score update: range=${scoreRange}, score=${score}`);
+
   
   pendingUpdates.push({
       range: scoreRange,
@@ -1108,20 +1179,21 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
 
   // Exec Updates (same as before)
   try {
+
       if (pendingUpdates.length > 0) {
-          await sheets.spreadsheets.values.batchUpdate({
+          const result = await sheets.spreadsheets.values.batchUpdate({
               spreadsheetId,
               requestBody: {
                   valueInputOption: 'RAW',
                   data: pendingUpdates
               }
           });
+
       }
       return; 
   } catch (err: any) {
        const isXlsxError = err.code === 400 || (err.message && err.message.includes('not supported'));
        if (isXlsxError) {
-           // console.log(`[updateSpecificTab] Detected XLSX Write Error. Switching to Drive API update.`);
            return await updateXlsxData(spreadsheetId, tabName, xlsxUpdates);
        }
        throw err; 
