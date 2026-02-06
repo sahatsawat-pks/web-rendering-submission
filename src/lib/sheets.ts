@@ -275,18 +275,18 @@ function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] 
   if (rows.length === 0) return [];
 
   // Determine header row index (0-based)
-  // For ITCS251/255, header is at row 5, for others use config or default to 1
-  let headerRowIndex;
-  if (subject === 'ITCS251' || subject === 'ITCS255') {
-    headerRowIndex = 4; // Row 5 - 1 (0-based index)
-  } else {
-    headerRowIndex = (config?.headerRow || 1) - 1;
-  }
+  // All subjects use config or default to row 1
+  const headerRowIndex = (config?.headerRow || 1) - 1;
   
   // Safety check
   if (headerRowIndex >= rows.length) return [];
 
   const headers = rows[headerRowIndex];
+  
+  if (subject === 'ITCS251' || subject === 'ITCS255') {
+    console.log(`[mapRowsToStudents] DEBUG: ${subject} - using headerRowIndex=${headerRowIndex} (row ${headerRowIndex + 1}) from config`);
+    console.log(`[mapRowsToStudents] DEBUG: ${subject} - headers from row ${headerRowIndex + 1}:`, headers?.slice(0, 10));
+  }
   const data = rows.slice(headerRowIndex + 1);
   
   // Determine ID Column Index
