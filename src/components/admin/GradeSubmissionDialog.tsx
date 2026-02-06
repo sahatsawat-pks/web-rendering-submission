@@ -98,15 +98,17 @@ export default function GradeSubmissionDialog({
       
       case 'multi_question':
         return (
-          <div className="grid gap-2">
-            {multiQuestionScores && Object.entries(multiQuestionScores).map(([questionId, value], index) => (
-              <div key={questionId} className="bg-white dark:bg-slate-700 p-2 rounded-lg border border-amber-200 dark:border-amber-800">
-                <p className="text-xs text-slate-600 dark:text-slate-400">
-                  {questionLabels?.[index] || `Question ${index + 1}`}
-                </p>
-                <p className="text-sm font-bold text-amber-600 dark:text-amber-400">{value}</p>
-              </div>
-            ))}
+          <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-2">
+              {multiQuestionScores && Object.entries(multiQuestionScores).map(([questionId, value], index) => (
+                <div key={questionId} className="bg-white dark:bg-slate-700 p-2 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                    {questionLabels?.[index] || `Question ${index + 1}`}
+                  </p>
+                  <p className="text-sm font-bold text-amber-600 dark:text-amber-400">{value}</p>
+                </div>
+              ))}
+            </div>
             <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-2 rounded-lg border border-amber-300 dark:border-amber-700">
               <p className="text-xs text-slate-600 dark:text-slate-400">Total Score</p>
               <p className="text-lg font-bold text-amber-600 dark:text-amber-400">
