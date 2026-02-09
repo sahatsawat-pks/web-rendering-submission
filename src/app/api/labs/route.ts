@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { labNumber, title, fileName, isActive, deadline, subject, testCases, labType, subQuestions } = body;
+    const { labNumber, title, fileName, isActive, deadline, subject, testCases, labType, subQuestions, challengeEnabled } = body;
 
     if (!labNumber || !title) {
       return NextResponse.json(
@@ -70,27 +70,9 @@ export async function POST(request: NextRequest) {
       deadline,
       testCases,
       labType || 'Lab',
-      subQuestions
+      subQuestions,
+      challengeEnabled
     );
-
-    // For ITCS123, automatically create a Challenge with the same lab number
-    if (subject === 'ITCS123' && (!labType || labType === 'Lab')) {
-      try {
-        await createLab(
-          labNumber,
-          title,
-          fileName || "index.html",
-          subject,
-          isActive !== undefined ? isActive : true,
-          deadline,
-          undefined, // No test cases for challenge initially
-          'Challenge'
-        );
-      } catch (challengeError) {
-        console.error('Failed to create challenge:', challengeError);
-        // Don't fail the whole request if challenge creation fails
-      }
-    }
 
     return NextResponse.json({
       success: true,
@@ -136,6 +118,28 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // Sync Challenge entry if this is a Lab type and isActive or challengeEnabled was updated
+    if ((!lab.labType || lab.labType === 'Lab') && (updates.isActive !== undefined || updates.challengeEnabled !== undefined)) {
+      try {
+        // Find corresponding Challenge entry
+        const allLabs = await getAllLabs(false, lab.subject);
+        const challenge = allLabs.find(
+          l => l.labNumber === lab.labNumber && l.labType === 'Challenge'
+        );
+        
+        if (challenge) {
+          // Challenge should be active only if Lab is active AND challengeEnabled is true
+          const challengeShouldBeActive = lab.isActive && (lab.challengeEnabled !== false);
+          if (challenge.isActive !== challengeShouldBeActive) {
+            await updateLab(challenge.id, { isActive: challengeShouldBeActive });
+          }
+        }
+      } catch (syncError) {
+        console.error('Failed to sync challenge entry:', syncError);
+        // Don't fail the whole request if sync fails
+      }
+    }
+
     return NextResponse.json({
       success: true,
       lab,
@@ -171,7 +175,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Get the lab to check if it's ITCS123 and a Lab type
+    // Get the lab to check if it's a Lab type
     const lab = await getLabById(id);
     
     if (!lab) {
@@ -190,11 +194,11 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // If it's ITCS123 and a Lab type, also delete the corresponding Challenge
-    if (lab.subject === 'ITCS123' && (!lab.labType || lab.labType === 'Lab')) {
+    // If it's a Lab type, also delete the corresponding Challenge entry if exists
+    if (!lab.labType || lab.labType === 'Lab') {
       try {
         // Find and delete the corresponding Challenge
-        const allLabs = await getAllLabs(false, 'ITCS123');
+        const allLabs = await getAllLabs(false, lab.subject);
         const challenge = allLabs.find(
           l => l.labNumber === lab.labNumber && l.labType === 'Challenge'
         );

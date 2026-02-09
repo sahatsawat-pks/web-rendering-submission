@@ -28,6 +28,7 @@ export interface Lab {
   quizEnabled?: boolean; // Whether quiz is enabled for this lab
   quizTimeLimit?: number; // Time limit in minutes (0 = no limit)
   quizTimeLimitEnabled?: boolean; // Whether time limit is enabled
+  challengeEnabled?: boolean; // Whether challenge is enabled for this lab (for lab_challenge grading type)
   createdAt: string;
 }
 
@@ -180,6 +181,16 @@ async function ensureTables() {
             BEGIN 
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'labs' AND column_name = 'lab_type') THEN 
                     ALTER TABLE labs ADD COLUMN lab_type TEXT DEFAULT 'Lab'; 
+                END IF; 
+            END $$;
+        `);
+        
+        // Add challenge_enabled column if not exists
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'labs' AND column_name = 'challenge_enabled') THEN 
+                    ALTER TABLE labs ADD COLUMN challenge_enabled BOOLEAN DEFAULT TRUE; 
                 END IF; 
             END $$;
         `);
@@ -823,6 +834,7 @@ export async function getAllLabs(activeOnly: boolean = false, subject?: string):
             quizEnabled: r.quiz_enabled,
             quizTimeLimit: r.quiz_time_limit,
             quizTimeLimitEnabled: r.quiz_time_limit_enabled,
+            challengeEnabled: r.challenge_enabled,
             createdAt: r.created_at.toString()
         }));
     } finally {
@@ -855,6 +867,7 @@ export async function getLabById(id: string): Promise<Lab | undefined> {
             quizEnabled: r.quiz_enabled,
             quizTimeLimit: r.quiz_time_limit,
             quizTimeLimitEnabled: r.quiz_time_limit_enabled,
+            challengeEnabled: r.challenge_enabled,
             createdAt: r.created_at.toString()
       };
   } finally {
@@ -897,6 +910,7 @@ export async function getLabByNumber(labNumber: string, subject?: string): Promi
               quizEnabled: r.quiz_enabled,
               quizTimeLimit: r.quiz_time_limit,
               quizTimeLimitEnabled: r.quiz_time_limit_enabled,
+              challengeEnabled: r.challenge_enabled,
               createdAt: r.created_at.toString()
         };
     } finally {
@@ -913,16 +927,17 @@ export async function createLab(
   deadline?: string,
   testCases?: string,
   labType: 'Lab' | 'Challenge' = 'Lab',
-  subQuestions?: string
+  subQuestions?: string,
+  challengeEnabled?: boolean
 ): Promise<Lab> {
     await init();
     const client = await getPool().connect();
     try {
         const res = await client.query(`
-            INSERT INTO labs (lab_number, title, file_name, subject, is_active, deadline, test_cases, lab_type, sub_questions)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            INSERT INTO labs (lab_number, title, file_name, subject, is_active, deadline, test_cases, lab_type, sub_questions, challenge_enabled)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             RETURNING *
-        `, [labNumber, title, fileName, subject, isActive, deadline || null, testCases || null, labType, subQuestions || null]);
+        `, [labNumber, title, fileName, subject, isActive, deadline || null, testCases || null, labType, subQuestions || null, challengeEnabled !== undefined ? challengeEnabled : true]);
         
         const r = res.rows[0];
         return {
@@ -938,6 +953,7 @@ export async function createLab(
             labType: r.lab_type || 'Lab',
             totalScore: r.total_score,
             databaseStarter: r.database_starter,
+            challengeEnabled: r.challenge_enabled,
             createdAt: r.created_at.toString()
         };
     } finally {
@@ -973,6 +989,7 @@ export async function updateLab(
         if (updates.quizEnabled !== undefined) { fields.push(`quiz_enabled = $${idx++}`); values.push(updates.quizEnabled); }
         if (updates.quizTimeLimit !== undefined) { fields.push(`quiz_time_limit = $${idx++}`); values.push(updates.quizTimeLimit); }
         if (updates.quizTimeLimitEnabled !== undefined) { fields.push(`quiz_time_limit_enabled = $${idx++}`); values.push(updates.quizTimeLimitEnabled); }
+        if (updates.challengeEnabled !== undefined) { fields.push(`challenge_enabled = $${idx++}`); values.push(updates.challengeEnabled); }
 
         if (fields.length === 0) return getLabById(id).then(l => l || null); // No updates
 
@@ -1003,6 +1020,7 @@ export async function updateLab(
             quizEnabled: r.quiz_enabled,
             quizTimeLimit: r.quiz_time_limit,
             quizTimeLimitEnabled: r.quiz_time_limit_enabled,
+            challengeEnabled: r.challenge_enabled,
             createdAt: r.created_at.toString()
         };
     } finally {

@@ -670,7 +670,7 @@ export default function LabChallengeGrading({
         ) : (
           <div className="grid gap-4">
             {Array.from(new Map(labs.map(lab => [lab.labNumber, lab])).values()).map((lab) => {
-              const hasChallenge = labs.some(l => l.labNumber === lab.labNumber && (l.labType || 'Lab') === 'Challenge');
+              const hasChallenge = lab.challengeEnabled === true && lab.isActive;
               return (
               <div
                 key={lab.id}

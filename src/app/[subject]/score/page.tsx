@@ -40,6 +40,8 @@ interface ActiveLab {
     totalScore?: number
     labType?: string
     subQuestions?: string
+    challengeEnabled?: boolean
+    isActive?: boolean
 }
 
 interface QuizScore {
@@ -331,20 +333,24 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
 
           // Challenge Score Logic (not applicable for Python/SQL)
           let chScoreValue: string | undefined = undefined;
-          if (!isPythonOrSql) {
+          
+          // Check if challenge is enabled for this lab
+          const challengeEnabled = lab.challengeEnabled !== false && lab.isActive !== false;
+          
+          if (!isPythonOrSql && challengeEnabled) {
               if (scores[chKeyExact] !== undefined) chScoreValue = scores[chKeyExact]
               else if (scores[chKeyNorm] !== undefined) chScoreValue = scores[chKeyNorm]
               else if (scores[chKeyShort] !== undefined) chScoreValue = scores[chKeyShort]
               else if (scores[chKeyShortExact] !== undefined) chScoreValue = scores[chKeyShortExact]
           }
-          else if (scores[chKeyShortExact] !== undefined) chScoreValue = scores[chKeyShortExact]
+          else if (scores[chKeyShortExact] !== undefined && challengeEnabled) chScoreValue = scores[chKeyShortExact]
 
           labRows.push({
               lab: lab.labNumber.padStart(2, '0'),
               title: lab.title, 
               score: (scoreValue === undefined || scoreValue === null || scoreValue === '') ? '0' : scoreValue,
               totalScore: lab.totalScore,
-              challengeScore: (chScoreValue === undefined || chScoreValue === null || chScoreValue === '') ? '0' : chScoreValue,
+              challengeScore: challengeEnabled ? ((chScoreValue === undefined || chScoreValue === null || chScoreValue === '') ? '0' : chScoreValue) : '-',
               challengeTotalScore: lab.totalScore, // Assuming challenge has same max weight? usually 2?
               isCriteria: false,
               isMultiQuestion: false
@@ -360,7 +366,9 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
   if (isLabChallenge && scores) {
       // Use config value if available, otherwise calculate based on active labs
       const maxLabScore = config.grading?.labMaxScore || (activeLabs.length * 2); // Use database value or calculate dynamically
-      const maxChallengeScore = activeLabs.length * 2; // Maximum possible challenge score (active challenges × 2 points)
+      // Only count labs where challenge is enabled and active
+      const enabledChallengesCount = activeLabs.filter(lab => lab.challengeEnabled !== false && lab.isActive !== false).length;
+      const maxChallengeScore = enabledChallengesCount * 2; // Maximum possible challenge score (enabled challenges × 2 points)
       
       // Calculate totals
       const totalLab = labRows.reduce((acc, row) => {
@@ -381,6 +389,8 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
           if (isMultiQuestionLab(row)) {
               return acc; // Multi-question labs don't have challenge scores in this context
           } else {
+              // Skip disabled challenges (marked as '-')
+              if (row.challengeScore === '-') return acc;
               const val = parseFloat(row.challengeScore || '0');
               return acc + (isNaN(val) ? 0 : val);
           }
@@ -519,12 +529,16 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                                        ${row.challengeScore === '2' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 
-                                                          row.challengeScore === '1' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                                          'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
-                                                        {row.challengeScore}
-                                                    </span>
+                                                    {row.challengeScore === '-' ? (
+                                                        <span className="text-slate-400 dark:text-slate-500 font-medium">-</span>
+                                                    ) : (
+                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                                            ${row.challengeScore === '2' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 
+                                                              row.challengeScore === '1' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                                              'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                                            {row.challengeScore}
+                                                        </span>
+                                                    )}
                                                 </td>
                                             </tr>
                                         )}

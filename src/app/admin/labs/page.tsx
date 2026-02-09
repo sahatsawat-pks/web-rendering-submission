@@ -17,6 +17,7 @@ interface Lab {
   subject: string
   labType?: 'Lab' | 'Challenge'
   subQuestions?: string // JSON string of questions array
+  challengeEnabled?: boolean // Whether challenge is enabled for this lab
 }
 
 export default function LabManagement() {
@@ -39,7 +40,8 @@ export default function LabManagement() {
     deadline: "",
     subject: "", // Will be set from fetched subjects
     totalScore: "", // Add total score field
-    numberOfQuestions: "1" // Add number of questions field for multi-question labs
+    numberOfQuestions: "1", // Add number of questions field for multi-question labs
+    challengeEnabled: true // Default to true for challenge-enabled subjects
   })
 
 
@@ -65,6 +67,12 @@ export default function LabManagement() {
     } catch (err) {
       console.error("Failed to fetch subjects", err)
     }
+  }
+
+  // Helper function to check if subject has lab_challenge grading type
+  function hasLabChallengeGrading(subjectCode: string): boolean {
+    const subject = subjects.find(s => s.code === subjectCode)
+    return subject?.gradingType === 'lab_challenge'
   }
 
   // Update default subject when permissions change
@@ -156,7 +164,8 @@ export default function LabManagement() {
       const bodyData: any = {
         ...formData,
         totalScore: formData.totalScore ? parseInt(formData.totalScore) : undefined,
-        subQuestions: subQuestions ? JSON.stringify(subQuestions) : undefined
+        subQuestions: subQuestions ? JSON.stringify(subQuestions) : undefined,
+        challengeEnabled: hasLabChallengeGrading(formData.subject) ? formData.challengeEnabled : undefined
       }
       
       const body = editingLab ? { id: editingLab.id, ...bodyData } : bodyData
@@ -180,7 +189,7 @@ export default function LabManagement() {
 
 
       // Reset form and refresh
-      setFormData({ labNumber: "", title: "", fileName: "index.html", isActive: true, deadline: "", subject: subjects[0]?.code || "", totalScore: "", numberOfQuestions: "1" })
+      setFormData({ labNumber: "", title: "", fileName: "index.html", isActive: true, deadline: "", subject: subjects[0]?.code || "", totalScore: "", numberOfQuestions: "1", challengeEnabled: true })
 
       setEditingLab(null)
       fetchLabs()
@@ -236,13 +245,14 @@ export default function LabManagement() {
       deadline: lab.deadline || "",
       subject: lab.subject || subjects[0]?.code || "",
       totalScore: (lab as any).totalScore?.toString() || "",
-      numberOfQuestions: questionCount
+      numberOfQuestions: questionCount,
+      challengeEnabled: lab.challengeEnabled !== undefined ? lab.challengeEnabled : true
     })
   }
 
   function handleCancelEdit() {
     setEditingLab(null)
-    setFormData({ labNumber: "", title: "", fileName: "index.html", isActive: true, deadline: "", subject: subjects[0]?.code || "", totalScore: "", numberOfQuestions: "1" })
+    setFormData({ labNumber: "", title: "", fileName: "index.html", isActive: true, deadline: "", subject: subjects[0]?.code || "", totalScore: "", numberOfQuestions: "1", challengeEnabled: true })
   }
 
   async function handleToggleActive(lab: Lab) {
@@ -268,6 +278,29 @@ export default function LabManagement() {
     }
   }
 
+  async function handleToggleChallenge(lab: Lab) {
+    try {
+      const response = await fetch("/api/labs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: lab.id, challengeEnabled: !lab.challengeEnabled }),
+      })
+
+      if (response.status === 401) {
+        router.push("/admin/login")
+        return
+      }
+
+      if (!response.ok) {
+        throw new Error("Failed to toggle challenge")
+      }
+
+      fetchLabs()
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }
+
   // Check if user is main admin
   const isMainAdmin = currentUser === "kanzaki_aito"
 
@@ -284,9 +317,11 @@ export default function LabManagement() {
   // console.log("Allowed subjects:", allowedSubjects)
 
   // Filter labs based on user permissions and subject filter, then sort by subject and lab number
+  // Only show Lab type entries (not Challenge entries)
   const filteredLabs = (isMainAdmin 
     ? labs 
     : labs.filter(lab => userPermissions[lab.subject.toLowerCase()]))
+    .filter(lab => (lab.labType || 'Lab') === 'Lab') // Only show Lab entries, not Challenge entries
     .filter(lab => subjectFilter === "all" || lab.subject === subjectFilter)
     .sort((a, b) => {
       // First sort by subject
@@ -528,6 +563,25 @@ export default function LabManagement() {
                   </label>
                 </div>
 
+                {/* Challenge Enable/Disable - Only for subjects with lab_challenge grading type */}
+                {hasLabChallengeGrading(formData.subject) && (
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-purple-50/50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800">
+                    <input
+                      type="checkbox"
+                      id="challengeEnabled"
+                      checked={formData.challengeEnabled}
+                      onChange={(e) => setFormData({ ...formData, challengeEnabled: e.target.checked })}
+                      className="h-5 w-5 rounded border-slate-300 dark:border-slate-600 text-purple-600 focus:ring-purple-500"
+                    />
+                    <label
+                      htmlFor="challengeEnabled"
+                      className="text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer"
+                    >
+                      Enable Challenge Mode (Default: Enabled)
+                    </label>
+                  </div>
+                )}
+
                 <div className="flex gap-3 pt-4">
                   <button
                     type="submit"
@@ -604,13 +658,14 @@ export default function LabManagement() {
                       <th className="px-4 md:px-8 py-4 md:py-5 font-semibold tracking-wide text-xs md:text-sm">Questions</th>
                       <th className="px-4 md:px-8 py-4 md:py-5 font-semibold tracking-wide text-xs md:text-sm">Deadline</th>
                       <th className="px-4 md:px-8 py-4 md:py-5 font-semibold tracking-wide text-xs md:text-sm">Status</th>
+                      <th className="px-4 md:px-8 py-4 md:py-5 font-semibold tracking-wide text-xs md:text-sm">Challenge</th>
                       <th className="px-4 md:px-8 py-4 md:py-5 text-right font-semibold tracking-wide text-xs md:text-sm">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                     {filteredLabs.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center">
+                        <td colSpan={8} className="px-6 py-12 text-center">
                           <div className="flex flex-col items-center text-slate-400 dark:text-slate-500">
                             <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
                               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -644,15 +699,6 @@ export default function LabManagement() {
                           <td className="px-4 md:px-8 py-4 md:py-5 text-slate-700 dark:text-slate-300 font-medium text-xs md:text-sm">
                             <div className="flex flex-col gap-1.5">
                               <span>{lab.title}</span>
-                              {lab.subject === 'ITCS123' && (
-                                <span className={`px-2 py-0.5 rounded text-xs font-bold w-fit ${
-                                  (lab.labType || 'Lab') === 'Challenge'
-                                    ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
-                                    : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
-                                }`}>
-                                  {lab.labType || 'Lab'}
-                                </span>
-                              )}
                             </div>
                           </td>
                           <td className="px-4 md:px-8 py-4 md:py-5 text-slate-700 dark:text-slate-300 font-medium text-xs md:text-sm text-center">
@@ -685,27 +731,36 @@ export default function LabManagement() {
                               {lab.isActive ? "Active" : "Inactive"}
                             </button>
                           </td>
+                          <td className="px-4 md:px-8 py-4 md:py-5">
+                            {hasLabChallengeGrading(lab.subject) ? (
+                              <button
+                                onClick={() => handleToggleChallenge(lab)}
+                                disabled={!lab.isActive}
+                                className={`px-2 md:px-3 py-1 md:py-1.5 rounded-lg text-[10px] md:text-xs font-semibold border transition-all ${
+                                  !lab.isActive
+                                    ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-50"
+                                    : lab.challengeEnabled
+                                      ? "bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/30"
+                                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                }`}
+                              >
+                                {lab.challengeEnabled ? "Enabled" : "Disabled"}
+                              </button>
+                            ) : (
+                              <span className="text-slate-300 dark:text-slate-600 text-xs italic">N/A</span>
+                            )}
+                          </td>
                           <td className="px-4 md:px-8 py-4 md:py-5 text-right space-x-1 md:space-x-2">
                             <button
                               onClick={() => handleEdit(lab)}
-                              disabled={(lab.labType || 'Lab') === 'Challenge'}
-                              className={`font-bold transition-colors px-2 md:px-3 py-1 md:py-1.5 rounded-lg text-[10px] md:text-xs uppercase tracking-wide ${
-                                (lab.labType || 'Lab') === 'Challenge'
-                                  ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
-                                  : 'text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                              }`}
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 font-bold transition-colors px-2 md:px-3 py-1 md:py-1.5 rounded-lg text-[10px] md:text-xs uppercase tracking-wide"
                             >
                               Edit
                             </button>
                             <span className="text-slate-200 dark:text-slate-700">|</span>
                             <button
                               onClick={() => handleDelete(lab.id)}
-                              disabled={(lab.labType || 'Lab') === 'Challenge'}
-                              className={`font-bold transition-colors px-3 py-1.5 rounded-lg text-xs uppercase tracking-wide ${
-                                (lab.labType || 'Lab') === 'Challenge'
-                                  ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
-                                  : 'text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20'
-                              }`}
+                              className="text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 font-bold transition-colors px-3 py-1.5 rounded-lg text-xs uppercase tracking-wide"
                             >
                               Delete
                             </button>
