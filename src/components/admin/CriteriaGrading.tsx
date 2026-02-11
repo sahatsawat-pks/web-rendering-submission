@@ -746,6 +746,22 @@ export default function CriteriaGrading({
           understanding: understandingScore,
           reflection: reflectionScore
         }}
+        existingScore={
+          studentDetails 
+            ? (() => {
+                const plainNum = parseInt(selectedLab).toString()
+                const ethicsVal = studentDetails[`Lab ${selectedLab} Ethics`] ?? studentDetails[`Lab ${plainNum} Ethics`] ?? studentDetails['Ethics']
+                const understandingVal = studentDetails[`Lab ${selectedLab} Code Understanding`] ?? studentDetails[`Lab ${plainNum} Code Understanding`] ?? studentDetails['Code Understanding']
+                const reflectionVal = studentDetails[`Lab ${selectedLab} Reflection`] ?? studentDetails[`Lab ${plainNum} Reflection`] ?? studentDetails['Reflection']
+                
+                if (ethicsVal !== undefined || understandingVal !== undefined || reflectionVal !== undefined) {
+                  const total = (Number(ethicsVal) || 0) + (Number(understandingVal) || 0) + (Number(reflectionVal) || 0)
+                  return `E:${ethicsVal ?? 0} U:${understandingVal ?? 0} R:${reflectionVal ?? 0} (Total: ${total}/6)`
+                }
+                return undefined
+              })()
+            : undefined
+        }
       />
       
       <SuccessNotification

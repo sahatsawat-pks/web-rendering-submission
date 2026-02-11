@@ -901,6 +901,15 @@ export default function LabChallengeGrading({
         gradingType="lab_challenge"
         score={pendingSubmission?.scoreType === 'lab' || pendingSubmission?.scoreType === 'both' ? labScore : ''}
         challengeScore={pendingSubmission?.scoreType === 'challenge' || pendingSubmission?.scoreType === 'both' ? challengeScore : undefined}
+        existingScore={
+          studentDetails 
+            ? pendingSubmission?.scoreType === 'lab' || pendingSubmission?.scoreType === 'both'
+              ? (studentDetails[`Lab ${selectedLab}`] ?? studentDetails[`Lab ${parseInt(selectedLab)}`])
+              : pendingSubmission?.scoreType === 'challenge'
+              ? (studentDetails[`Challenge ${selectedLab}`] ?? studentDetails[`Challenge ${parseInt(selectedLab)}`] ?? studentDetails[`Ch ${parseInt(selectedLab)}`])
+              : undefined
+            : undefined
+        }
       />
 
       <SuccessNotification

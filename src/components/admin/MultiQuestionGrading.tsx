@@ -642,6 +642,27 @@ export default function MultiQuestionGrading({
         gradingType="multi_question"
         multiQuestionScores={questionScores}
         questionLabels={totalQuestions}
+        existingScore={
+          studentDetails 
+            ? (() => {
+                const labNum = parseInt(selectedLab).toString()
+                const existingScores: string[] = []
+                let hasAnyScore = false
+                
+                totalQuestions.forEach((_, index) => {
+                  const qNum = index + 1
+                  const qKey = `l${labNum}-q${qNum}`
+                  const score = studentDetails[qKey]
+                  if (score !== undefined && score !== null && score !== '') {
+                    hasAnyScore = true
+                    existingScores.push(`Q${qNum}:${score}`)
+                  }
+                })
+                
+                return hasAnyScore ? existingScores.join(' ') : undefined
+              })()
+            : undefined
+        }
       />
 
       {/* Success Notification */}

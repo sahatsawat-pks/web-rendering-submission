@@ -780,6 +780,7 @@ export default function SimpleScoreGrading({
         isLoading={submissionLoading}
         gradingType="simple"
         score={score}
+        existingScore={studentDetails ? (studentDetails[`Lab ${selectedLab}`] ?? studentDetails[`Lab ${parseInt(selectedLab)}`]) : undefined}
       />
 
       <SuccessNotification

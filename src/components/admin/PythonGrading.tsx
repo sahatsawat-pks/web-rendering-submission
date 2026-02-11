@@ -1032,6 +1032,7 @@ export default function PythonGrading({
         gradingType="python"
         score={score}
         additionalInfo={isITCS251or255 ? `In-Class: ${inClass ? 'Yes' : 'No'}` : undefined}
+        existingScore={studentDetails ? (studentDetails[`W ${selectedLab}`] ?? studentDetails[`W ${parseInt(selectedLab)}`]) : undefined}
       />
 
       <SuccessNotification
