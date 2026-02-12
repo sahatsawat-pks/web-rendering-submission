@@ -11,11 +11,12 @@ import { fetchSubjectConfig } from "@/lib/subjectConfigCache"
 interface QuizQuestion {
   id: string
   question: string
-  type: 'multiple-choice' | 'short-answer'
+  type: 'multiple-choice' | 'short-answer' | 'true-false' | 'multiple-answer'
   options?: string[]
-  correctAnswer: string
+  correctAnswer: string | string[]
   category: string
   explanation?: string
+  imageUrl?: string
 }
 
 interface QuizCategory {
@@ -45,7 +46,7 @@ export default function QuizTakingPage() {
   const [questions, setQuestions] = useState<QuizQuestion[]>([])
   const [categories, setCategories] = useState<QuizCategory[]>([])
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
-  const [answers, setAnswers] = useState<{ [key: string]: string }>({})
+  const [answers, setAnswers] = useState<{ [key: string]: string | string[] }>({})
   const [timeLimit, setTimeLimit] = useState(0)
   const [timeLimitEnabled, setTimeLimitEnabled] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState(0)
@@ -218,9 +219,20 @@ export default function QuizTakingPage() {
     }
   }
 
-  const handleAnswer = (answer: string) => {
+  const handleAnswer = (answer: string | string[]) => {
     const questionId = questions[currentQuestionIndex].id
     setAnswers({ ...answers, [questionId]: answer })
+  }
+  
+  const handleMultipleAnswerToggle = (option: string) => {
+    const questionId = questions[currentQuestionIndex].id
+    const currentAnswers = Array.isArray(answers[questionId]) ? answers[questionId] as string[] : []
+    
+    if (currentAnswers.includes(option)) {
+      setAnswers({ ...answers, [questionId]: currentAnswers.filter(a => a !== option) })
+    } else {
+      setAnswers({ ...answers, [questionId]: [...currentAnswers, option] })
+    }
   }
 
   const goToQuestion = (index: number) => {
@@ -291,10 +303,27 @@ export default function QuizTakingPage() {
   const calculateScore = () => {
     let correct = 0
     questions.forEach(q => {
-      const userAnswer = answers[q.id]?.trim().toLowerCase()
-      const correctAnswer = q.correctAnswer.trim().toLowerCase()
-      if (userAnswer === correctAnswer) {
-        correct++
+      const userAnswer = answers[q.id]
+      const correctAnswer = q.correctAnswer
+      
+      // Handle multiple-answer questions (arrays)
+      if (Array.isArray(correctAnswer)) {
+        if (Array.isArray(userAnswer)) {
+          // Sort and compare arrays
+          const sortedUser = [...userAnswer].sort()
+          const sortedCorrect = [...correctAnswer].sort()
+          if (sortedUser.length === sortedCorrect.length && 
+              sortedUser.every((val, idx) => val === sortedCorrect[idx])) {
+            correct++
+          }
+        }
+      } else {
+        // Handle single-answer questions (strings)
+        const userStr = typeof userAnswer === 'string' ? userAnswer.trim().toLowerCase() : ''
+        const correctStr = correctAnswer.trim().toLowerCase()
+        if (userStr === correctStr) {
+          correct++
+        }
       }
     })
     return {
@@ -409,8 +438,30 @@ export default function QuizTakingPage() {
           {/* Questions Review */}
           <div className="space-y-4">
             {questions.map((question, idx) => {
-              const userAnswer = answers[question.id]?.trim() || ""
-              const isCorrect = userAnswer.toLowerCase() === question.correctAnswer.trim().toLowerCase()
+              const userAnswer = answers[question.id]
+              const correctAnswer = question.correctAnswer
+              
+              let isCorrect = false
+              if (Array.isArray(correctAnswer)) {
+                if (Array.isArray(userAnswer)) {
+                  const sortedUser = [...userAnswer].sort()
+                  const sortedCorrect = [...correctAnswer].sort()
+                  isCorrect = sortedUser.length === sortedCorrect.length && 
+                    sortedUser.every((val, i) => val === sortedCorrect[i])
+                }
+              } else {
+                const userStr = typeof userAnswer === 'string' ? userAnswer.trim().toLowerCase() : ''
+                const correctStr = correctAnswer.trim().toLowerCase()
+                isCorrect = userStr === correctStr
+              }
+              
+              const displayUserAnswer = Array.isArray(userAnswer) 
+                ? userAnswer.length > 0 ? userAnswer.join(', ') : ''
+                : typeof userAnswer === 'string' ? userAnswer.trim() : ''
+              
+              const displayCorrectAnswer = Array.isArray(correctAnswer)
+                ? correctAnswer.join(', ')
+                : correctAnswer
               
               return (
                 <div
@@ -435,11 +486,120 @@ export default function QuizTakingPage() {
                     <div className="flex-1">
                       <RichTextDisplay content={question.question} className="mb-4 text-lg font-semibold text-slate-800 dark:text-slate-100" />
                       
+                      {question.imageUrl && (
+                        <div className="mb-4">
+                          <img 
+                            src={question.imageUrl} 
+                            alt="Question image" 
+                            className="max-w-full h-auto rounded-lg border-2 border-slate-200 dark:border-slate-700 shadow-md"
+                          />
+                        </div>
+                      )}
+                      
                       {question.type === 'multiple-choice' && question.options && (
                         <div className="space-y-2 mb-4">
                           {question.options.map((opt, i) => {
-                            const isThisCorrect = opt === question.correctAnswer
-                            const isUserChoice = opt === userAnswer
+                            const isThisCorrect = opt === correctAnswer
+                            const isUserChoice = opt === displayUserAnswer
+                            
+                            return (
+                              <div
+                                key={i}
+                                className={`p-4 rounded-xl border-2 transition-all shadow-sm ${
+                                  isThisCorrect
+                                    ? 'bg-gradient-to-r from-cyan-50 to-cyan-50 dark:from-cyan-900/30 dark:to-cyan-900/30 border-cyan-500 shadow-cyan-500/20'
+                                    : isUserChoice
+                                    ? 'bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/30 dark:to-orange-900/30 border-red-500 shadow-red-500/20'
+                                    : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-bold flex-shrink-0 ${
+                                    isThisCorrect
+                                      ? 'bg-cyan-500 text-white'
+                                      : isUserChoice
+                                      ? 'bg-red-500 text-white'
+                                      : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                                  }`}>
+                                    {String.fromCharCode(65 + i)}
+                                  </span>
+                                  <span className={`flex-1 font-medium ${
+                                    isThisCorrect
+                                      ? 'text-cyan-800 dark:text-cyan-200'
+                                      : isUserChoice
+                                      ? 'text-red-800 dark:text-red-200'
+                                      : 'text-slate-700 dark:text-slate-300'
+                                  }`}>
+                                    {opt}
+                                  </span>
+                                  {isThisCorrect && (
+                                    <svg className="w-6 h-6 text-cyan-600 dark:text-cyan-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  )}
+                                  {isUserChoice && !isThisCorrect && (
+                                    <svg className="w-6 h-6 text-red-600 dark:text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                      
+                      {question.type === 'true-false' && (
+                        <div className="space-y-2 mb-4">
+                          {['True', 'False'].map((opt, i) => {
+                            const isThisCorrect = opt === correctAnswer
+                            const isUserChoice = opt === displayUserAnswer
+                            
+                            return (
+                              <div
+                                key={i}
+                                className={`p-4 rounded-xl border-2 transition-all shadow-sm ${
+                                  isThisCorrect
+                                    ? 'bg-gradient-to-r from-cyan-50 to-cyan-50 dark:from-cyan-900/30 dark:to-cyan-900/30 border-cyan-500 shadow-cyan-500/20'
+                                    : isUserChoice
+                                    ? 'bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/30 dark:to-orange-900/30 border-red-500 shadow-red-500/20'
+                                    : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <span className={`flex-1 font-medium text-lg ${
+                                    isThisCorrect
+                                      ? 'text-cyan-800 dark:text-cyan-200'
+                                      : isUserChoice
+                                      ? 'text-red-800 dark:text-red-200'
+                                      : 'text-slate-700 dark:text-slate-300'
+                                  }`}>
+                                    {opt}
+                                  </span>
+                                  {isThisCorrect && (
+                                    <svg className="w-6 h-6 text-cyan-600 dark:text-cyan-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  )}
+                                  {isUserChoice && !isThisCorrect && (
+                                    <svg className="w-6 h-6 text-red-600 dark:text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                      
+                      {question.type === 'multiple-answer' && question.options && (
+                        <div className="space-y-2 mb-4">
+                          {question.options.map((opt, i) => {
+                            const correctAnswers = Array.isArray(correctAnswer) ? correctAnswer : [correctAnswer]
+                            const userAnswers = Array.isArray(userAnswer) ? userAnswer : []
+                            const isThisCorrect = correctAnswers.includes(opt)
+                            const isUserChoice = userAnswers.includes(opt)
                             
                             return (
                               <div
@@ -497,7 +657,7 @@ export default function QuizTakingPage() {
                               </svg>
                               Your Answer
                             </span>
-                            <p className="text-sm text-slate-800 dark:text-slate-200 mt-2 font-medium">{userAnswer || '(No answer)'}</p>
+                            <p className="text-sm text-slate-800 dark:text-slate-200 mt-2 font-medium">{displayUserAnswer || '(No answer)'}</p>
                           </div>
                           <div className="p-4 rounded-xl bg-gradient-to-r from-cyan-50 to-cyan-50 dark:from-cyan-900/30 dark:to-cyan-900/30 border-2 border-cyan-500 shadow-sm shadow-cyan-500/20">
                             <span className="text-xs font-bold text-cyan-700 dark:text-cyan-400 uppercase tracking-wide flex items-center gap-2">
@@ -505,7 +665,7 @@ export default function QuizTakingPage() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
                               Correct Answer</span>
-                            <p className="text-sm text-cyan-800 dark:text-cyan-200 mt-2 font-medium">{question.correctAnswer}</p>
+                            <p className="text-sm text-cyan-800 dark:text-cyan-200 mt-2 font-medium">{displayCorrectAnswer}</p>
                           </div>
                         </div>
                       )}
@@ -664,7 +824,10 @@ export default function QuizTakingPage() {
 
           <div className="space-y-4">
             {questions.map((question, idx) => {
-              const userAnswer = answers[question.id] || ""
+              const userAnswer = answers[question.id]
+              const displayAnswer = Array.isArray(userAnswer) 
+                ? userAnswer.length > 0 ? userAnswer.join(', ') : ''
+                : userAnswer || ""
               
               return (
                 <div
@@ -681,15 +844,25 @@ export default function QuizTakingPage() {
                     <div className="flex-1">
                       <RichTextDisplay content={question.question} className="mb-4 text-lg font-semibold text-slate-800 dark:text-slate-100" />
                       
-                      {userAnswer ? (
+                      {question.imageUrl && (
+                        <div className="mb-4">
+                          <img 
+                            src={question.imageUrl} 
+                            alt="Question image" 
+                            className="max-w-full h-auto rounded-lg border-2 border-slate-200 dark:border-slate-700 shadow-md"
+                          />
+                        </div>
+                      )}
+                      
+                      {displayAnswer ? (
                         <div className="p-4 bg-gradient-to-r from-cyan-50 to-cyan-50 dark:from-cyan-900/20 dark:to-cyan-900/20 rounded-xl border-2 border-cyan-200 dark:border-cyan-800 shadow-sm">
                           <span className="text-xs font-bold text-cyan-700 dark:text-cyan-400 uppercase tracking-wide flex items-center gap-2">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                             </svg>
-                            Your Answer
+                            Your Answer {question.type === 'multiple-answer' && '(Multiple Selections)'}
                           </span>
-                          <p className="text-sm text-cyan-800 dark:text-cyan-200 mt-2 font-medium">{userAnswer}</p>
+                          <p className="text-sm text-cyan-800 dark:text-cyan-200 mt-2 font-medium">{displayAnswer}</p>
                         </div>
                       ) : (
                         <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-xl border-2 border-orange-200 dark:border-orange-800 shadow-sm">
@@ -827,6 +1000,16 @@ export default function QuizTakingPage() {
 
               <RichTextDisplay content={currentQuestion.question} className="text-2xl font-bold mb-8 text-slate-800 dark:text-slate-100 animate-fade-in" />
 
+              {currentQuestion.imageUrl && (
+                <div className="mb-6 animate-fade-in">
+                  <img 
+                    src={currentQuestion.imageUrl} 
+                    alt="Question image" 
+                    className="max-w-full h-auto rounded-lg border-2 border-slate-200 dark:border-slate-700 shadow-lg"
+                  />
+                </div>
+              )}
+
               {currentQuestion.type === 'multiple-choice' && currentQuestion.options && (
                 <div className="space-y-3">
                   {currentQuestion.options.map((option, idx) => (
@@ -855,6 +1038,72 @@ export default function QuizTakingPage() {
                       </span>
                     </label>
                   ))}
+                </div>
+              )}
+
+              {currentQuestion.type === 'true-false' && (
+                <div className="space-y-3">
+                  {['True', 'False'].map((option, idx) => (
+                    <label
+                      key={idx}
+                      className={`group flex items-center p-5 rounded-xl border-2 cursor-pointer transition-all transform hover:scale-[1.02] hover:-translate-y-0.5 animate-slide-in-right shadow-sm hover:shadow-lg ${
+                        answers[currentQuestion.id] === option
+                          ? 'border-cyan-500 bg-gradient-to-r from-cyan-50 to-cyan-50 dark:from-cyan-900/20 dark:to-cyan-900/20 shadow-cyan-500/20'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 hover:border-cyan-300 dark:hover:border-cyan-600 hover:bg-slate-50 dark:hover:bg-slate-800'
+                      }`}
+                      style={{ animationDelay: `${idx * 100}ms` }}
+                    >
+                      <input
+                        type="radio"
+                        name="answer"
+                        value={option}
+                        checked={answers[currentQuestion.id] === option}
+                        onChange={(e) => handleAnswer(e.target.value)}
+                        className="w-5 h-5 text-cyan-600 transition-transform group-hover:scale-110 border-slate-300"
+                      />
+                      <span className="ml-4 flex-1 text-slate-800 dark:text-slate-100 font-medium text-lg">
+                        {option}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {currentQuestion.type === 'multiple-answer' && currentQuestion.options && (
+                <div className="space-y-3">
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-4 italic">
+                    Select all that apply
+                  </p>
+                  {currentQuestion.options.map((option, idx) => {
+                    const currentAnswers = Array.isArray(answers[currentQuestion.id]) ? answers[currentQuestion.id] as string[] : []
+                    const isChecked = currentAnswers.includes(option)
+                    
+                    return (
+                      <label
+                        key={idx}
+                        className={`group flex items-center p-5 rounded-xl border-2 cursor-pointer transition-all transform hover:scale-[1.02] hover:-translate-y-0.5 animate-slide-in-right shadow-sm hover:shadow-lg ${
+                          isChecked
+                            ? 'border-cyan-500 bg-gradient-to-r from-cyan-50 to-cyan-50 dark:from-cyan-900/20 dark:to-cyan-900/20 shadow-cyan-500/20'
+                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 hover:border-cyan-300 dark:hover:border-cyan-600 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                        style={{ animationDelay: `${idx * 100}ms` }}
+                      >
+                        <input
+                          type="checkbox"
+                          value={option}
+                          checked={isChecked}
+                          onChange={() => handleMultipleAnswerToggle(option)}
+                          className="w-5 h-5 text-cyan-600 transition-transform group-hover:scale-110 border-slate-300 rounded"
+                        />
+                        <span className="ml-4 flex-1 text-slate-800 dark:text-slate-100 font-medium">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 text-xs font-bold mr-2 text-slate-600 dark:text-slate-300">
+                            {String.fromCharCode(65 + idx)}
+                          </span>
+                          {option}
+                        </span>
+                      </label>
+                    )
+                  })}
                 </div>
               )}
 

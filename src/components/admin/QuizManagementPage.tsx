@@ -11,11 +11,12 @@ import GiftImportModal from "@/components/GiftImportModal"
 interface QuizQuestion {
   id: string
   question: string
-  type: 'multiple-choice' | 'short-answer'
-  options?: string[] // For multiple choice
-  correctAnswer: string
+  type: 'multiple-choice' | 'short-answer' | 'true-false' | 'multiple-answer'
+  options?: string[] // For multiple choice, true-false, and multiple-answer
+  correctAnswer: string | string[] // String for single answer, array for multiple answers
   category: string
   explanation?: string
+  imageUrl?: string // Optional image URL for the question
 }
 
 interface QuizCategory {
@@ -66,15 +67,17 @@ export default function QuizManagementPage({
   const [editingQuestion, setEditingQuestion] = useState<QuizQuestion | null>(null)
   const [questionFormData, setQuestionFormData] = useState({
     question: "",
-    type: "multiple-choice" as 'multiple-choice' | 'short-answer',
+    type: "multiple-choice" as 'multiple-choice' | 'short-answer' | 'true-false' | 'multiple-answer',
     options: ["", "", "", ""],
-    correctAnswer: "",
+    correctAnswer: "" as string | string[],
     category: "",
-    explanation: ""
+    explanation: "",
+    imageUrl: ""
   })
   
   const [saveStatus, setSaveStatus] = useState<string | null>(null)
   const [showGiftImport, setShowGiftImport] = useState(false)
+  const [showSettingsSavedDialog, setShowSettingsSavedDialog] = useState(false)
 
   useEffect(() => {
     // Check auth and permissions
@@ -173,7 +176,8 @@ export default function QuizManagementPage({
       })
       
       if (res.ok) {
-        alert("Settings saved successfully!")
+        setShowSettingsSavedDialog(true)
+        setTimeout(() => setShowSettingsSavedDialog(false), 3000)
       } else {
         alert("Failed to save settings")
       }
@@ -230,7 +234,8 @@ export default function QuizManagementPage({
       options: ["", "", "", ""],
       correctAnswer: "",
       category: categories.length > 0 ? categories[0].id : "",
-      explanation: ""
+      explanation: "",
+      imageUrl: ""
     })
     setShowQuestionModal(true)
   }
@@ -243,39 +248,72 @@ export default function QuizManagementPage({
       options: question.options || ["", "", "", ""],
       correctAnswer: question.correctAnswer,
       category: question.category,
-      explanation: question.explanation || ""
+      explanation: question.explanation || "",
+      imageUrl: question.imageUrl || ""
     })
     setShowQuestionModal(true)
   }
 
   const saveQuestion = () => {
-    if (!questionFormData.question.trim() || !questionFormData.correctAnswer.trim()) {
-      alert("Please fill in required fields")
+    // Validate question text
+    if (!questionFormData.question.trim()) {
+      alert("Please enter a question")
       return
     }
 
-    if (questionFormData.type === 'multiple-choice') {
+    // Validate based on question type
+    if (questionFormData.type === 'multiple-choice' || questionFormData.type === 'multiple-answer' || questionFormData.type === 'true-false') {
       const filledOptions = questionFormData.options.filter(opt => opt.trim())
-      if (filledOptions.length < 2) {
-        alert("Multiple choice questions need at least 2 options")
+      
+      if (questionFormData.type === 'true-false') {
+        // True/false must have exactly 2 options (True and False)
+        if (filledOptions.length !== 2 || !filledOptions.includes('True') || !filledOptions.includes('False')) {
+          alert("True/False questions must have 'True' and 'False' options")
+          return
+        }
+      } else if (filledOptions.length < 2) {
+        alert(`${questionFormData.type === 'multiple-answer' ? 'Multiple answer' : 'Multiple choice'} questions need at least 2 options`)
         return
       }
-      if (!filledOptions.includes(questionFormData.correctAnswer)) {
-        alert("Correct answer must be one of the options")
-        return
+      
+      if (questionFormData.type === 'multiple-answer') {
+        // For multiple-answer, correctAnswer should be an array
+        if (!Array.isArray(questionFormData.correctAnswer) || questionFormData.correctAnswer.length === 0) {
+          alert("Please select at least one correct answer")
+          return
+        }
+        // Check all correct answers are in options
+        for (const answer of questionFormData.correctAnswer) {
+          if (!filledOptions.includes(answer)) {
+            alert("All correct answers must be in the options list")
+            return
+          }
+        }
+      } else {
+        // For single answer questions
+        if (!questionFormData.correctAnswer || !filledOptions.includes(questionFormData.correctAnswer as string)) {
+          alert("Correct answer must be one of the options")
+          return
+        }
       }
+    } else if (questionFormData.type === 'short-answer') {
+      // Short answer can have empty correct answer (for manual grading)
+      // No validation needed
     }
 
     const questionData: QuizQuestion = {
       id: editingQuestion?.id || Date.now().toString(),
       question: questionFormData.question.trim(),
       type: questionFormData.type,
-      options: questionFormData.type === 'multiple-choice' 
+      options: (questionFormData.type === 'multiple-choice' || questionFormData.type === 'multiple-answer' || questionFormData.type === 'true-false')
         ? questionFormData.options.filter(opt => opt.trim())
         : undefined,
-      correctAnswer: questionFormData.correctAnswer.trim(),
+      correctAnswer: questionFormData.type === 'multiple-answer' 
+        ? questionFormData.correctAnswer 
+        : typeof questionFormData.correctAnswer === 'string' ? questionFormData.correctAnswer.trim() : '',
       category: questionFormData.category,
-      explanation: questionFormData.explanation.trim()
+      explanation: questionFormData.explanation.trim(),
+      imageUrl: questionFormData.imageUrl.trim() || undefined
     }
 
     if (editingQuestion) {
@@ -561,27 +599,49 @@ export default function QuizManagementPage({
                                   <div className="flex items-center gap-2 mb-2">
                                     <span className="font-medium text-gray-700 dark:text-gray-300">Q{idx + 1}.</span>
                                     <span className="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded">
-                                      {question.type === 'multiple-choice' ? 'Multiple Choice' : 'Short Answer'}
+                                      {question.type === 'multiple-choice' ? 'Multiple Choice' : 
+                                       question.type === 'multiple-answer' ? 'Multiple Answer' :
+                                       question.type === 'true-false' ? 'True/False' : 'Short Answer'}
                                     </span>
+                                    {question.imageUrl && (
+                                      <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
+                                        Has Image
+                                      </span>
+                                    )}
                                   </div>
                                   <RichTextDisplay content={question.question} className="mb-2" />
                                   
-                                  {question.type === 'multiple-choice' && question.options && (
-                                    <div className="ml-4 space-y-1 mb-2">
-                                      {question.options.map((opt, i) => (
-                                        <div key={i} className="flex items-center gap-2">
-                                          <span className="text-sm text-gray-600 dark:text-gray-400">
-                                            {String.fromCharCode(65 + i)}.
-                                          </span>
-                                          <span className={`text-sm ${opt === question.correctAnswer ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-gray-600 dark:text-gray-400'}`}>
-                                            {opt} {opt === question.correctAnswer && '✓'}
-                                          </span>
-                                        </div>
-                                      ))}
+                                  {question.imageUrl && (
+                                    <div className="mb-2">
+                                      <img 
+                                        src={question.imageUrl} 
+                                        alt="Question" 
+                                        className="max-h-32 rounded border border-gray-300 dark:border-gray-600"
+                                      />
                                     </div>
                                   )}
                                   
-                                  {question.type === 'short-answer' && (
+                                  {(question.type === 'multiple-choice' || question.type === 'true-false' || question.type === 'multiple-answer') && question.options && (
+                                    <div className="ml-4 space-y-1 mb-2">
+                                      {question.options.map((opt, i) => {
+                                        const isCorrect = question.type === 'multiple-answer' 
+                                          ? Array.isArray(question.correctAnswer) && question.correctAnswer.includes(opt)
+                                          : opt === question.correctAnswer
+                                        return (
+                                          <div key={i} className="flex items-center gap-2">
+                                            <span className="text-sm text-gray-600 dark:text-gray-400">
+                                              {String.fromCharCode(65 + i)}.
+                                            </span>
+                                            <span className={`text-sm ${isCorrect ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-gray-600 dark:text-gray-400'}`}>
+                                              {opt} {isCorrect && '✓'}
+                                            </span>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  )}
+                                  
+                                  {question.type === 'short-answer' && question.correctAnswer && (
                                     <div className="ml-4 mb-2">
                                       <span className="text-sm text-gray-600 dark:text-gray-400">Correct Answer: </span>
                                       <span className="text-sm text-green-600 dark:text-green-400 font-semibold">{question.correctAnswer}</span>
@@ -687,16 +747,46 @@ export default function QuizManagementPage({
                 <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Question Type</label>
                 <select
                   value={questionFormData.type}
-                  onChange={(e) => setQuestionFormData({ 
-                    ...questionFormData, 
-                    type: e.target.value as 'multiple-choice' | 'short-answer',
-                    options: e.target.value === 'multiple-choice' ? ["", "", "", ""] : []
-                  })}
+                  onChange={(e) => {
+                    const newType = e.target.value as 'multiple-choice' | 'short-answer' | 'true-false' | 'multiple-answer'
+                    setQuestionFormData({ 
+                      ...questionFormData, 
+                      type: newType,
+                      options: newType === 'true-false' ? ['True', 'False'] : 
+                               (newType === 'multiple-choice' || newType === 'multiple-answer') ? ["", "", "", ""] : [],
+                      correctAnswer: newType === 'multiple-answer' ? [] : ""
+                    })
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200"
                 >
-                  <option value="multiple-choice">Multiple Choice</option>
+                  <option value="multiple-choice">Multiple Choice (Single Answer)</option>
+                  <option value="multiple-answer">Multiple Answer (Multiple Correct)</option>
+                  <option value="true-false">True/False</option>
                   <option value="short-answer">Short Answer</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Image URL (Optional)</label>
+                <input
+                  type="text"
+                  value={questionFormData.imageUrl}
+                  onChange={(e) => setQuestionFormData({ ...questionFormData, imageUrl: e.target.value })}
+                  placeholder="https://example.com/image.jpg"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200"
+                />
+                {questionFormData.imageUrl && (
+                  <div className="mt-2">
+                    <img 
+                      src={questionFormData.imageUrl} 
+                      alt="Question preview" 
+                      className="max-h-32 rounded border border-gray-300 dark:border-gray-600"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none'
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
               <div>
@@ -708,7 +798,7 @@ export default function QuizManagementPage({
                 />
               </div>
 
-              {questionFormData.type === 'multiple-choice' && (
+              {(questionFormData.type === 'multiple-choice' || questionFormData.type === 'multiple-answer') && (
                 <div>
                   <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Options</label>
                   {questionFormData.options.map((option, idx) => (
@@ -728,11 +818,21 @@ export default function QuizManagementPage({
                 </div>
               )}
 
+              {questionFormData.type === 'true-false' && (
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    True/False question will have two options: "True" and "False"
+                  </p>
+                </div>
+              )}
+
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Correct Answer</label>
-                {questionFormData.type === 'multiple-choice' ? (
+                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                  Correct Answer{questionFormData.type === 'multiple-answer' && 's (Select all that apply)'}
+                </label>
+                {questionFormData.type === 'multiple-choice' || questionFormData.type === 'true-false' ? (
                   <select
-                    value={questionFormData.correctAnswer}
+                    value={questionFormData.correctAnswer as string}
                     onChange={(e) => setQuestionFormData({ ...questionFormData, correctAnswer: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200"
                   >
@@ -741,12 +841,33 @@ export default function QuizManagementPage({
                       <option key={idx} value={opt}>{opt}</option>
                     ))}
                   </select>
+                ) : questionFormData.type === 'multiple-answer' ? (
+                  <div className="space-y-2">
+                    {questionFormData.options.filter(opt => opt.trim()).map((opt, idx) => (
+                      <label key={idx} className="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Array.isArray(questionFormData.correctAnswer) && questionFormData.correctAnswer.includes(opt)}
+                          onChange={(e) => {
+                            const currentAnswers = Array.isArray(questionFormData.correctAnswer) ? questionFormData.correctAnswer : []
+                            if (e.target.checked) {
+                              setQuestionFormData({ ...questionFormData, correctAnswer: [...currentAnswers, opt] })
+                            } else {
+                              setQuestionFormData({ ...questionFormData, correctAnswer: currentAnswers.filter(a => a !== opt) })
+                            }
+                          }}
+                          className="w-4 h-4 text-purple-600"
+                        />
+                        <span className="text-gray-700 dark:text-gray-300">{opt}</span>
+                      </label>
+                    ))}
+                  </div>
                 ) : (
                   <input
                     type="text"
-                    value={questionFormData.correctAnswer}
+                    value={questionFormData.correctAnswer as string}
                     onChange={(e) => setQuestionFormData({ ...questionFormData, correctAnswer: e.target.value })}
-                    placeholder="Enter the correct answer"
+                    placeholder="Enter the correct answer (optional for manual grading)"
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200"
                   />
                 )}
@@ -790,6 +911,31 @@ export default function QuizManagementPage({
         onImport={handleGiftImport}
         categories={categories}
       />
+
+      {/* Settings Saved Success Dialog */}
+      {showSettingsSavedDialog && (
+        <div className="fixed bottom-4 right-4 z-[60] animate-slide-in-right">
+          <div className="bg-green-50 dark:bg-green-900/30 border-2 border-green-500 dark:border-green-600 rounded-xl shadow-2xl p-4 flex items-center gap-3 min-w-[300px]">
+            <div className="flex-shrink-0 w-10 h-10 bg-green-500 dark:bg-green-600 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h4 className="font-bold text-green-800 dark:text-green-200">Settings Saved!</h4>
+              <p className="text-sm text-green-700 dark:text-green-300">Quiz settings updated successfully</p>
+            </div>
+            <button
+              onClick={() => setShowSettingsSavedDialog(false)}
+              className="flex-shrink-0 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

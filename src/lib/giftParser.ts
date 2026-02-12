@@ -5,11 +5,12 @@
 
 export interface ParsedGiftQuestion {
   question: string
-  type: 'multiple-choice' | 'short-answer' | 'true-false' | 'essay'
+  type: 'multiple-choice' | 'short-answer' | 'true-false' | 'essay' | 'multiple-answer'
   options?: string[]
-  correctAnswer: string
+  correctAnswer: string | string[] // Single answer or array for multiple correct answers
   explanation?: string
   category?: string
+  imageUrl?: string // Support for images in questions
 }
 
 /**
@@ -114,12 +115,12 @@ function parseGiftQuestion(text: string, defaultCategory?: string): ParsedGiftQu
       }
     }
   } else if (answerPart.includes('~') || answerPart.startsWith('=')) {
-    // Multiple choice
+    // Multiple choice or Multiple answer
     // Split by ~ or = BUT NOT if preceded by \ (escaped)
     // Using lookahead to keep the delimiter (= or ~) at the start of the next chunk
     const choices = answerPart.split(/(?<!\\)(?=[~=])/)
     const options: string[] = []
-    let correctAnswer = ''
+    const correctAnswers: string[] = []
     let explanation: string | undefined
     
     for (const choice of choices) {
@@ -130,9 +131,10 @@ function parseGiftQuestion(text: string, defaultCategory?: string): ParsedGiftQu
         // Correct answer
         const answerText = trimmed.substring(1).trim()
         const [answer, feedback] = splitFeedback(answerText)
-        correctAnswer = decodeGiftText(answer)
-        options.push(correctAnswer)
-        if (feedback) {
+        const decodedAnswer = decodeGiftText(answer)
+        correctAnswers.push(decodedAnswer)
+        options.push(decodedAnswer)
+        if (feedback && !explanation) {
           explanation = decodeGiftText(feedback)
         }
       } else if (trimmed.startsWith('~')) {
@@ -146,12 +148,14 @@ function parseGiftQuestion(text: string, defaultCategory?: string): ParsedGiftQu
       }
     }
     
-    if (options.length > 0 && correctAnswer) {
+    if (options.length > 0 && correctAnswers.length > 0) {
+      // If multiple correct answers, it's a multiple-answer question
+      const questionType = correctAnswers.length > 1 ? 'multiple-answer' : 'multiple-choice'
       return {
         question: questionText,
-        type: 'multiple-choice',
+        type: questionType,
         options,
-        correctAnswer,
+        correctAnswer: correctAnswers.length === 1 ? correctAnswers[0] : correctAnswers,
         explanation,
         category
       }
@@ -201,11 +205,12 @@ export function convertGiftToQuizFormat(giftQuestions: ParsedGiftQuestion[]) {
   return giftQuestions.map((q, idx) => ({
     id: Date.now().toString() + '-' + idx,
     question: q.question,
-    type: q.type === 'true-false' ? 'multiple-choice' : q.type,
+    type: q.type === 'true-false' ? 'true-false' : q.type === 'multiple-answer' ? 'multiple-answer' : q.type,
     options: q.options,
     correctAnswer: q.correctAnswer,
     category: q.category || '', // Use parsed category or empty string
-    explanation: q.explanation || ''
+    explanation: q.explanation || '',
+    imageUrl: q.imageUrl
   }))
 }
 
@@ -215,12 +220,21 @@ export function convertGiftToQuizFormat(giftQuestions: ParsedGiftQuestion[]) {
 export const GIFT_FORMAT_EXAMPLE = `// Example GIFT format questions
 // Comments start with //
 
-// Multiple choice question
+// Multiple choice question (single answer)
 What is the capital of France? {
 =Paris
 ~London
 ~Berlin
 ~Madrid
+}
+
+// Multiple answer question (can select more than one correct answer)
+Which of the following are programming languages? {
+=Python
+=JavaScript
+=Java
+~Spanish
+~English
 }
 
 // Multiple choice with feedback
@@ -237,6 +251,8 @@ What is the answer to life, the universe, and everything? {
 
 // True/False
 The sky is blue. {T}
+
+The earth is flat. {F}
 
 // Questions with categories
 // Category applies to all following questions until a new category is declared
@@ -264,11 +280,25 @@ What does HTML stand for? {
 ~Home Tool Markup Language
 }
 
+// Multiple answer in programming
+Which are valid JavaScript data types? {
+=String
+=Number
+=Boolean
+~Integer
+~Character
+}
+
 // Code in question (use escape characters)
 What does console.log("Hello") output? {
 =Hello
 ~"Hello"
 ~console
 ~undefined
+}
+
+// True/False with explanation
+JavaScript is a compiled language. {
+F #JavaScript is an interpreted language
 }
 `
