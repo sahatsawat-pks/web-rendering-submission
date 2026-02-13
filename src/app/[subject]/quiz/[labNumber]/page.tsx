@@ -181,6 +181,26 @@ export default function QuizTakingPage() {
     }
   }, [answers, isVerified, studentId, labNumber, subject])
 
+  // Save progress when user closes tab or navigates away
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (isVerified && studentId && Object.keys(answers).length > 0) {
+        // Use sendBeacon for reliable save on page unload
+        const data = JSON.stringify({
+          studentId,
+          subject: subject,
+          labNumber,
+          answers
+        })
+        const blob = new Blob([data], { type: 'application/json' })
+        navigator.sendBeacon('/api/quiz/progress', blob)
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isVerified, studentId, answers, labNumber, subject])
+
   useEffect(() => {
     if (timeLimitEnabled && timeRemaining > 0 && !showReview && !showResults) {
       const timer = setInterval(() => {
@@ -243,7 +263,25 @@ export default function QuizTakingPage() {
     setShowReview(true)
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Save progress before logging out
+    if (isVerified && studentId && Object.keys(answers).length > 0) {
+      try {
+        await fetch('/api/quiz/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentId,
+            subject: subject,
+            labNumber,
+            answers
+          })
+        })
+      } catch (e) {
+        console.error('[Quiz] Failed to save progress on logout:', e)
+      }
+    }
+    
     // Clear both sessionStorage and localStorage to fully logout
     sessionStorage.removeItem('quiz_verified')
     sessionStorage.removeItem('quiz_student_id')
