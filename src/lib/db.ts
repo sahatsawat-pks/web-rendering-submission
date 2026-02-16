@@ -77,6 +77,7 @@ export interface Announcement {
   message: string;
   createdBy: string;
   createdAt: string;
+  isVisible: boolean;
 }
 
 // Singleton Pool
@@ -650,8 +651,22 @@ async function ensureTables() {
                 title TEXT NOT NULL,
                 message TEXT NOT NULL,
                 created_by TEXT NOT NULL,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                is_visible BOOLEAN DEFAULT TRUE
             );
+        `);
+
+        // Add is_visible column if it doesn't exist (migration for existing tables)
+        await client.query(`
+            DO $$ 
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'announcements' AND column_name = 'is_visible'
+                ) THEN
+                    ALTER TABLE announcements ADD COLUMN is_visible BOOLEAN DEFAULT TRUE;
+                END IF;
+            END $$;
         `);
 
         // Index for faster announcement lookups by subject
@@ -1807,16 +1822,17 @@ export async function getITCS113Student(studentId: string): Promise<ITCS113Stude
 // Announcement Functions
 // =============================================
 
-export async function getAllAnnouncements(subject: string): Promise<Announcement[]> {
+export async function getAllAnnouncements(subject: string, visibleOnly: boolean = false): Promise<Announcement[]> {
   await init();
   const pool = getPool();
   const client = await pool.connect();
 
   try {
-    const result = await client.query(
-      'SELECT * FROM announcements WHERE subject = $1 ORDER BY created_at DESC',
-      [subject]
-    );
+    const query = visibleOnly
+      ? 'SELECT * FROM announcements WHERE subject = $1 AND is_visible = TRUE ORDER BY created_at DESC'
+      : 'SELECT * FROM announcements WHERE subject = $1 ORDER BY created_at DESC';
+    
+    const result = await client.query(query, [subject]);
 
     return result.rows.map((row) => ({
       id: row.id,
@@ -1825,6 +1841,7 @@ export async function getAllAnnouncements(subject: string): Promise<Announcement
       message: row.message,
       createdBy: row.created_by,
       createdAt: row.created_at,
+      isVisible: row.is_visible ?? true,
     }));
   } finally {
     client.release();
@@ -1855,6 +1872,71 @@ export async function createAnnouncement(
       message: row.message,
       createdBy: row.created_by,
       createdAt: row.created_at,
+      isVisible: row.is_visible ?? true,
+    };
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateAnnouncement(
+  id: string,
+  title: string,
+  message: string
+): Promise<Announcement> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    const result = await client.query(
+      'UPDATE announcements SET title = $1, message = $2 WHERE id = $3 RETURNING *',
+      [title, message, id]
+    );
+
+    if (result.rows.length === 0) {
+      throw new Error('Announcement not found');
+    }
+
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      subject: row.subject,
+      title: row.title,
+      message: row.message,
+      createdBy: row.created_by,
+      createdAt: row.created_at,
+      isVisible: row.is_visible ?? true,
+    };
+  } finally {
+    client.release();
+  }
+}
+
+export async function toggleAnnouncementVisibility(id: string): Promise<Announcement> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    const result = await client.query(
+      'UPDATE announcements SET is_visible = NOT is_visible WHERE id = $1 RETURNING *',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      throw new Error('Announcement not found');
+    }
+
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      subject: row.subject,
+      title: row.title,
+      message: row.message,
+      createdBy: row.created_by,
+      createdAt: row.created_at,
+      isVisible: row.is_visible ?? true,
     };
   } finally {
     client.release();

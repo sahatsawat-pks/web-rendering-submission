@@ -76,6 +76,11 @@ export default function SimpleScoreGrading({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [announcementToDelete, setAnnouncementToDelete] = useState<number | null>(null)
   const [deletingAnnouncement, setDeletingAnnouncement] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [editingAnnouncement, setEditingAnnouncement] = useState<any>(null)
+  const [editTitle, setEditTitle] = useState("")
+  const [editMessage, setEditMessage] = useState("")
+  const [savingEdit, setSavingEdit] = useState(false)
 
   // Fetch Labs and Prefixes
   useEffect(() => {
@@ -430,6 +435,86 @@ export default function SimpleScoreGrading({
     setAnnouncementTitle("")
     setAnnouncementMessage("")
     setShowAnnouncementDialog(true)
+  }
+
+  // Toggle announcement visibility
+  async function handleToggleVisibility(id: string) {
+    try {
+      const res = await fetch('/api/announcements', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) {
+          // Update the announcement in the list
+          setAnnouncements(announcements.map(a => 
+            a.id === id ? data.announcement : a
+          ))
+        }
+      } else {
+        alert('Failed to toggle announcement visibility')
+      }
+    } catch (err) {
+      console.error('Failed to toggle visibility:', err)
+      alert('Failed to toggle announcement visibility')
+    }
+  }
+
+  // Edit announcement handlers
+  function handleEditClick(announcement: any) {
+    setEditingAnnouncement(announcement)
+    setEditTitle(announcement.title)
+    setEditMessage(announcement.message)
+    setShowEditDialog(true)
+  }
+
+  async function handleSaveEdit() {
+    if (!editTitle.trim() || !editMessage.trim() || !editingAnnouncement) return
+
+    setSavingEdit(true)
+    try {
+      const res = await fetch('/api/announcements', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingAnnouncement.id,
+          title: editTitle,
+          message: editMessage
+        })
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) {
+          setAnnouncements(announcements.map(a => 
+            a.id === editingAnnouncement.id ? data.announcement : a
+          ))
+          setShowEditDialog(false)
+          setEditingAnnouncement(null)
+          setEditTitle('')
+          setEditMessage('')
+        } else {
+          alert('Failed to update announcement')
+        }
+      } else {
+        alert('Failed to update announcement')
+      }
+    } catch (err) {
+      console.error('Failed to save edit:', err)
+      alert('Failed to update announcement')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  function handleCancelEdit() {
+    setShowEditDialog(false)
+    setEditingAnnouncement(null)
+    setEditTitle('')
+    setEditMessage('')
   }
 
   const gradientProps = getGradientStyleProps(color)
@@ -841,6 +926,42 @@ export default function SimpleScoreGrading({
                   </div>
                   <div className="flex gap-2">
                     <button
+                      onClick={() => handleToggleVisibility(announcement.id)}
+                      className={`px-3 py-2 text-xs font-semibold rounded-lg transition-all border ${
+                        announcement.isVisible
+                          ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40'
+                          : 'bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      }`}
+                      title={announcement.isVisible ? 'Hide from students' : 'Show to students'}
+                    >
+                      {announcement.isVisible ? (
+                        <>
+                          <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                          </svg>
+                          Hide
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          Show
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleEditClick(announcement)}
+                      className="px-3 py-2 text-xs font-semibold rounded-lg transition-all bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/40"
+                      title="Edit announcement"
+                    >
+                      <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      Edit
+                    </button>
+                    <button
                       onClick={() => handleDeleteAnnouncement(announcement.id)}
                       className="px-3 py-2 text-xs font-semibold rounded-lg transition-all bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40"
                     >
@@ -1140,6 +1261,95 @@ export default function SimpleScoreGrading({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
                     </svg>
                     <span>Publish Announcement</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Announcement Dialog */}
+      {showEditDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto animate-scale-in">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-slate-200">Edit Announcement</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{subjectCode}</p>
+                </div>
+              </div>
+              <button
+                onClick={handleCancelEdit}
+                disabled={savingEdit}
+                className="text-slate-400 hover:text-slate-500 dark:hover:text-slate-300 transition-colors p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Title
+                </label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  disabled={savingEdit}
+                  className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 transition-all disabled:opacity-50"
+                  placeholder="Enter announcement title"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Message
+                </label>
+                <textarea
+                  value={editMessage}
+                  onChange={(e) => setEditMessage(e.target.value)}
+                  disabled={savingEdit}
+                  rows={6}
+                  className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 transition-all resize-none disabled:opacity-50"
+                  placeholder="Enter announcement message"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+              <button
+                onClick={handleCancelEdit}
+                disabled={savingEdit}
+                className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-semibold rounded-xl transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={savingEdit || !editTitle.trim() || !editMessage.trim()}
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {savingEdit ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Save Changes</span>
                   </>
                 )}
               </button>

@@ -1016,7 +1016,7 @@ export default function SubjectScorePage() {
   useEffect(() => {
     async function fetchAnnouncements() {
       try {
-        const res = await fetch(`/api/announcements?subject=${subject}`)
+        const res = await fetch(`/api/announcements?subject=${subject}&visibleOnly=true`)
         if (res.ok) {
           const data = await res.json()
           if (data.success && data.announcements) {
@@ -1131,35 +1131,37 @@ export default function SubjectScorePage() {
 
         {/* Announcements Section */}
          {!loadingAnnouncements && announcements.length > 0 && (
-           <div className="mb-6 space-y-3">
-             {announcements.map((announcement) => (
-               <div
-                 key={announcement.id}
-                 className="glass-card p-5 rounded-2xl shadow-lg border-l-4 border-blue-500 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-900/20 dark:to-indigo-900/20 animate-slide-up"
-               >
-                 <div className="flex items-start gap-3">
-                   <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg">
-                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-                     </svg>
-                   </div>
-                   <div className="flex-1 min-w-0">
-                     <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">
-                       {announcement.title}
-                     </h3>
-                     <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed mb-2">
-                       {announcement.message}
-                     </p>
-                     <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                       </svg>
-                       <span>{new Date(announcement.createdAt).toLocaleString()}</span>
+           <div className="mb-6">
+             <div className="space-y-3">
+                 {announcements.map((announcement) => (
+                   <div
+                     key={announcement.id}
+                     className="glass-card p-5 rounded-2xl shadow-lg border-l-4 border-blue-500 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-900/20 dark:to-indigo-900/20 animate-slide-up"
+                   >
+                     <div className="flex items-start gap-3">
+                       <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg">
+                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                         </svg>
+                       </div>
+                       <div className="flex-1 min-w-0">
+                         <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">
+                           {announcement.title}
+                         </h3>
+                         <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed mb-2">
+                           {announcement.message}
+                         </p>
+                         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                           </svg>
+                           <span>{new Date(announcement.createdAt).toLocaleString()}</span>
+                         </div>
+                       </div>
                      </div>
                    </div>
-                 </div>
+                 ))}
                </div>
-             ))}
            </div>
          )}
 

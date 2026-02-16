@@ -3,6 +3,8 @@ import { getAuthUser } from "@/lib/auth";
 import {
   getAllAnnouncements,
   createAnnouncement,
+  updateAnnouncement,
+  toggleAnnouncementVisibility,
   deleteAnnouncement,
 } from "@/lib/db";
 
@@ -13,6 +15,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const subject = searchParams.get("subject")?.toUpperCase();
+    const visibleOnly = searchParams.get("visibleOnly") === "true";
 
     if (!subject) {
       return NextResponse.json(
@@ -21,7 +24,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const announcements = await getAllAnnouncements(subject);
+    const announcements = await getAllAnnouncements(subject, visibleOnly);
 
     return NextResponse.json({
       success: true,
@@ -79,6 +82,80 @@ export async function POST(request: NextRequest) {
     console.error("Create announcement error:", error);
     return NextResponse.json(
       { error: "Failed to create announcement" },
+      { status: 500 }
+    );
+  }
+}
+
+// PUT - Update announcement (admin only)
+export async function PUT(request: NextRequest) {
+  try {
+    // Check authentication
+    const user = await getAuthUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+    const { id, title, message } = body;
+
+    if (!id || !title || !message) {
+      return NextResponse.json(
+        { error: "ID, title, and message are required" },
+        { status: 400 }
+      );
+    }
+
+    const announcement = await updateAnnouncement(id, title, message);
+
+    return NextResponse.json({
+      success: true,
+      announcement,
+    });
+  } catch (error: any) {
+    console.error("Update announcement error:", error);
+    return NextResponse.json(
+      { error: "Failed to update announcement" },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH - Toggle announcement visibility (admin only)
+export async function PATCH(request: NextRequest) {
+  try {
+    // Check authentication
+    const user = await getAuthUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+    const { id } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Announcement ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const announcement = await toggleAnnouncementVisibility(id);
+
+    return NextResponse.json({
+      success: true,
+      announcement,
+    });
+  } catch (error: any) {
+    console.error("Toggle announcement visibility error:", error);
+    return NextResponse.json(
+      { error: "Failed to toggle announcement visibility" },
       { status: 500 }
     );
   }
