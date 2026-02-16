@@ -70,6 +70,15 @@ export interface Subject {
   updatedAt: string;
 }
 
+export interface Announcement {
+  id: string;
+  subject: string;
+  title: string;
+  message: string;
+  createdBy: string;
+  createdAt: string;
+}
+
 // Singleton Pool
 let pool: Pool;
 
@@ -632,6 +641,26 @@ async function ensureTables() {
         `);
 
         // console.log('✅ Ensured quiz_progress table exists');
+
+        // Create announcements table
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS announcements (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                subject TEXT NOT NULL,
+                title TEXT NOT NULL,
+                message TEXT NOT NULL,
+                created_by TEXT NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        // Index for faster announcement lookups by subject
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_announcements_subject 
+            ON announcements(subject);
+        `);
+
+        // console.log('✅ Ensured announcements table exists');
 
 
         // Seed initial admin if needed
@@ -1769,6 +1798,76 @@ export async function getITCS113Student(studentId: string): Promise<ITCS113Stude
       section: row.section || '',
       createdAt: row.created_at
     };
+  } finally {
+    client.release();
+  }
+}
+
+// =============================================
+// Announcement Functions
+// =============================================
+
+export async function getAllAnnouncements(subject: string): Promise<Announcement[]> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    const result = await client.query(
+      'SELECT * FROM announcements WHERE subject = $1 ORDER BY created_at DESC',
+      [subject]
+    );
+
+    return result.rows.map((row) => ({
+      id: row.id,
+      subject: row.subject,
+      title: row.title,
+      message: row.message,
+      createdBy: row.created_by,
+      createdAt: row.created_at,
+    }));
+  } finally {
+    client.release();
+  }
+}
+
+export async function createAnnouncement(
+  subject: string,
+  title: string,
+  message: string,
+  createdBy: string
+): Promise<Announcement> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    const result = await client.query(
+      'INSERT INTO announcements (subject, title, message, created_by) VALUES ($1, $2, $3, $4) RETURNING *',
+      [subject, title, message, createdBy]
+    );
+
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      subject: row.subject,
+      title: row.title,
+      message: row.message,
+      createdBy: row.created_by,
+      createdAt: row.created_at,
+    };
+  } finally {
+    client.release();
+  }
+}
+
+export async function deleteAnnouncement(id: string): Promise<void> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    await client.query('DELETE FROM announcements WHERE id = $1', [id]);
   } finally {
     client.release();
   }

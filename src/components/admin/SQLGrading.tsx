@@ -75,6 +75,17 @@ export default function SQLGrading({
   const [selectedScores, setSelectedScores] = useState<{[key: string]: 'sheet' | 'csv'}>({})
   const [inClass, setInClass] = useState(true)
   
+  // Announcement state
+  const [showAnnouncementDialog, setShowAnnouncementDialog] = useState(false)
+  const [announcementTitle, setAnnouncementTitle] = useState("")
+  const [announcementMessage, setAnnouncementMessage] = useState("")
+  const [announcements, setAnnouncements] = useState<any[]>([])
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(true)
+  const [publishingAnnouncement, setPublishingAnnouncement] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [announcementToDelete, setAnnouncementToDelete] = useState<number | null>(null)
+  const [deletingAnnouncement, setDeletingAnnouncement] = useState(false)
+  
   // Helper to check if this is ITCS251 or ITCS255
   const isITCS251or255 = subjectCode === 'ITCS251' || subjectCode === 'ITCS255'
 

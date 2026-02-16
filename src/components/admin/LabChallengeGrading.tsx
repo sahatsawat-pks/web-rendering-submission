@@ -68,6 +68,17 @@ export default function LabChallengeGrading({
   const [pendingSubmission, setPendingSubmission] = useState<{scoreType: 'lab' | 'challenge' | 'both'} | null>(null)
   const [submissionLoading, setSubmissionLoading] = useState(false)
 
+  // Announcement state
+  const [showAnnouncementDialog, setShowAnnouncementDialog] = useState(false)
+  const [announcementTitle, setAnnouncementTitle] = useState("")
+  const [announcementMessage, setAnnouncementMessage] = useState("")
+  const [announcements, setAnnouncements] = useState<any[]>([])
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(true)
+  const [publishingAnnouncement, setPublishingAnnouncement] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [announcementToDelete, setAnnouncementToDelete] = useState<number | null>(null)
+  const [deletingAnnouncement, setDeletingAnnouncement] = useState(false)
+
   const assignmentLabel = (subjectCode === 'ITCS251' || subjectCode === 'ITCS255') ? 'Week' : 'Lab'
 
   useEffect(() => {
@@ -117,6 +128,26 @@ export default function LabChallengeGrading({
         }
       })
       .catch(err => console.error("Failed to fetch prefixes", err))
+  }, [subjectCode])
+
+  // Fetch announcements
+  useEffect(() => {
+    async function fetchAnnouncements() {
+      try {
+        const res = await fetch(`/api/announcements?subject=${subjectCode}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.success) {
+            setAnnouncements(data.announcements || [])
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch announcements:", err)
+      } finally {
+        setLoadingAnnouncements(false)
+      }
+    }
+    fetchAnnouncements()
   }, [subjectCode])
 
   async function toggleQuiz(labId: string, currentStatus: boolean) {
@@ -347,6 +378,81 @@ export default function LabChallengeGrading({
       }
   }
 
+  function openCreateAnnouncementDialog() {
+    setAnnouncementTitle("")
+    setAnnouncementMessage("")
+    setShowAnnouncementDialog(true)
+  }
+
+  async function handleCreateAnnouncement() {
+    if (!announcementTitle.trim() || !announcementMessage.trim()) {
+      alert("Please provide both title and message")
+      return
+    }
+
+    setPublishingAnnouncement(true)
+    try {
+      const res = await fetch("/api/announcements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: subjectCode,
+          title: announcementTitle,
+          message: announcementMessage,
+          createdBy: username
+        })
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) {
+          setAnnouncements([data.announcement, ...announcements])
+          setAnnouncementTitle("")
+          setAnnouncementMessage("")
+          setShowAnnouncementDialog(false)
+        } else {
+          alert(data.error || "Failed to create announcement")
+        }
+      } else {
+        alert("Failed to create announcement")
+      }
+    } catch (err) {
+      console.error("Failed to create announcement:", err)
+      alert("Failed to create announcement")
+    } finally {
+      setPublishingAnnouncement(false)
+    }
+  }
+
+  function handleDeleteAnnouncement(id: number) {
+    setAnnouncementToDelete(id)
+    setShowDeleteDialog(true)
+  }
+
+  async function confirmDeleteAnnouncement() {
+    if (!announcementToDelete) return
+
+    setDeletingAnnouncement(true)
+    try {
+      const res = await fetch(`/api/announcements?id=${announcementToDelete}`, {
+        method: "DELETE"
+      })
+
+      if (res.ok) {
+        setAnnouncements(announcements.filter(a => a.id !== announcementToDelete))
+        setShowDeleteDialog(false)
+        setAnnouncementToDelete(null)
+      } else {
+        alert("Failed to delete announcement")
+      }
+    } catch (err) {
+      console.error("Failed to delete announcement:", err)
+      alert("Failed to delete announcement")
+    } finally {
+      setDeletingAnnouncement(false)
+    }
+  }
+
   return (
     <div className="flex-1 space-y-8">
       {/* Welcome Section */}
@@ -372,6 +478,92 @@ export default function LabChallengeGrading({
         </div>
         <p className="text-lg text-slate-600 dark:text-slate-400">Welcome back. Here's what's happening today.</p>
       </div>
+
+      {/* Announcements Section */}
+      {['Lecturer', 'Main Admin'].includes(role) && (
+        <div className="glass-card p-8 animate-scale-in hover:shadow-2xl hover:shadow-blue-500/5 transition-all duration-300 border-white/40">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2">
+              <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+              </svg>
+              Announcements
+            </h3>
+            <div className="flex gap-2">
+              <span className="px-3 py-1.5 rounded-lg text-xs font-bold border shadow-md bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                {announcements.length} Total
+              </span>
+              <button 
+                onClick={openCreateAnnouncementDialog}
+                className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                New Announcement
+              </button>
+            </div>
+          </div>
+
+          {loadingAnnouncements ? (
+            <div className="py-12 text-center">
+              <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-200 dark:border-blue-800 border-t-blue-600 dark:border-t-blue-400"></div>
+              <p className="text-slate-500 dark:text-slate-400 mt-4">Loading announcements...</p>
+            </div>
+          ) : announcements.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-slate-400 dark:text-slate-500">
+              <svg className="w-16 h-16 mb-4 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+              </svg>
+              <p className="text-base font-medium">No announcements yet</p>
+              <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Create one to notify students</p>
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              {announcements.map((announcement) => (
+                <div 
+                  key={announcement.id}
+                  className="flex items-start gap-4 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-900/10 dark:to-indigo-900/10 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-lg transition-all group"
+                >
+                  <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                    </svg>
+                  </div>
+                  <div className="flex-grow min-w-0">
+                    <h4 className="text-base font-bold text-slate-900 dark:text-slate-200 mb-1">
+                      {announcement.title}
+                    </h4>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mb-2">
+                      {announcement.message}
+                    </p>
+                    <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                      <span className="flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        {announcement.createdBy || 'Admin'}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        {new Date(announcement.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleDeleteAnnouncement(announcement.id)}
+                      className="px-3 py-2 text-xs font-semibold rounded-lg transition-all bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Grading Interface Section */}
       <div className="glass-card p-8 animate-scale-in hover:shadow-2xl hover:shadow-orange-500/5 transition-all duration-300 border-white/40">
@@ -778,6 +970,169 @@ export default function LabChallengeGrading({
           </div>
         )}
       </div>
+
+      {/* Delete Announcement Confirmation Dialog */}
+      {showDeleteDialog && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-scale-in">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 flex items-center justify-center text-white shadow-lg">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-200">
+                  Delete Announcement
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowDeleteDialog(false)
+                  setAnnouncementToDelete(null)
+                }}
+                disabled={deletingAnnouncement}
+                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-slate-600 dark:text-slate-400 mb-2">
+                Are you sure you want to delete this announcement? This action cannot be undone.
+              </p>
+              <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                <p className="text-sm text-red-800 dark:text-red-400 font-medium">
+                  ⚠️ All students will no longer see this announcement.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteDialog(false)
+                  setAnnouncementToDelete(null)
+                }}
+                disabled={deletingAnnouncement}
+                className="flex-1 px-4 py-3 rounded-xl font-semibold transition-all bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteAnnouncement}
+                disabled={deletingAnnouncement}
+                className="flex-1 px-4 py-3 rounded-xl font-semibold transition-all bg-gradient-to-r from-red-600 to-rose-600 text-white hover:from-red-700 hover:to-rose-700 shadow-lg shadow-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deletingAnnouncement ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Deleting...
+                  </span>
+                ) : (
+                  "Delete Announcement"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Announcement Dialog */}
+      {showAnnouncementDialog && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-scale-in">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-slate-200">Create Announcement</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{subjectCode} - Notify students</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAnnouncementDialog(false)}
+                className="text-slate-400 hover:text-slate-500 dark:hover:text-slate-300 transition-colors p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Title</label>
+                <input
+                  type="text"
+                  value={announcementTitle}
+                  onChange={(e) => setAnnouncementTitle(e.target.value)}
+                  placeholder="Enter announcement title..."
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Message</label>
+                <textarea
+                  value={announcementMessage}
+                  onChange={(e) => setAnnouncementMessage(e.target.value)}
+                  placeholder="Enter your message to students..."
+                  rows={6}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
+                />
+              </div>
+
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 flex items-start gap-2">
+                <svg className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <p className="text-xs text-amber-700 dark:text-amber-300">
+                  This announcement will be visible to all students on the {subjectCode} score page.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+              <button
+                onClick={() => setShowAnnouncementDialog(false)}
+                disabled={publishingAnnouncement}
+                className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-semibold rounded-xl transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateAnnouncement}
+                disabled={publishingAnnouncement || !announcementTitle.trim() || !announcementMessage.trim()}
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {publishingAnnouncement ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <span>Publishing...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                    </svg>
+                    <span>Publish Announcement</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* New Lab Dialog */}
       {showNewLabDialog && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
