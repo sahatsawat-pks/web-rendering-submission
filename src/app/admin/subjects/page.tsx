@@ -31,6 +31,7 @@ interface Subject {
   // Grading Configuration
   labWeight?: number
   labMaxScore?: number
+  useUniformLabScore?: boolean
 }
 
 const ICON_OPTIONS = [
@@ -97,7 +98,8 @@ export default function SubjectManagementPage() {
     dataSourceType: 'single_sheet',
     sheetTabs: '',
     labWeight: 20,
-    labMaxScore: 0
+    labMaxScore: 0,
+    useUniformLabScore: false
   })
   
   // Tab State for Modal
@@ -171,7 +173,8 @@ export default function SubjectManagementPage() {
       dataSourceType: 'single_sheet',
       sheetTabs: '',
       labWeight: 20,
-      labMaxScore: 0
+      labMaxScore: 0,
+      useUniformLabScore: false
     })
     setActiveTab('basic')
     setShowSubjectDialog(true)
@@ -197,7 +200,8 @@ export default function SubjectManagementPage() {
       dataSourceType: (subject.dataSourceType as any) || 'single_sheet',
       sheetTabs: subject.sheetTabs || '',
       labWeight: subject.labWeight || 20,
-      labMaxScore: subject.labMaxScore || 0
+      labMaxScore: subject.labMaxScore || 0,
+      useUniformLabScore: subject.useUniformLabScore || false
     })
     setActiveTab('basic')
     setShowSubjectDialog(true)
@@ -988,6 +992,23 @@ export default function SubjectManagementPage() {
                               Maximum possible total lab score (0 = auto-calculate from labs).
                             </p>
                          </div>
+                      </div>
+                      
+                      <div className="mt-4 pl-2">
+                         <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer">
+                            <input 
+                               type="checkbox"
+                               checked={formData.useUniformLabScore || false}
+                               onChange={(e) => setFormData({ ...formData, useUniformLabScore: e.target.checked })}
+                               className="w-5 h-5 rounded text-orange-600 focus:ring-orange-500"
+                            />
+                            <div>
+                               <p className="font-medium text-slate-900 dark:text-slate-200 text-sm">Use Uniform Lab Score (Always /2)</p>
+                               <p className="text-xs text-slate-500 dark:text-slate-400">
+                                 When enabled, all labs will be displayed and calculated with a maximum score of 2, regardless of individual lab total_score settings. Useful for subjects where all labs should be graded equally.
+                               </p>
+                            </div>
+                         </label>
                       </div>
                    </div>
                    

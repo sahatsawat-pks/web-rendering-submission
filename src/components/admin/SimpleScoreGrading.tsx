@@ -53,6 +53,10 @@ export default function SimpleScoreGrading({
   const [togglingQuizSection, setTogglingQuizSection] = useState(false)
   const [fillAllSections, setFillAllSections] = useState(false)
   
+  // Uniform Lab Score state
+  const [useUniformLabScore, setUseUniformLabScore] = useState(false)
+  const [togglingUniformScore, setTogglingUniformScore] = useState(false)
+  
 
   const [showNewLabDialog, setShowNewLabDialog] = useState(false)
   const [newLabData, setNewLabData] = useState({
@@ -61,7 +65,7 @@ export default function SimpleScoreGrading({
     fileName: "",
     isActive: true,
     deadline: "",
-    totalScore: ""
+    totalScore: "2"
   })
   const [creatingLab, setCreatingLab] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -109,6 +113,7 @@ export default function SimpleScoreGrading({
       .then(data => {
         if (data.subjects && data.subjects.length > 0) {
           setLocalQuizSectionEnabled(data.subjects[0].quizSectionEnabled !== false)
+          setUseUniformLabScore(data.subjects[0].useUniformLabScore ?? true)
         }
       })
       .catch(err => console.error('Failed to fetch subject info:', err))
@@ -146,6 +151,25 @@ export default function SimpleScoreGrading({
       console.error('Failed to toggle quiz section:', error)
     } finally {
       setTogglingQuizSection(false)
+    }
+  }
+
+  async function toggleUniformLabScore() {
+    setTogglingUniformScore(true)
+    try {
+      const res = await fetch('/api/subjects', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: subjectCode, useUniformLabScore: !useUniformLabScore })
+      })
+      
+      if (res.ok) {
+        setUseUniformLabScore(!useUniformLabScore)
+      }
+    } catch (error) {
+      console.error('Failed to toggle uniform lab score:', error)
+    } finally {
+      setTogglingUniformScore(false)
     }
   }
 
@@ -525,22 +549,41 @@ export default function SimpleScoreGrading({
       <div className="animate-slide-up">
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-200">{subjectTitle} Dashboard</h1>
-          {['Lecturer', 'Main Admin'].includes(role) && hasQuizManagement && (
-            <button
-              onClick={toggleQuizSection}
-              disabled={togglingQuizSection}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-all disabled:opacity-50 flex items-center gap-2 ${
-                localQuizSectionEnabled
-                  ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-              }`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-               </svg>
-              Quiz: {localQuizSectionEnabled ? "ON" : "OFF"}
-            </button>
-          )}
+          <div className="flex gap-2">
+            {['Lecturer', 'Main Admin'].includes(role) && (
+              <button
+                onClick={toggleUniformLabScore}
+                disabled={togglingUniformScore}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all disabled:opacity-50 flex items-center gap-2 ${
+                  useUniformLabScore
+                    ? "bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:hover:bg-orange-900/50"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                }`}
+                title={useUniformLabScore ? "All labs use uniform max score of 2" : "Labs use individual total_score values"}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                Uniform /2: {useUniformLabScore ? "ON" : "OFF"}
+              </button>
+            )}
+            {['Lecturer', 'Main Admin'].includes(role) && hasQuizManagement && (
+              <button
+                onClick={toggleQuizSection}
+                disabled={togglingQuizSection}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all disabled:opacity-50 flex items-center gap-2 ${
+                  localQuizSectionEnabled
+                    ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Quiz: {localQuizSectionEnabled ? "ON" : "OFF"}
+              </button>
+            )}
+          </div>
         </div>
         <p className="text-lg text-slate-600 dark:text-slate-400">Welcome back, {username || role}. Here's what's happening today.</p>
       </div>
@@ -573,6 +616,18 @@ export default function SimpleScoreGrading({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                   <span className="hidden sm:inline">Open Lab Sheet</span>
+              </a>
+            )}
+            
+            {['Lecturer', 'Main Admin'].includes(role) && (
+              <a
+                  href={`/admin/${subjectCode.toLowerCase()}/student-score`}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg transition-colors text-sm font-semibold shadow-sm hover:bg-blue-200 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800"
+              >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  <span className="hidden sm:inline">View All Scores</span>
               </a>
             )}
           </div>
@@ -659,16 +714,39 @@ export default function SimpleScoreGrading({
 
               <div className="order-1 md:order-2">
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Score</label>
-                <select
-                  value={score}
-                  onChange={(e) => setScore(e.target.value)}
-                  required
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 shadow-sm"
-                >
-                  <option value="0">0 - Not Submitted</option>
-                  <option value="1">1 - Partial</option>
-                  <option value="2">2 - Complete</option>
-                </select>
+                {useUniformLabScore ? (
+                  // Uniform scoring: Always 0, 1, 2
+                  <select
+                    value={score}
+                    onChange={(e) => setScore(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 shadow-sm"
+                  >
+                    <option value="0">0 - Not Submitted</option>
+                    <option value="1">1 - Partial</option>
+                    <option value="2">2 - Complete</option>
+                  </select>
+                ) : (
+                  // Variable scoring: 0 to lab's total_score
+                  (() => {
+                    const selectedLabData = labs.find(lab => lab.labNumber === selectedLab)
+                    const maxScore = selectedLabData?.totalScore || 2
+                    return (
+                      <select
+                        value={score}
+                        onChange={(e) => setScore(e.target.value)}
+                        required
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 shadow-sm"
+                      >
+                        {Array.from({ length: maxScore + 1 }, (_, i) => (
+                          <option key={i} value={i}>
+                            {i === 0 ? `${i} - Not Submitted` : i === maxScore ? `${i} - Complete` : `${i} - Partial`}
+                          </option>
+                        ))}
+                      </select>
+                    )
+                  })()
+                )}
               </div>
             </div>
           </div>

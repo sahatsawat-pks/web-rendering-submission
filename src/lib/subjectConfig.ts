@@ -31,6 +31,7 @@ export interface SubjectConfig {
     showCumulativeScore: boolean
     labWeight: number // Percentage (e.g. 15 for 15%)
     labMaxScore?: number // Hardcoded max score if needed, otherwise summed from labs
+    useUniformLabScore?: boolean // When true, force all labs to use max score of 2
     challengeWeight?: number
     hasChallenge?: boolean
   }

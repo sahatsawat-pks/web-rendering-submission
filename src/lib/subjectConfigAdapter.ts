@@ -251,6 +251,7 @@ export function adaptSubjectConfig(subject: Subject): SubjectConfig {
       showCumulativeScore: true,
       labWeight: subject.labWeight || 20, // Use database value or default
       labMaxScore: subject.labMaxScore || undefined, // Use database value or undefined for auto-calculate
+      useUniformLabScore: subject.useUniformLabScore ?? true, // Default to true (uniform /2 scoring)
       hasChallenge: subject.gradingType === 'lab_challenge' // Enable challenge grading for lab_challenge type
     },
     

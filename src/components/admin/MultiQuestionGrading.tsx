@@ -66,6 +66,8 @@ export default function MultiQuestionGrading({
   const [localQuizSectionEnabled, setLocalQuizSectionEnabled] = useState(quizSectionEnabled)
   const [togglingQuizSection, setTogglingQuizSection] = useState(false)
   const [togglingQuiz, setTogglingQuiz] = useState<number | null>(null)
+  const [useUniformLabScore, setUseUniformLabScore] = useState(false)
+  const [togglingUniformScore, setTogglingUniformScore] = useState(false)
 
   // Announcement state
   const [showAnnouncementDialog, setShowAnnouncementDialog] = useState(false)
@@ -112,6 +114,17 @@ export default function MultiQuestionGrading({
             if(sorted.length > 0) setSelectedPrefix(sorted[sorted.length - 1]);
         }
     }).catch(console.error)
+
+    // Fetch subject config
+    fetch(`/api/subjects?code=${subjectCode}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.subjects && data.subjects.length > 0) {
+          setLocalQuizSectionEnabled(data.subjects[0].quizSectionEnabled !== false)
+          setUseUniformLabScore(data.subjects[0].useUniformLabScore ?? true)
+        }
+      })
+      .catch(err => console.error("Failed to fetch subject info", err))
   }, [subjectCode])
 
   // Fetch student details when studentId changes
@@ -179,6 +192,24 @@ export default function MultiQuestionGrading({
       console.error('Failed to toggle quiz section:', error)
     } finally {
       setTogglingQuizSection(false)
+    }
+  }
+
+  async function toggleUniformLabScore() {
+    setTogglingUniformScore(true)
+    try {
+      const res = await fetch('/api/subjects', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: subjectCode, useUniformLabScore: !useUniformLabScore })
+      })
+      if (res.ok) {
+        setUseUniformLabScore(!useUniformLabScore)
+      }
+    } catch (error) {
+      console.error('Failed to toggle uniform lab score:', error)
+    } finally {
+      setTogglingUniformScore(false)
     }
   }
   
@@ -494,22 +525,52 @@ export default function MultiQuestionGrading({
       <div className="animate-slide-up">
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-200">{subjectCode} Dashboard</h1>
-          {['Lecturer', 'Main Admin'].includes(role) && hasQuizManagement && (
-            <button
-              onClick={toggleQuizSection}
-              disabled={togglingQuizSection}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-all disabled:opacity-50 flex items-center gap-2 ${
-                localQuizSectionEnabled
-                  ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-              }`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-               </svg>
-               Quiz Section: {localQuizSectionEnabled ? "ON" : "OFF"}
-            </button>
-          )}
+          <div className="flex gap-2">
+            {['Lecturer', 'Main Admin'].includes(role) && (
+              <button
+                onClick={toggleUniformLabScore}
+                disabled={togglingUniformScore}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all disabled:opacity-50 flex items-center gap-2 ${
+                  useUniformLabScore
+                    ? "bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:hover:bg-orange-900/50"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                Uniform /2: {useUniformLabScore ? "ON" : "OFF"}
+              </button>
+            )}
+            {['Lecturer', 'Main Admin'].includes(role) && (
+              <button
+                onClick={toggleQuizSection}
+                disabled={togglingQuizSection}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all disabled:opacity-50 flex items-center gap-2 ${
+                  localQuizSectionEnabled
+                    ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                 </svg>
+                 Quiz Section: {localQuizSectionEnabled ? "ON" : "OFF"}
+              </button>
+            )}
+            
+            {['Lecturer', 'Main Admin'].includes(role) && (
+              <a
+                  href={`/admin/${subjectCode.toLowerCase()}/student-score`}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg transition-colors text-sm font-semibold shadow-sm hover:bg-blue-200 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800"
+              >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  <span className="hidden sm:inline">View All Scores</span>
+              </a>
+            )}
+          </div>
         </div>
         <p className="text-lg text-slate-600 dark:text-slate-400">Welcome back. Here's what's happening today.</p>
       </div>

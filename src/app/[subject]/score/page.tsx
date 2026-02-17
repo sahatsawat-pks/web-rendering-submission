@@ -396,7 +396,10 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
   // Render Logic for Lab & Challenge Review
   if (isLabChallenge && scores) {
       // Use config value if available, otherwise calculate based on active labs
-      const maxLabScore = config.grading?.labMaxScore || (activeLabs.length * 2); // Use database value or calculate dynamically
+      // When useUniformLabScore is enabled, force all labs to max score of 2
+      const maxLabScore = config.grading?.useUniformLabScore 
+        ? (activeLabs.length * 2) 
+        : (config.grading?.labMaxScore || (activeLabs.length * 2)); // Use database value or calculate dynamically
       // Only count labs where challenge is enabled and active
       const enabledChallengesCount = activeLabs.filter(lab => lab.challengeEnabled !== false && lab.isActive !== false).length;
       const maxChallengeScore = enabledChallengesCount * 2; // Maximum possible challenge score (enabled challenges × 2 points)
@@ -497,8 +500,8 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                                     <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300 text-right">Score</th>
                                 ) : (
                                     <>
-                                        <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300 text-right">Main Score (Max 2)</th>
-                                        <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300 text-right">Challenge (Max 2)</th>
+                                        <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300 text-right">Main Score{config.grading?.useUniformLabScore ? ' (Max 2)' : ''}</th>
+                                        <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300 text-right">Challenge{config.grading?.useUniformLabScore ? ' (Max 2)' : ''}</th>
                                     </>
                                 )}
                             </tr>
@@ -530,10 +533,8 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                                                             <div key={question} className="flex justify-between items-center">
                                                                 <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{question}:</span>
                                                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2
-                                                                    ${'2' === score ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 
-                                                                      '1' === score ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                                                      'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
-                                                                    {score}
+                                                                    ${getScoreColor(Number.parseFloat(score) || 0, row.totalScore || 2)}`}>
+                                                                    {score}/{row.totalScore || 2}
                                                                 </span>
                                                             </div>
                                                         ))}
@@ -553,10 +554,8 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
                                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                                        ${row.score === '2' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 
-                                                          row.score === '1' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                                          'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
-                                                        {row.score}
+                                                        ${getScoreColor(Number.parseFloat(row.score) || 0, row.totalScore || 2)}`}>
+                                                        {row.score}/{row.totalScore || 2}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
@@ -564,10 +563,8 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                                                         <span className="text-slate-400 dark:text-slate-500 font-medium">-</span>
                                                     ) : (
                                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                                            ${row.challengeScore === '2' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 
-                                                              row.challengeScore === '1' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                                              'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
-                                                            {row.challengeScore}
+                                                            ${getScoreColor(Number.parseFloat(row.challengeScore || '0') || 0, row.challengeTotalScore || 2)}`}>
+                                                            {row.challengeScore}/{row.challengeTotalScore || 2}
                                                         </span>
                                                     )}
                                                 </td>
@@ -578,7 +575,7 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                                 {/* Total Score Summary */}
                                 <tr className="bg-orange-50 dark:bg-orange-900/20 font-bold border-t-2 border-orange-200 dark:border-orange-800">
                                     <td colSpan={2} className="px-6 py-4 text-right text-slate-900 dark:text-slate-100">
-                                        Total {assignmentLabel} Score (Max {maxLabScore})
+                                        Total {assignmentLabel} Score{config.grading?.useUniformLabScore ? ` (Max ${maxLabScore})` : ''}
                                     </td>
                                     <td colSpan={2} className="px-6 py-4 text-right text-orange-600 dark:text-orange-400 text-lg">
                                         <span className="text-xs text-slate-500 dark:text-slate-400 mr-2">
@@ -589,7 +586,7 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                                 </tr>
                                 <tr className="bg-teal-50 dark:bg-teal-900/20 font-bold border-t-2 border-teal-200 dark:border-teal-800">
                                     <td colSpan={2} className="px-6 py-4 text-right text-slate-900 dark:text-slate-100">
-                                        Total Challenge Score (Max {maxChallengeScore})
+                                        Total Challenge Score{config.grading?.useUniformLabScore ? ` (Max ${maxChallengeScore})` : ''}
                                     </td>
                                     <td colSpan={2} className="px-6 py-4 text-right text-teal-600 dark:text-teal-400 text-lg">
                                         {totalCh}
@@ -658,7 +655,8 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                     </div>
                 )}
                 
-                {/* Legend */}
+                {/* Legend - Only show for uniform /2 scoring */}
+                {config.grading?.useUniformLabScore && (
                 <div className="bg-slate-50 dark:bg-slate-900/50 p-4 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 flex flex-col sm:flex-row gap-4 justify-between items-center bg-opacity-50">
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-1.5">
@@ -675,6 +673,7 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                         </div>
                     </div>
                 </div>
+                )}
             </div>
         </div>
       );
@@ -776,10 +775,10 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                                                         {Object.entries(row.questions).map(([question, score]) => (
                                                             <div key={question} className="flex justify-between items-center">
                                                                 <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{question}:</span>
-                                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 ${getScoreColor(parseFloat(score) || 0, row.totalScore)}`}>
+                                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 ${getScoreColor(Number.parseFloat(score) || 0, row.totalScore || 2)}`}>
                                                                     {score === '-' ? 'Not Graded' : 
-                                                                     score === '-1' && (subject === 'ITCS251' || subject === 'ITCS255') ? `0${row.totalScore ? `/${row.totalScore}` : ''}` :
-                                                                     `${score}${row.totalScore ? `/${row.totalScore}` : ''}`}
+                                                                     score === '-1' && (subject === 'ITCS251' || subject === 'ITCS255') ? `0${!config.grading?.useUniformLabScore && row.totalScore ? `/${row.totalScore}` : ''}` :
+                                                                     `${score}${!config.grading?.useUniformLabScore && row.totalScore ? `/${row.totalScore}` : ''}`}
                                                                 </span>
                                                             </div>
                                                         ))}
@@ -832,10 +831,10 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                                                     {row.title}
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getScoreColor(parseFloat(row.score) || 0, row.totalScore)}`}>
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getScoreColor(Number.parseFloat(row.score) || 0, config.grading?.useUniformLabScore ? 2 : (row.totalScore || 2))}`}>
                                                         {row.score === '-' ? 'Not Graded' : 
-                                                         row.score === '-1' && (subject === 'ITCS251' || subject === 'ITCS255') ? `0${row.totalScore ? `/${row.totalScore}` : ''}` :
-                                                         `${row.score}${row.totalScore ? `/${row.totalScore}` : ''}`}
+                                                         row.score === '-1' && (subject === 'ITCS251' || subject === 'ITCS255') ? `0${!config.grading?.useUniformLabScore && row.totalScore ? `/${row.totalScore}` : ''}` :
+                                                         `${row.score}${!config.grading?.useUniformLabScore && row.totalScore ? `/${row.totalScore}` : ''}`}
                                                     </span>
                                                 </td>
                                             </tr>
@@ -876,7 +875,10 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                                     // For multi-question labs: this represents the max possible score across all questions in all labs
                                     // The percentage shows: (actualScore/maxScore) * labWeight
                                     // Example: 38 out of 30 max = 126.67% efficiency, worth 20% of final grade
-                                    const maxLabScore = config.grading.labMaxScore || labRows.length * 2;
+                                    // When useUniformLabScore is enabled, force all labs to max score of 2
+                                    const maxLabScore = config.grading.useUniformLabScore 
+                                      ? (labRows.length * 2) 
+                                      : (config.grading.labMaxScore || labRows.length * 2);
                                     
                                     // Calculate percentage
                                     const labWeight = config.grading.labWeight || 20;
@@ -886,12 +888,14 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                                         <>
                                             <tr className="bg-slate-50 dark:bg-slate-900/80 font-bold border-t border-slate-200 dark:border-slate-700">
                                                 <td colSpan={2} className="px-6 py-4 text-right text-slate-700 dark:text-slate-300">
-                                                    Total Score (Max {maxLabScore})
+                                                    Total Score{config.grading.useUniformLabScore ? ` (Max ${maxLabScore})` : ''}
                                                 </td>
                                                 <td className={`px-6 py-4 text-right ${config.accentColor}`}>
                                                     <span className="text-lg">{totalLabScore}</span> <span className="text-xs text-slate-500 font-normal ml-1">({percentage.toFixed(2)}% / {labWeight}%)</span>
                                                 </td>
                                             </tr>
+                                            {/* Legend - Only show for uniform /2 scoring */}
+                                            {config.grading?.useUniformLabScore && (
                                             <tr className="bg-slate-50 dark:bg-slate-900/80 border-t border-slate-200 dark:border-slate-700">
                                                 <td colSpan={3} className="px-6 py-3">
                                                     <div className="flex flex-wrap items-center gap-6 text-xs text-slate-600 dark:text-slate-400">
@@ -910,12 +914,14 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                                                     </div>
                                                 </td>
                                             </tr>
+                                            )}
                                         </>
                                     );
                                 })()}
 
                                 {/* Python/SQL/Multi-Question/Criteria Grading: No total score display */}
-                                {isPythonSqlMultiCriteria && (
+                                {/* Legend - Only show for uniform /2 scoring */}
+                                {isPythonSqlMultiCriteria && config.grading?.useUniformLabScore && (
                                     <tr className="bg-slate-50 dark:bg-slate-900/80 border-t border-slate-200 dark:border-slate-700">
                                         <td colSpan={3} className="px-6 py-3">
                                             <div className="flex flex-wrap items-center gap-6 text-xs text-slate-600 dark:text-slate-400">
