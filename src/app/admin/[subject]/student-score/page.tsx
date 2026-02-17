@@ -33,6 +33,13 @@ export default function StudentScorePage() {
   const [columnFilter, setColumnFilter] = useState<'All' | 'Lab' | 'Challenge'>('All')
   const [studentIdFilter, setStudentIdFilter] = useState('')
   const [exportMode, setExportMode] = useState<'full' | 'summary'>('full')
+
+  useEffect(() => {
+    if (subjectCode) {
+      // Fetch subject config first
+      fetch(`/api/subjects?code=${subjectCode}`)
+        .then(res => res.json())
+        .then(data => {
           if (data.subjects && data.subjects.length > 0) {
             setSubjectConfig(data.subjects[0])
           }
@@ -86,7 +93,7 @@ export default function StudentScorePage() {
     
     // Collect ALL unique keys from ALL students
     const allKeysSet = new Set<string>()
-    students.forEach(student => {
+    students.forEach((student: StudentScore) => {
       Object.keys(student).forEach(key => allKeysSet.add(key))
     })
     
@@ -129,7 +136,7 @@ export default function StudentScorePage() {
   })
   
   // Filter students based on ID search
-  const filteredStudents = students.filter(student => {
+  const filteredStudents = students.filter((student: StudentScore) => {
     if (!studentIdFilter.trim()) return true
     const studentId = (student.username || student.ID || student.studentId || '').toString().toLowerCase()
     return studentId.includes(studentIdFilter.toLowerCase().trim())
@@ -205,7 +212,7 @@ export default function StudentScorePage() {
         headers.push("Total Challenge Score", "Challenge %")
       }
 
-      rows = filteredStudents.map((student) => {
+      rows = filteredStudents.map((student: StudentScore) => {
         const totals = calculateStudentTotals(student, allColumns)
         const row = [
           student.username || student.ID || student.studentId || '',
@@ -235,7 +242,7 @@ export default function StudentScorePage() {
         ...scoreColumns
       ]
 
-      rows = filteredStudents.map((student, index) => [
+      rows = filteredStudents.map((student: StudentScore, index: number) => [
         index + 1,
         student.username || student.ID || student.studentId || '',
         student.name || student.Name || '',
@@ -269,7 +276,7 @@ export default function StudentScorePage() {
     const labMatch = columnName.match(/(?:Lab|Challenge|Ch|W)\s*(\d+)/i)
     if (labMatch) {
       const labNumber = labMatch[1]
-      const lab = labs.find(l => 
+      const lab = labs.find((l: any) => 
         l.labNumber === labNumber || 
         l.labNumber === labNumber.padStart(2, '0') ||
         Number.parseInt(l.labNumber) === Number.parseInt(labNumber)
