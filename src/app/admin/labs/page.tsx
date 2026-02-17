@@ -34,7 +34,7 @@ export default function LabManagement() {
 
   // Initialize subjectFilter from URL parameter
   useEffect(() => {
-    const subjectParam = searchParams.get('subject')
+    const subjectParam = searchParams?.get('subject')
     if (subjectParam) {
       setSubjectFilter(subjectParam)
     }
@@ -96,7 +96,7 @@ export default function LabManagement() {
     if (allowedSubjects.length > 0 && !allowedSubjects.includes(formData.subject)) {
       setFormData(prev => ({ ...prev, subject: allowedSubjects[0] }))
     }
-  }, [userPermissions, currentUser, subjects])
+  }, [userPermissions, currentUser, subjects, formData.subject])
 
   async function fetchCurrentUser() {
     try {
@@ -164,7 +164,7 @@ export default function LabManagement() {
       const method = editingLab ? "PUT" : "POST"
       
       // Create subQuestions array based on numberOfQuestions
-      const questionCount = parseInt(formData.numberOfQuestions) || 1
+      const questionCount = Number.parseInt(formData.numberOfQuestions) || 1
       const subQuestions = questionCount > 1 ? 
         Array.from({length: questionCount}, (_, i) => `Q${i+1}`) : 
         undefined
@@ -172,7 +172,7 @@ export default function LabManagement() {
       // Prepare body with totalScore as number if provided and subQuestions
       const bodyData: any = {
         ...formData,
-        totalScore: formData.totalScore ? parseInt(formData.totalScore) : undefined,
+        totalScore: formData.totalScore ? Number.parseInt(formData.totalScore) : undefined,
         subQuestions: subQuestions ? JSON.stringify(subQuestions) : undefined,
         challengeEnabled: hasLabChallengeGrading(formData.subject) ? formData.challengeEnabled : undefined
       }
@@ -242,6 +242,7 @@ export default function LabManagement() {
         const questions = JSON.parse(lab.subQuestions)
         questionCount = Array.isArray(questions) ? questions.length.toString() : "1"
       } catch (e) {
+        console.error("Failed to parse subQuestions:", e)
         questionCount = "1"
       }
     }
@@ -255,7 +256,7 @@ export default function LabManagement() {
       subject: lab.subject || subjects[0]?.code || "",
       totalScore: (lab as any).totalScore?.toString() || "",
       numberOfQuestions: questionCount,
-      challengeEnabled: lab.challengeEnabled !== undefined ? lab.challengeEnabled : true
+      challengeEnabled: lab.challengeEnabled ?? true
     })
   }
 
@@ -338,8 +339,8 @@ export default function LabManagement() {
       if (subjectCompare !== 0) return subjectCompare
       
       // Then sort by lab number (numeric sort for proper ordering)
-      const aNum = parseInt(a.labNumber) || 0
-      const bNum = parseInt(b.labNumber) || 0
+      const aNum = Number.parseInt(a.labNumber) || 0
+      const bNum = Number.parseInt(b.labNumber) || 0
       if (aNum !== bNum) return aNum - bNum
       
       // If numeric values are same, fall back to string comparison
@@ -534,10 +535,11 @@ export default function LabManagement() {
 
                 {/* Number of Questions Field - For multi-question labs */}
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  <label htmlFor="numberOfQuestions" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     Number of Questions
                   </label>
                   <input
+                    id="numberOfQuestions"
                     type="number"
                     value={formData.numberOfQuestions}
                     onChange={(e) => setFormData({ ...formData, numberOfQuestions: e.target.value })}
@@ -637,10 +639,11 @@ export default function LabManagement() {
                   
                   {/* Subject Filter */}
                   <div className="flex items-center gap-3">
-                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    <label htmlFor="subjectFilter" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                       Filter:
                     </label>
                     <select
+                      id="subjectFilter"
                       value={subjectFilter}
                       onChange={(e) => setSubjectFilter(e.target.value)}
                       className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm min-w-[120px]"
@@ -740,19 +743,27 @@ export default function LabManagement() {
                           </td>
                           <td className="px-4 md:px-8 py-4 md:py-5">
                             {hasLabChallengeGrading(lab.subject) ? (
-                              <button
-                                onClick={() => handleToggleChallenge(lab)}
-                                disabled={!lab.isActive}
-                                className={`px-2 md:px-3 py-1 md:py-1.5 rounded-lg text-[10px] md:text-xs font-semibold border transition-all ${
-                                  !lab.isActive
-                                    ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-50"
-                                    : lab.challengeEnabled
-                                      ? "bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/30"
-                                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700"
-                                }`}
-                              >
-                                {lab.challengeEnabled ? "Enabled" : "Disabled"}
-                              </button>
+                              (() => {
+                                let buttonClass = "px-2 md:px-3 py-1 md:py-1.5 rounded-lg text-[10px] md:text-xs font-semibold border transition-all "
+                                
+                                if (lab.isActive && lab.challengeEnabled) {
+                                  buttonClass += "bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/30"
+                                } else if (lab.isActive) {
+                                  buttonClass += "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                } else {
+                                  buttonClass += "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-50"
+                                }
+
+                                return (
+                                  <button
+                                    onClick={() => handleToggleChallenge(lab)}
+                                    disabled={lab.isActive === false}
+                                    className={buttonClass}
+                                  >
+                                    {lab.challengeEnabled ? "Enabled" : "Disabled"}
+                                  </button>
+                                )
+                              })()
                             ) : (
                               <span className="text-slate-300 dark:text-slate-600 text-xs italic">N/A</span>
                             )}
