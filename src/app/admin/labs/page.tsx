@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ModeToggle } from "@/components/mode-toggle"
 
@@ -20,7 +20,7 @@ interface Lab {
   challengeEnabled?: boolean // Whether challenge is enabled for this lab
 }
 
-export default function LabManagement() {
+function LabManagementContent() {
   const [labs, setLabs] = useState<Lab[]>([])
   const [subjects, setSubjects] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -796,5 +796,20 @@ export default function LabManagement() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LabManagement() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 via-white to-cyan-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-teal-200 dark:border-teal-800 border-t-teal-600 dark:border-t-teal-400"></div>
+          <p className="text-slate-600 dark:text-slate-400 mt-4 font-medium">Loading...</p>
+        </div>
+      </div>
+    }>
+      <LabManagementContent />
+    </Suspense>
   )
 }
