@@ -3,8 +3,9 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { getGradientStyleProps, getShadowColorClass } from "@/lib/colors"
-import SuccessNotification from "@/components/admin/SuccessNotification"
-import GradeSubmissionDialog from "@/components/admin/GradeSubmissionDialog"
+import SuccessNotification from "./SuccessNotification"
+import GradeSubmissionDialog from "./GradeSubmissionDialog"
+import RichTextEditor from "../RichTextEditor"
 
 interface MultiQuestionGradingProps {
   subjectCode: string
@@ -40,6 +41,7 @@ export default function MultiQuestionGrading({
   const [gradingError, setGradingError] = useState<string | null>(null)
   const [lastSubmittedStudentId, setLastSubmittedStudentId] = useState("")
   const [studentDetails, setStudentDetails] = useState<any>(null)
+  const [scoreData, setScoreData] = useState<any>(null)  // /api/scores data for existing score check
   const [submittedScores, setSubmittedScores] = useState<{ lab?: number; challenge?: number }>({})
   
   const [prefixes, setPrefixes] = useState<string[]>([])
@@ -125,6 +127,26 @@ export default function MultiQuestionGrading({
         }
       })
       .catch(err => console.error("Failed to fetch subject info", err))
+  }, [subjectCode])
+  
+  // Fetch announcements
+  useEffect(() => {
+    async function fetchAnnouncements() {
+      try {
+        const res = await fetch(`/api/announcements?subject=${subjectCode}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.success) {
+            setAnnouncements(data.announcements || [])
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch announcements:", err)
+      } finally {
+        setLoadingAnnouncements(false)
+      }
+    }
+    fetchAnnouncements()
   }, [subjectCode])
 
   // Fetch student details when studentId changes
@@ -243,6 +265,19 @@ export default function MultiQuestionGrading({
     e.preventDefault()
     setGradingError(null)
     setGradingSuccess(false)
+
+    // Fetch score data before showing confirmation dialog (for existing score warning)
+    try {
+      const detailsRes = await fetch(`/api/scores?username=${studentId}&subject=${subjectCode}&bypassCache=true`)
+      if (detailsRes.ok) {
+        const detailsData = await detailsRes.json()
+        if (detailsData.success && detailsData.scores) {
+          setScoreData(detailsData.scores)
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch score data", error)
+    }
 
     // Show confirmation dialog
     setShowConfirmDialog(true)
@@ -1062,12 +1097,10 @@ export default function MultiQuestionGrading({
 
               <div>
                 <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Message</label>
-                <textarea
+                <RichTextEditor
                   value={announcementMessage}
-                  onChange={(e) => setAnnouncementMessage(e.target.value)}
+                  onChange={setAnnouncementMessage}
                   placeholder="Enter your message to students..."
-                  rows={6}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
                 />
               </div>
 
@@ -1159,14 +1192,13 @@ export default function MultiQuestionGrading({
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                   Message
                 </label>
-                <textarea
-                  value={editMessage}
-                  onChange={(e) => setEditMessage(e.target.value)}
-                  disabled={savingEdit}
-                  rows={6}
-                  className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 transition-all resize-none disabled:opacity-50"
-                  placeholder="Enter announcement message"
-                />
+                <div className={savingEdit ? "opacity-50 pointer-events-none" : ""}>
+                    <RichTextEditor
+                      value={editMessage}
+                      onChange={setEditMessage}
+                      placeholder="Enter announcement message"
+                    />
+                </div>
               </div>
             </div>
 
@@ -1244,7 +1276,7 @@ export default function MultiQuestionGrading({
         multiQuestionScores={questionScores}
         questionLabels={totalQuestions}
         existingScore={
-          studentDetails 
+          scoreData 
             ? (() => {
                 const labNum = parseInt(selectedLab).toString()
                 const existingScores: string[] = []
@@ -1253,7 +1285,7 @@ export default function MultiQuestionGrading({
                 totalQuestions.forEach((_, index) => {
                   const qNum = index + 1
                   const qKey = `l${labNum}-q${qNum}`
-                  const score = studentDetails[qKey]
+                  const score = scoreData[qKey]
                   if (score !== undefined && score !== null && score !== '') {
                     hasAnyScore = true
                     existingScores.push(`Q${qNum}:${score}`)

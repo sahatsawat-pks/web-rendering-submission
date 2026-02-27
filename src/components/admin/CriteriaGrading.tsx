@@ -5,6 +5,7 @@ import { useState, useEffect } from "react"
 import { getGradientStyleProps, getShadowColorClass } from "@/lib/colors"
 import GradeSubmissionDialog from "./GradeSubmissionDialog"
 import SuccessNotification from "./SuccessNotification"
+import RichTextEditor from "../RichTextEditor"
 
 interface CriteriaGradingProps {
   subjectCode: string
@@ -133,6 +134,26 @@ export default function CriteriaGrading({
       .catch(err => console.error("Failed to fetch subject info", err))
   }, [subjectCode])
 
+  // Fetch announcements
+  useEffect(() => {
+    async function fetchAnnouncements() {
+      try {
+        const res = await fetch(`/api/announcements?subject=${subjectCode}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.success) {
+            setAnnouncements(data.announcements || [])
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch announcements:", err)
+      } finally {
+        setLoadingAnnouncements(false)
+      }
+    }
+    fetchAnnouncements()
+  }, [subjectCode])
+
   async function handleGradeSubmit(e: React.FormEvent) {
     e.preventDefault()
     setGradingError(null)
@@ -140,7 +161,7 @@ export default function CriteriaGrading({
     
     // Fetch student details before showing confirmation dialog
     try {
-      const detailsRes = await fetch(`/api/scores?username=${studentId}&subject=${subjectCode}`)
+      const detailsRes = await fetch(`/api/scores?username=${studentId}&subject=${subjectCode}&bypassCache=true`)
       if (detailsRes.ok) {
         const detailsData = await detailsRes.json()
         if (detailsData.success && detailsData.scores) {
@@ -201,7 +222,7 @@ export default function CriteriaGrading({
              setLastSubmittedStudentId(studentId);
              
              try {
-                const detailsRes = await fetch(`/api/scores?username=${studentId}&subject=${subjectCode}`)
+                const detailsRes = await fetch(`/api/scores?username=${studentId}&subject=${subjectCode}&bypassCache=true`)
                 if (detailsRes.ok) {
                     const detailsData = await detailsRes.json()
                     if (detailsData.success && detailsData.scores) {
@@ -1080,12 +1101,10 @@ export default function CriteriaGrading({
 
               <div>
                 <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Message</label>
-                <textarea
+                <RichTextEditor
                   value={announcementMessage}
-                  onChange={(e) => setAnnouncementMessage(e.target.value)}
+                  onChange={setAnnouncementMessage}
                   placeholder="Enter your message to students..."
-                  rows={6}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
                 />
               </div>
 
@@ -1177,14 +1196,13 @@ export default function CriteriaGrading({
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                   Message
                 </label>
-                <textarea
-                  value={editMessage}
-                  onChange={(e) => setEditMessage(e.target.value)}
-                  disabled={savingEdit}
-                  rows={6}
-                  className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 transition-all resize-none disabled:opacity-50"
-                  placeholder="Enter announcement message"
-                />
+                <div className={savingEdit ? "opacity-50 pointer-events-none" : ""}>
+                    <RichTextEditor
+                      value={editMessage}
+                      onChange={setEditMessage}
+                      placeholder="Enter announcement message"
+                    />
+                </div>
               </div>
             </div>
 

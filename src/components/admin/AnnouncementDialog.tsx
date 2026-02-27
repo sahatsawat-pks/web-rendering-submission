@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { X, AlertCircle, Megaphone } from 'lucide-react'
+import RichTextDisplay from '../RichTextDisplay'
 
 interface AnnouncementDialogProps {
   isOpen: boolean
@@ -76,8 +77,8 @@ export default function AnnouncementDialog({
           {/* Message Display */}
           <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
             <p className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">Message</p>
-            <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words leading-relaxed">
-              {message}
+            <div className="text-sm text-slate-700 dark:text-slate-300">
+              <RichTextDisplay content={message} />
             </div>
           </div>
 
