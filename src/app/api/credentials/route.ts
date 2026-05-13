@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCredentials, saveCredentials, getUserPermissions } from '@/lib/db';
+import { getCredentials, saveCredentials, getUserPermissions, deleteAllCredentialsEverywhere } from '@/lib/db';
 import { getAuthUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -133,32 +133,15 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const user = await getAuthUser();
+    console.log('DELETE /api/credentials - User:', user?.username, 'Role:', user?.role)
+    
     if (!user) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
     const { subject, removeAll } = body;
-
-    // Permission Check
-    if (user.username !== 'kanzaki_aito') {
-         if (!subject) {
-             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-        }
-        const userPerms = await getUserPermissions(user.userId);
-        const hasPermission = userPerms.some(p => p.subjectCode === subject.toLowerCase() && p.canEdit);
-        
-        if (!hasPermission && user.role !== 'Lecturer') {
-             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-        }
-    }
-
-    if (!subject) {
-      return NextResponse.json(
-        { success: false, message: 'Subject is required' },
-        { status: 400 }
-      );
-    }
+    console.log('DELETE body:', { subject, removeAll })
 
     if (!removeAll) {
       return NextResponse.json(
@@ -167,15 +150,20 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Import the deleteAllCredentials function
-    const { deleteAllCredentials } = await import('@/lib/db');
-    
-    // Delete all credentials for the subject
-    const count = await deleteAllCredentials(subject);
+    // When removing all, only Main Admin can do this
+    if (user.username !== 'kanzaki_aito' && user.role !== 'Lecturer') {
+      console.log('Permission denied - not Main Admin or Lecturer')
+      return NextResponse.json({ error: "Forbidden: Only Main Admin or Lecturer can remove all credentials" }, { status: 403 });
+    }
+
+    console.log('Calling deleteAllCredentialsEverywhere()...')
+    // Delete all credentials across all subjects
+    const count = await deleteAllCredentialsEverywhere();
+    console.log('Deletion result - rows deleted:', count)
 
     return NextResponse.json({ 
       success: true, 
-      message: `Removed ${count} credentials for ${subject}`,
+      message: `Removed ${count} credentials from all subjects`,
       count
     });
 

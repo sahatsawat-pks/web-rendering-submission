@@ -9,6 +9,20 @@ import { useParams, useRouter, notFound } from "next/navigation"
 import { getSubjectConfig, isValidSubjectAsync, SubjectConfig } from "@/lib/subjectConfig"
 import { fetchSubjectConfig } from "@/lib/subjectConfigCache"
 import RichTextDisplay from "@/components/RichTextDisplay"
+import { FeedbackSection } from "@/components/FeedbackDisplay"
+
+interface LabFeedback {
+    id: string
+    labId?: string
+    labNumber: string
+    subject: string
+    studentId: string
+    adminComment?: string
+    isVisibleToStudent: boolean
+    createdAt: string
+    updatedAt: string
+    createdBy?: string
+}
 
 interface LabRow {
     lab: string
@@ -93,6 +107,10 @@ interface Announcement {
   createdAt: string
 }
 
+interface SubjectSettings {
+    feedbackSectionEnabled?: boolean
+}
+
 function StatusChecker({ subject, config, isAdmin = false }: { subject: string, config: SubjectConfig, isAdmin?: boolean }) {
   const [credential, setCredential] = useState("")
   const [scores, setScores] = useState<any | null>(null)
@@ -103,6 +121,8 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
   const [searchedId, setSearchedId] = useState("")
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(true)
+    const [labFeedbacks, setLabFeedbacks] = useState<LabFeedback[]>([])
+    const [feedbackSectionEnabled, setFeedbackSectionEnabled] = useState(true)
 
   // Determine grading types
   const isLabChallenge = config.grading?.hasChallenge === true
@@ -131,6 +151,23 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
     }
     fetchAnnouncements()
   }, [subject])
+
+    useEffect(() => {
+        async function fetchSubjectSettings() {
+            try {
+                const res = await fetch(`/api/subjects?code=${subject}`, { cache: 'no-store' })
+                if (!res.ok) return
+
+                const data = await res.json()
+                const settings: SubjectSettings | undefined = data?.subjects?.[0]
+                setFeedbackSectionEnabled(settings?.feedbackSectionEnabled !== false)
+            } catch (err) {
+                console.error('Failed to fetch subject settings:', err)
+            }
+        }
+
+        fetchSubjectSettings()
+    }, [subject])
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -209,6 +246,18 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                 } else {
                     setActiveLabs(labsData.labs)
                 }
+            }
+
+                        if (feedbackSectionEnabled) {
+                            const feedbackRes = await fetch(`/api/feedback?subject=${subject}&studentId=${studentId}&visibleOnly=true`)
+                            if (feedbackRes.ok) {
+                                const feedbackData = await feedbackRes.json()
+                                setLabFeedbacks(Array.isArray(feedbackData.feedback) ? feedbackData.feedback : [])
+                            } else {
+                                setLabFeedbacks([])
+                            }
+            } else {
+              setLabFeedbacks([])
             }
         } else {
              setScores(null)
@@ -604,6 +653,31 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                         </tbody>
                     </table>
                 </div>
+
+                {feedbackSectionEnabled && labFeedbacks.length > 0 && (
+                    <div className="border-t border-slate-200 dark:border-slate-800 px-6 py-6">
+                        <div className="mb-4">
+                            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h6m-6 4h8M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" />
+                                </svg>
+                                Instructor Feedback
+                            </h3>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                Visible comments from your instructor for completed labs.
+                            </p>
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-2">
+                            {labFeedbacks.map((feedback) => (
+                                <FeedbackSection
+                                    key={`${feedback.subject}-${feedback.studentId}-${feedback.labNumber}`}
+                                    title={`Lab ${feedback.labNumber}`}
+                                    feedback={feedback}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {quizScores && quizScores.length > 0 && (
                     <div className="border-t border-slate-200 dark:border-slate-800">

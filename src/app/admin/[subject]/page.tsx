@@ -76,7 +76,7 @@ export default function DynamicAdminDashboard() {
         }
 
         const subjectPermissionKey = subjectCode.toLowerCase()
-        if (authData.username === 'kanzaki_aito' || (authData.permissions && authData.permissions[subjectPermissionKey])) {
+        if (authData.username === 'kanzaki_aito' || authData.permissions?.[subjectPermissionKey]) {
           setHasAccess(true)
         } else {
           router.push('/admin/dashboard')
@@ -204,6 +204,7 @@ export default function DynamicAdminDashboard() {
       </nav>
 
       <main className="container mx-auto max-w-7xl px-4 py-8 relative z-10">
+
         {subject.hasGradingInterface && subject.gradingType === 'lab_challenge' ? (
           <LabChallengeGrading
             subjectCode={subjectCode}
@@ -305,7 +306,7 @@ export default function DynamicAdminDashboard() {
             <AlertCircle className="w-12 h-12 mx-auto text-amber-500 mb-4" />
             <h2 className="text-xl font-bold text-slate-900 dark:text-slate-200 mb-2">Grading Type Not Supported Yet</h2>
             <p className="text-slate-600 dark:text-slate-400 mb-4">
-              Grading type "<span className="font-mono">{subject.gradingType}</span>" will be added soon. Use the standard dashboard for now.
+              Grading type &quot;<span className="font-mono">{subject.gradingType}</span>&quot; will be added soon. Use the standard dashboard for now.
             </p>
             <Link
               href={`/admin/${subjectCode.toLowerCase()}`}

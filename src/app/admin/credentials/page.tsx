@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { ArrowLeft, Key, Download, RefreshCw, CheckCircle, AlertCircle, Filter } from "lucide-react"
 import Link from "next/link"
+import { AlertDialog } from "@/components/AlertDialog"
 
 interface StudentCredential {
   studentId: string
@@ -33,6 +34,11 @@ export default function UniversalCredentialsPage() {
   const [authLoading, setAuthLoading] = useState(true)
   const [username, setUsername] = useState('')
   const [role, setRole] = useState('')
+  
+  // Alert Dialog state
+  const [showRemoveAlert, setShowRemoveAlert] = useState(false)
+  const [confirmationStep, setConfirmationStep] = useState<'initial' | 'text'>('initial')
+  const [confirmationText, setConfirmationText] = useState('')
 
   // Fetch subjects and check auth
   useEffect(() => {
@@ -268,11 +274,12 @@ export default function UniversalCredentialsPage() {
   }
 
   const handleDownloadCSV = () => {
-    if (credentials.length === 0) return
+    const credentialsWithValues = credentials.filter(c => c.credential)
+    if (credentialsWithValues.length === 0) return
     
     // Create CSV content
     const headers = ['Student ID', 'Name', 'Surname', 'Section', 'Access Code', 'Source Subject']
-    const rows = credentials.map(c => [
+    const rows = credentialsWithValues.map(c => [
       c.studentId,
       c.name,
       c.surname,
@@ -342,17 +349,28 @@ export default function UniversalCredentialsPage() {
   }
 
   const handleRemoveAllCredentials = async () => {
-    if (!confirm('⚠️ Are you sure you want to REMOVE ALL credentials? This action cannot be undone and is typically done when preparing for a new semester.')) {
+    setShowRemoveAlert(true)
+    setConfirmationStep('initial')
+    setConfirmationText('')
+  }
+
+  const handleRemoveConfirmation = async () => {
+    console.log('🔴 handleRemoveConfirmation called - confirmationStep:', confirmationStep)
+    
+    if (confirmationStep === 'initial') {
+      // Move to text confirmation step
+      console.log('🟡 Moving to text confirmation step')
+      setConfirmationStep('text')
+      setConfirmationText('')
       return
     }
 
-    if (!confirm('This will delete ALL student credentials from the database. Type YES in the next dialog to confirm.')) {
-      return
-    }
-
-    const confirmation = prompt('Type "DELETE ALL" to confirm removal of all credentials:')
-    if (confirmation !== 'DELETE ALL') {
-      setMessage({ type: 'error', text: 'Confirmation text did not match. Credentials were not deleted.' })
+    // Final confirmation step
+    console.log('🔵 Final confirmation step - checking text:', confirmationText)
+    if (confirmationText !== 'DELETE ALL') {
+      setMessage({ type: 'error', text: 'Confirmation text did not match. Please try again.' })
+      setShowRemoveAlert(false)
+      setConfirmationStep('initial')
       return
     }
 
@@ -360,29 +378,37 @@ export default function UniversalCredentialsPage() {
     setMessage(null)
 
     try {
+      console.log('Sending DELETE request with removeAll: true')
       const response = await fetch('/api/credentials', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          removeAll: true,
-          subject: selectedSubject
+          removeAll: true
         })
       })
 
+      console.log('DELETE response status:', response.status)
+      const data = await response.json()
+      console.log('DELETE response data:', data)
+
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.message || 'Failed to remove credentials from database')
+        throw new Error(data.message || data.error || 'Failed to remove credentials from database')
       }
 
+      console.log('Deletion successful, cleared credentials from UI')
       setCredentials([])
       setMessage({ 
         type: 'success', 
-        text: 'All credentials have been removed successfully. Ready for next semester!' 
+        text: `All credentials have been removed successfully (${data.count || 0} records deleted)!` 
       })
+      setShowRemoveAlert(false)
+      setConfirmationStep('initial')
       
     } catch (error: any) {
-      console.error('Error:', error)
+      console.error('Error removing credentials:', error)
       setMessage({ type: 'error', text: error.message || 'An error occurred' })
+      setShowRemoveAlert(false)
+      setConfirmationStep('initial')
     } finally {
       setRemoving(false)
     }
@@ -487,7 +513,7 @@ export default function UniversalCredentialsPage() {
               )}
             </button>
             
-            {credentials.length > 0 && (
+            {credentials.length > 0 && credentials.some(c => c.credential) && (
               <>
                 <button
                   onClick={handleDownloadCSV}
@@ -526,13 +552,13 @@ export default function UniversalCredentialsPage() {
         </div>
 
         {/* Credentials Table */}
-        {credentials.length > 0 && (
+        {credentials.length > 0 && credentials.some(c => c.credential) && (
           <div className="bg-[#161b22] rounded-xl border border-white/5 overflow-hidden">
              
              {/* Note about view filtering */}
              <div className="p-4 bg-slate-800/50 border-b border-white/5 text-xs text-slate-400 flex items-center justify-between">
                 <span>Displaying all universal credentials. Names/Sections shown are synced from <strong>{selectedSubject}</strong> where available.</span>
-                <span className="font-mono bg-slate-900 px-2 py-1 rounded text-teal-500">{credentials.length} Records</span>
+                <span className="font-mono bg-slate-900 px-2 py-1 rounded text-teal-500">{credentials.filter(c => c.credential).length} Records</span>
              </div>
 
             <div className="overflow-x-auto">
@@ -547,7 +573,7 @@ export default function UniversalCredentialsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {credentials.map((cred, index) => (
+                  {credentials.filter(c => c.credential).map((cred, index) => (
                     <tr key={index} className="hover:bg-white/5 transition-colors">
                       <td className="px-6 py-4 text-sm font-mono text-slate-300">{cred.studentId}</td>
                       <td className="px-6 py-4 text-sm text-slate-300">{cred.name || <span className="text-slate-600 italic">No Match in {selectedSubject}</span>} {cred.surname}</td>
@@ -576,6 +602,72 @@ export default function UniversalCredentialsPage() {
         )}
       </div>
       )}
+
+      {/* Alert Dialog for Remove All */}
+      <AlertDialog
+        isOpen={showRemoveAlert}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowRemoveAlert(false)
+            setConfirmationStep('initial')
+            setConfirmationText('')
+          }
+        }}
+        title={confirmationStep === 'initial' ? 'Remove All Credentials?' : 'Confirm Removal'}
+        description={
+          confirmationStep === 'initial'
+            ? '⚠️ This will permanently delete ALL universal credentials from the database across ALL subjects. This action cannot be undone.'
+            : 'Type "DELETE ALL" to confirm that you want to permanently remove all credentials.'
+        }
+        confirmText={confirmationStep === 'initial' ? 'I understand, continue' : 'Remove All'}
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={handleRemoveConfirmation}
+      >
+        {confirmationStep === 'text' && (
+          <input
+            type="text"
+            placeholder='Type "DELETE ALL"'
+            value={confirmationText}
+            onChange={(e) => setConfirmationText(e.target.value)}
+            autoFocus
+            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all duration-200 animate-pulse-in"
+            style={{
+              animation: 'slideInUp 0.3s ease-out'
+            }}
+          />
+        )}
+      </AlertDialog>
+
+      <style jsx>{`
+        @keyframes slideInUp {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        .animate-fade-in {
+          animation: fadeIn 0.3s ease-out;
+        }
+
+        .animate-pulse-in {
+          animation: slideInUp 0.3s ease-out;
+        }
+      `}</style>
     </div>
   )
 }

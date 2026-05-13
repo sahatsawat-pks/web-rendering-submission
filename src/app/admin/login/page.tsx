@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Lock, User, ArrowLeft } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
@@ -37,15 +38,16 @@ export default function AdminLogin() {
       }
 
       router.push("/admin/dashboard")
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred")
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An unexpected error occurred"
+      setError(message)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 flex flex-col relative overflow-hidden animate-fade-in">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950 flex flex-col relative overflow-hidden animate-fade-in">
       <div className="absolute top-4 right-4 z-50">
         <ModeToggle />
       </div>
@@ -73,7 +75,7 @@ export default function AdminLogin() {
           <h1 className="text-4xl sm:text-5xl font-extrabold mb-2 sm:mb-3">
             <span className="gradient-text">Admin Portal</span>
           </h1>
-          <p className="text-base sm:text-lg text-slate-600 dark:text-slate-400">Secure access to the management dashboard</p>
+          <p className="text-base sm:text-lg text-slate-700 dark:text-slate-400">Secure access to the management dashboard</p>
         </div>
 
         {/* Login Form */}
@@ -174,13 +176,13 @@ export default function AdminLogin() {
 
         {/* Back Link */}
         <div className="text-center mt-6 sm:mt-8">
-          <a
+          <Link
             href="/"
             className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors font-semibold"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Submission Viewer
-          </a>
+          </Link>
         </div>
         </div>
       </div>

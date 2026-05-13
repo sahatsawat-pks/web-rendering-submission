@@ -1,11 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { ModeToggle } from "@/components/mode-toggle"
-import { ArrowLeft, Download, RefreshCw, Users, Table as TableIcon, Filter, X } from "lucide-react"
+import { ArrowLeft, Download, RefreshCw, Users, Table as TableIcon, Filter, X, MessageSquare, Trash2 } from "lucide-react"
 import { getGradientStyleProps } from "@/lib/colors"
+import { FeedbackModal } from "@/components/FeedbackModal"
+import { AlertDialog } from "@/components/AlertDialog"
 
 interface StudentScore {
   [key: string]: any
@@ -20,6 +22,105 @@ interface StudentScore {
   section?: string
 }
 
+interface FeedbackModalState {
+  isOpen: boolean
+  studentId: string
+  studentName: string
+  labNumber: string
+  labTitle: string
+}
+
+interface ScoreCellProps {
+  readonly student: StudentScore
+  readonly columnName: string
+  readonly displayValue: string
+  readonly cellClasses: string
+  readonly onOpenFeedback: (student: StudentScore, columnName: string) => void
+  readonly feedbackComment?: string
+  readonly onDeleteClick?: (studentId: string, labNumber: string, columnName: string) => void
+}
+
+function ScoreCell({ student, columnName, displayValue, cellClasses, onOpenFeedback, feedbackComment, onDeleteClick }: ScoreCellProps) {
+  const [showTooltip, setShowTooltip] = useState(false)
+  const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 })
+  const cellRef = useRef<HTMLTableCellElement>(null)
+  const hasFeedback = feedbackComment && feedbackComment.trim().length > 0
+  
+  const handleMouseEnter = () => {
+    if (hasFeedback && cellRef.current) {
+      const rect = cellRef.current.getBoundingClientRect()
+      setTooltipPos({
+        top: rect.top - 8,
+        left: rect.left + rect.width / 2
+      })
+      setShowTooltip(true)
+    }
+  }
+  
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const labNum = /:Lab\s*(\d+)/i.exec(columnName)?.[1] || /(\d+)/.exec(columnName)?.[1]
+    if (labNum && onDeleteClick) {
+      onDeleteClick(student.username || student.ID || student.studentId || '', labNum, columnName)
+    }
+  }
+
+  return (
+    <td 
+      ref={cellRef}
+      className={`${cellClasses} relative group`}
+      onClick={() => onOpenFeedback(student, columnName)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
+      {displayValue}
+      
+      {/* Triangle indicator for feedback - top right corner */}
+      {hasFeedback && (
+        <div className="absolute top-0 right-0 w-0 h-0 border-l-8 border-b-8 border-l-transparent border-b-red-500 dark:border-b-red-400 rounded-tl-sm animate-pulse"></div>
+      )}
+      
+      {/* Delete button on hover */}
+      {hasFeedback && (
+        <button
+          onClick={handleDeleteClick}
+          className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 rounded bg-red-600 hover:bg-red-700 text-white shadow-lg z-40 hover:scale-110 active:scale-95 duration-150"
+          title="Delete feedback"
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
+      )}
+
+      {/* Fade-in/out tooltip on hover with animation - using fixed positioning to avoid clipping */}
+      {showTooltip && hasFeedback && (
+        <div className="fixed z-50 bg-slate-900 dark:bg-slate-950 text-white dark:text-slate-100 text-xs rounded-lg p-3 max-w-xs whitespace-normal break-words shadow-xl border border-slate-700 dark:border-slate-600 pointer-events-none animate-fade-in-slide"
+          style={{ 
+            animation: 'fadeInSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+            left: `${tooltipPos.left}px`,
+            top: `${tooltipPos.top}px`,
+            transform: 'translate(-50%, -100%)'
+          }}>
+          {feedbackComment}
+          <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-950"></div>
+        </div>
+      )}
+
+      <style jsx>{`
+        @keyframes fadeInSlide {
+          from {
+            opacity: 0;
+            transform: translate(-50%, calc(-100% - 8px));
+          }
+          to {
+            opacity: 1;
+            transform: translate(-50%, -100%);
+          }
+        }
+      `}</style>
+    </td>
+  )
+}
+
 export default function StudentScorePage() {
   const params = useParams()
   const subjectCode = typeof params?.subject === 'string' ? params.subject.toUpperCase() : ''
@@ -30,9 +131,23 @@ export default function StudentScorePage() {
   const [error, setError] = useState<string | null>(null)
   const [subjectConfig, setSubjectConfig] = useState<any>(null)
   const [labs, setLabs] = useState<any[]>([])
+  const [feedback, setFeedback] = useState<{ [key: string]: string }>({}) // student-lab feedback map
   const [columnFilter, setColumnFilter] = useState<'All' | 'Lab' | 'Challenge'>('All')
   const [studentIdFilter, setStudentIdFilter] = useState('')
   const [exportMode, setExportMode] = useState<'full' | 'summary'>('full')
+  const [feedbackModal, setFeedbackModal] = useState<FeedbackModalState>({
+    isOpen: false,
+    studentId: '',
+    studentName: '',
+    labNumber: '',
+    labTitle: '',
+  })
+  
+  const [deleteAlert, setDeleteAlert] = useState<{ isOpen: boolean; studentId: string; labNumber: string }>({
+    isOpen: false,
+    studentId: '',
+    labNumber: '',
+  })
 
   useEffect(() => {
     if (subjectCode) {
@@ -56,6 +171,22 @@ export default function StudentScorePage() {
         })
         .catch(err => console.error("Failed to fetch labs", err))
       
+      // Fetch all feedback for this subject
+      fetch(`/api/feedback?subject=${subjectCode}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.feedback) {
+            // Build a map of student-lab -> comment
+            const feedbackMap: { [key: string]: string } = {}
+            data.feedback.forEach((fb: any) => {
+              const key = `${fb.studentId}-${fb.labNumber}`
+              feedbackMap[key] = fb.adminComment
+            })
+            setFeedback(feedbackMap)
+          }
+        })
+        .catch(err => console.error("Failed to fetch feedback", err))
+      
       // Load student scores
       loadScores(true)
     }
@@ -67,7 +198,18 @@ export default function StudentScorePage() {
     setError(null)
 
     try {
-      const res = await fetch(`/api/scores?subject=${subjectCode}&action=list_all&bypassCache=true`)
+      const realtimeToken = Date.now()
+      const res = await fetch(
+        `/api/scores?subject=${subjectCode}&action=list_all&bypassCache=true&t=${realtimeToken}`,
+        {
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
+            Expires: "0",
+          },
+        }
+      )
       if (res.ok) {
         const data = await res.json()
         if (data.success && data.students) {
@@ -87,42 +229,96 @@ export default function StudentScorePage() {
     }
   }
 
+  const findSystemLabByColumn = (columnName: string) => {
+    const labNumber = extractLabNumber(columnName)
+    if (Number.isNaN(labNumber)) return undefined
+
+    return labs.find((l: any) => {
+      const systemLabNumber = Number.parseInt(String(l.labNumber), 10)
+      return !Number.isNaN(systemLabNumber) && systemLabNumber === labNumber
+    })
+  }
+
+  const extractLabNumber = (columnName: string): number => {
+    const patterns = [
+      /^(?:Lab\s*|L)(\d+)(?:\s*\(.*\))?$/i,
+      /^(?:W|Week)\s*(\d+)$/i,
+      /^(?:Ch\s*|Challenge\s*)(\d+)(?:\s*\(.*\))?$/i,
+      /^l\s*(\d+)\s*-\s*q\s*\d+$/i,
+      /(?:Lab|Challenge|Ch|W)\s*(\d+)/i
+    ]
+
+    for (const pattern of patterns) {
+      const match = pattern.exec(columnName)
+      if (match?.[1]) {
+        const parsed = Number.parseInt(match[1], 10)
+        if (!Number.isNaN(parsed)) return parsed
+      }
+    }
+
+    return Number.NaN
+  }
+
+  const isLabQuestionColumn = (columnName: string) => /^l\s*\d+\s*-\s*q\s*\d+$/i.test(columnName)
+
+  const isLabLikeColumn = (columnName: string) => {
+    const lowerKey = columnName.toLowerCase()
+    if (lowerKey.startsWith('lab') || lowerKey.startsWith('challenge') || lowerKey.startsWith('ch ') || lowerKey.startsWith('w ')) {
+      return true
+    }
+
+    return isLabQuestionColumn(columnName) || !Number.isNaN(extractLabNumber(columnName))
+  }
+
   // Get all column keys from ALL students (not just first one)
   const getScoreColumns = () => {
     if (students.length === 0) return []
-    
+
     // Collect ALL unique keys from ALL students
     const allKeysSet = new Set<string>()
     students.forEach((student: StudentScore) => {
       Object.keys(student).forEach(key => allKeysSet.add(key))
     })
-    
+
     const allKeys = Array.from(allKeysSet)
-    
+
     // Debug: log all columns
     console.log('All columns from all students:', allKeys)
-    
+
     // Only include columns that start with Lab, Challenge, Quiz, or other score-related terms
     const scoreKeys = allKeys.filter(key => {
       const lowerKey = key.toLowerCase()
-      return lowerKey.startsWith('lab') || 
-             lowerKey.startsWith('challenge') || 
+      return lowerKey.startsWith('lab') ||
+             lowerKey.startsWith('challenge') ||
+             lowerKey.startsWith('ch ') ||
+             lowerKey.startsWith('w ') ||
+             lowerKey.startsWith('week') ||
              lowerKey.startsWith('quiz') ||
              lowerKey.startsWith('exam') ||
              lowerKey.startsWith('midterm') ||
-             lowerKey.startsWith('final')
+             lowerKey.startsWith('final') ||
+             isLabQuestionColumn(key)
+    })
+
+    // Keep only score columns that exist in both spreadsheet and system for lab-like columns.
+    // Non-lab score columns (quiz/exam/midterm/final) are kept as-is.
+    const validatedScoreKeys = scoreKeys.filter((key) => {
+      const isLabLike = isLabLikeColumn(key)
+      if (!isLabLike) return true
+
+      return !!findSystemLabByColumn(key)
     }).sort((a, b) => {
       // Sort by lab/challenge number for proper ordering
-      const aMatch = a.match(/\d+/)
-      const bMatch = b.match(/\d+/)
+      const aMatch = /\d+/.exec(a)
+      const bMatch = /\d+/.exec(b)
       if (aMatch && bMatch) {
         return parseInt(aMatch[0]) - parseInt(bMatch[0])
       }
       return a.localeCompare(b)
     })
-    
-    console.log('Filtered score columns:', scoreKeys)
-    return scoreKeys
+
+    console.log('Filtered score columns:', validatedScoreKeys)
+    return validatedScoreKeys
   }
 
   const allScoreColumns = getScoreColumns()
@@ -130,8 +326,9 @@ export default function StudentScorePage() {
   // Filter columns based on dropdown selection
   const scoreColumns = allScoreColumns.filter(col => {
     if (columnFilter === 'All') return true
-    if (columnFilter === 'Lab') return col.toLowerCase().startsWith('lab')
+    if (columnFilter === 'Lab') return col.toLowerCase().startsWith('lab') || col.toLowerCase().startsWith('w ') || col.toLowerCase().startsWith('week') || isLabQuestionColumn(col)
     if (columnFilter === 'Challenge') return col.toLowerCase().startsWith('challenge') || col.toLowerCase().startsWith('ch ')
+    if (columnFilter === 'Bonus') return col.toLowerCase().startsWith('bonus') || col.toLocaleLowerCase().startsWith('b ') 
     return true
   })
   
@@ -146,6 +343,80 @@ export default function StudentScorePage() {
   const gradientProps = subjectConfig?.color 
     ? getGradientStyleProps(subjectConfig.color) 
     : getGradientStyleProps("from-blue-500 to-indigo-500")
+
+    const openFeedbackModal = (studentId: string, studentName: string, labNumber: string, labTitle: string) => {
+      setFeedbackModal({
+        isOpen: true,
+        studentId,
+        studentName,
+        labNumber,
+        labTitle,
+      })
+    }
+
+    const closeFeedbackModal = () => {
+      setFeedbackModal({
+        isOpen: false,
+        studentId: '',
+        studentName: '',
+        labNumber: '',
+        labTitle: '',
+      })
+    }
+
+    const handleScoreCellClick = (student: StudentScore, columnName: string) => {
+      const labNum = extractLabNumber(columnName)
+      if (Number.isNaN(labNum)) return
+
+      const lab = labs.find((item) => Number.parseInt(String(item.labNumber), 10) === labNum)
+      if (!lab) return
+
+      openFeedbackModal(
+        student.username || student.ID || student.studentId || '',
+        `${student.name || student.Name || ''} ${student.surname || student.Surname || ''}`.trim(),
+        lab.labNumber,
+        lab.title
+      )
+    }
+
+    const handleDeleteFeedbackClick = (studentId: string, labNumber: string, columnName: string) => {
+      setDeleteAlert({ isOpen: true, studentId, labNumber })
+    }
+
+    const confirmDeleteFeedback = async () => {
+      const paddedLabNumber = String(deleteAlert.labNumber).padStart(2, '0')
+      console.log('Deleting feedback for student:', deleteAlert.studentId, 'lab:', paddedLabNumber)
+      try {
+        const response = await fetch(`/api/feedback?labNumber=${paddedLabNumber}&subject=${subjectCode}&studentId=${deleteAlert.studentId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        })
+
+        if (!response.ok) {
+          const errData = await response.json()
+          throw new Error(errData.error || 'Failed to delete feedback')
+        }
+
+        // Refresh feedback from server
+        const feedbackRes = await fetch(`/api/feedback?subject=${subjectCode}`)
+        const feedbackData = await feedbackRes.json()
+        if (feedbackData.success && feedbackData.feedback) {
+          const feedbackMap: { [key: string]: string } = {}
+          feedbackData.feedback.forEach((fb: any) => {
+            const key = `${fb.studentId}-${fb.labNumber}`
+            feedbackMap[key] = fb.adminComment
+          })
+          setFeedback(feedbackMap)
+        }
+
+        console.log('✓ Feedback deleted successfully')
+        setDeleteAlert({ isOpen: false, studentId: '', labNumber: '' })
+      } catch (error: any) {
+        console.error('Error deleting feedback:', error)
+        alert('Failed to delete feedback: ' + error.message)
+        setDeleteAlert({ isOpen: false, studentId: '', labNumber: '' })
+      }
+    }
 
   // Calculate score totals for a student
   const calculateStudentTotals = (student: StudentScore, columns: string[]) => {
@@ -164,7 +435,7 @@ export default function StudentScorePage() {
           challengeTotal += numValue
           const maxScore = getLabTotalScore(col) || 2
           challengeMax += maxScore
-        } else if (col.toLowerCase().includes('lab') || col.toLowerCase().startsWith('w ')) {
+        } else if ((col.toLowerCase().includes('lab') || col.toLowerCase().startsWith('w ')) && !isLabQuestionColumn(col)) {
           labTotal += numValue
           const maxScore = getLabTotalScore(col) || 2
           labMax += maxScore
@@ -176,7 +447,7 @@ export default function StudentScorePage() {
     const labWeight = subjectConfig?.grading?.labWeight || 20
     const labPercentage = labMax > 0 ? (labTotal / labMax) * labWeight : 0
     const challengePercentage = challengeMax > 0 ? (challengeTotal / challengeMax) * labWeight : 0
-    
+
     return {
       labTotal,
       labMax,
@@ -197,7 +468,7 @@ export default function StudentScorePage() {
 
     if (exportMode === 'summary') {
       // Summary export: ID, Name, Surname, Total Lab, Total Challenge (if applicable)
-      const allColumns = getScoreColumns()
+      const allColumns = allScoreColumns
       const sampleTotals = calculateStudentTotals(filteredStudents[0] || {}, allColumns)
       
       headers = [
@@ -272,18 +543,8 @@ export default function StudentScorePage() {
 
   // Helper function to get lab total score from column name
   const getLabTotalScore = (columnName: string): number | undefined => {
-    // Extract lab number from column name (e.g., "Lab 1", "Lab 01", "Challenge 1", "Ch 1", "W 1")
-    const labMatch = columnName.match(/(?:Lab|Challenge|Ch|W)\s*(\d+)/i)
-    if (labMatch) {
-      const labNumber = labMatch[1]
-      const lab = labs.find((l: any) => 
-        l.labNumber === labNumber || 
-        l.labNumber === labNumber.padStart(2, '0') ||
-        Number.parseInt(l.labNumber) === Number.parseInt(labNumber)
-      )
-      return lab?.totalScore
-    }
-    return undefined
+    const lab = findSystemLabByColumn(columnName)
+    return lab?.totalScore
   }
 
   // Get cell color based on score value and lab's total score
@@ -571,7 +832,7 @@ export default function StudentScorePage() {
                     ))}
                     {/* Total Score Columns */}
                     {(() => {
-                      const allColumns = getScoreColumns()
+                      const allColumns = allScoreColumns
                       const sampleStudent = filteredStudents[0] || {}
                       const totals = calculateStudentTotals(sampleStudent, allColumns)
                       
@@ -621,11 +882,15 @@ export default function StudentScorePage() {
                         {scoreColumns.map((col, idx) => {
                           const value = student[col]
                           const hasValue = (value !== null && value !== undefined && value !== '')
+                          const studentId = student.username || student.ID || student.studentId || ''
+                          const labNum = extractLabNumber(col)
+                          const feedbackKey = `${studentId}-${String(labNum).padStart(2, '0')}`
+                          const feedbackComment = feedback[feedbackKey] || ''
                           
                           // For Lab 0 or when value exists, show the value (or '0' for Lab 0)
                           // For other labs without data, show "no data"
                           let displayValue
-                          let cellClasses = 'px-3 py-2 text-center border border-slate-200 dark:border-slate-700 whitespace-nowrap min-w-[90px]'
+                            let cellClasses = 'px-3 py-2 text-center border border-slate-200 dark:border-slate-700 whitespace-nowrap min-w-[90px] cursor-pointer hover:opacity-80 transition-opacity relative group'
                           
                           if (hasValue) {
                             displayValue = value
@@ -639,15 +904,22 @@ export default function StudentScorePage() {
                           }
                           
                           return (
-                            <td key={col} className={cellClasses}>
-                              {displayValue}
-                            </td>
+                            <ScoreCell
+                              key={col}
+                              student={student}
+                              columnName={col}
+                              displayValue={displayValue}
+                              cellClasses={cellClasses}
+                              onOpenFeedback={handleScoreCellClick}
+                              feedbackComment={feedbackComment}
+                              onDeleteClick={handleDeleteFeedbackClick}
+                            />
                           )
                         })}
                         
                         {/* Total Score Cells */}
                         {(() => {
-                          const allColumns = getScoreColumns()
+                          const allColumns = allScoreColumns
                           const totals = calculateStudentTotals(student, allColumns)
                           
                           return (
@@ -705,6 +977,29 @@ export default function StudentScorePage() {
             </div>
           </div>
         )}
+
+        <FeedbackModal
+          isOpen={feedbackModal.isOpen}
+          onClose={closeFeedbackModal}
+          studentId={feedbackModal.studentId}
+          studentName={feedbackModal.studentName}
+          subject={subjectCode}
+          labNumber={feedbackModal.labNumber}
+          labTitle={feedbackModal.labTitle}
+        />
+
+        <AlertDialog
+          isOpen={deleteAlert.isOpen}
+          onOpenChange={(open) => {
+            if (!open) setDeleteAlert({ isOpen: false, studentId: '', labNumber: '' })
+          }}
+          title="Delete Feedback?"
+          description="This feedback comment will be permanently deleted and cannot be recovered."
+          confirmText="Delete"
+          cancelText="Cancel"
+          variant="destructive"
+          onConfirm={confirmDeleteFeedback}
+        />
       </main>
     </div>
   )

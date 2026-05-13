@@ -20,9 +20,10 @@ interface Subject {
   hasGradingInterface: boolean
   hasQuizManagement: boolean
   hasTestCases: boolean
-  gradingType: 'lab_challenge' | 'simple_score' | 'sql' | 'python' | 'java' | 'multi_question' | 'criteria' | null
+  gradingType: 'lab_challenge' | 'simple_score' | 'sql' | 'python' | 'java' | 'multi_question' | 'criteria' | 'non_uniform' | null
   courseSummaryLink?: string
   googleSheetId?: string
+  feedbackSectionEnabled?: boolean
   // Advanced Config
   headerRow?: number
   columnPattern?: string
@@ -59,12 +60,18 @@ const COLOR_OPTIONS = [
 const GRADING_TYPES = [
   { value: 'lab_challenge', label: 'Lab & Challenge (Default)', desc: 'Dual scoring system with challenge toggles' },
   { value: 'simple_score', label: 'Simple Score Tracking', desc: 'Manual score entry (0-100) per lab' },
-  { value: 'python', label: 'Python Automation', desc: 'Python script execution and output matching' },
-  { value: 'sql', label: 'SQL Automation', desc: 'Database query execution and validation' },
+  { value: 'non_uniform', label: 'Non-uniform Grading', desc: 'Per-lab max scores seperation' },
   { value: 'java', label: 'Java Automation', desc: 'Java JUnit test runner' },
   { value: 'multi_question', label: 'Multi-Question Labs', desc: 'Score inputs for multiple questions (e.g. Q1, Q2)' },
   { value: 'criteria', label: 'Criteria Grading', desc: 'Ethics, Understanding, Reflection (0-2 scores)' }
 ]
+
+const getGradingTypeDisplay = (gradingType: Subject['gradingType']) => {
+  if (gradingType === 'python' || gradingType === 'sql' || gradingType === 'non_uniform') {
+    return 'Non-uniform Grading'
+  }
+  return GRADING_TYPES.find(t => t.value === gradingType)?.label || gradingType
+}
 
 export default function SubjectManagementPage() {
   const [subjects, setSubjects] = useState<Subject[]>([])
@@ -78,6 +85,7 @@ export default function SubjectManagementPage() {
   const [showConfigTemplate, setShowConfigTemplate] = useState(false)
   const [templateSubject, setTemplateSubject] = useState<Subject | null>(null)
   const [copiedTemplate, setCopiedTemplate] = useState(false)
+  const [automationRuntime, setAutomationRuntime] = useState<'python' | 'sql'>('python')
   
   // Form State
   const [formData, setFormData] = useState({
@@ -92,6 +100,7 @@ export default function SubjectManagementPage() {
     gradingType: 'lab_challenge',
     hasQuizManagement: false,
     hasTestCases: false,
+    feedbackSectionEnabled: true,
     googleSheetId: '',
     headerRow: 1,
     columnPattern: '',
@@ -104,6 +113,36 @@ export default function SubjectManagementPage() {
   
   // Tab State for Modal
   const [activeTab, setActiveTab] = useState<'basic' | 'config'>('basic')
+
+  const applyGradingTypeDefaults = (gradingType: Exclude<Subject['gradingType'], null> = 'simple_score') => {
+
+    // Python/SQL automation should use non-uniform scoring by default.
+    // Also ensure required module flags are enabled for automation workflows.
+    if (gradingType === 'python' || gradingType === 'sql' || gradingType === 'non_uniform') {
+      setFormData(prev => ({
+        ...prev,
+        gradingType,
+        useUniformLabScore: false,
+        hasGradingInterface: true,
+        hasTestCases: true
+      }))
+      return
+    }
+
+    setFormData(prev => ({ ...prev, gradingType }))
+  }
+
+  const resolveGradingTypeForSave = () => {
+    if (formData.gradingType !== 'non_uniform') {
+      return formData.gradingType
+    }
+
+    if (automationRuntime) {
+      return automationRuntime
+    }
+
+    return (/sql/i.test(formData.title) || /sql/i.test(formData.code)) ? 'sql' : 'python'
+  }
 
   useEffect(() => {
     fetchSubjects()
@@ -154,6 +193,7 @@ export default function SubjectManagementPage() {
 
   function openCreateDialog() {
     setEditingSubject(null)
+    setAutomationRuntime('python')
     setFormData({
       code: '',
       title: '',
@@ -163,10 +203,11 @@ export default function SubjectManagementPage() {
       isVisible: true,
       courseSummaryLink: '',
       hasGradingInterface: true, // Default to true for new subjects
-      gradingType: 'simple_score', // Default to simple
+      gradingType: 'non_uniform', // Default to non-uniform grading for automation subjects
 
       hasQuizManagement: false,
       hasTestCases: false,
+      feedbackSectionEnabled: true,
       googleSheetId: '',
       headerRow: 1,
       columnPattern: '',
@@ -182,6 +223,7 @@ export default function SubjectManagementPage() {
 
   function openEditDialog(subject: Subject) {
     setEditingSubject(subject)
+    setAutomationRuntime(subject.gradingType === 'sql' ? 'sql' : 'python')
     setFormData({
       code: subject.code,
       title: subject.title,
@@ -191,17 +233,20 @@ export default function SubjectManagementPage() {
       isVisible: subject.isVisible,
       courseSummaryLink: subject.courseSummaryLink || '',
       hasGradingInterface: subject.hasGradingInterface,
-      gradingType: subject.gradingType || 'simple_score',
+      gradingType: subject.gradingType === 'python' || subject.gradingType === 'sql'
+        ? 'non_uniform'
+        : subject.gradingType ?? 'simple_score',
       hasQuizManagement: subject.hasQuizManagement,
       hasTestCases: subject.hasTestCases,
+      feedbackSectionEnabled: subject.feedbackSectionEnabled ?? true,
       googleSheetId: subject.googleSheetId || '',
       headerRow: subject.headerRow || 1,
       columnPattern: subject.columnPattern || '',
       dataSourceType: (subject.dataSourceType as any) || 'single_sheet',
       sheetTabs: subject.sheetTabs || '',
-      labWeight: subject.labWeight || 20,
-      labMaxScore: subject.labMaxScore || 0,
-      useUniformLabScore: subject.useUniformLabScore || false
+      labWeight: subject.labWeight ?? 20,
+      labMaxScore: subject.labMaxScore ?? 0,
+      useUniformLabScore: subject.useUniformLabScore ?? false
     })
     setActiveTab('basic')
     setShowSubjectDialog(true)
@@ -304,8 +349,13 @@ export default function SubjectManagementPage() {
     
     try {
       const method = editingSubject ? "PATCH" : "POST"
+      const resolvedGradingType = resolveGradingTypeForSave()
       const payload = {
         ...formData,
+        gradingType: resolvedGradingType,
+        useUniformLabScore: (formData.gradingType === 'python' || formData.gradingType === 'sql' || formData.gradingType === 'non_uniform')
+          ? false
+          : formData.useUniformLabScore,
         displayOrder: editingSubject ? editingSubject.displayOrder : subjects.length
       }
 
@@ -330,7 +380,8 @@ export default function SubjectManagementPage() {
             hasGradingInterface: formData.hasGradingInterface,
             hasQuizManagement: formData.hasQuizManagement,
             hasTestCases: formData.hasTestCases,
-            gradingType: formData.gradingType as any,
+            feedbackSectionEnabled: formData.feedbackSectionEnabled,
+            gradingType: resolvedGradingType as any,
             isVisible: formData.isVisible,
             dataSourceType: formData.dataSourceType as 'single_sheet' | 'tab_per_section' | 'tab_per_lab'
           }
@@ -524,7 +575,7 @@ export default function SubjectManagementPage() {
                   <div className="hidden md:flex items-center gap-2">
                     {subject.hasGradingInterface ? (
                       <span className="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium border border-blue-200 dark:border-blue-900/50">
-                        {GRADING_TYPES.find(t => t.value === subject.gradingType)?.label || subject.gradingType}
+                        {getGradingTypeDisplay(subject.gradingType)}
                       </span>
                     ) : (
                       <span className="text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">No Grading</span>
@@ -920,6 +971,9 @@ export default function SubjectManagementPage() {
                                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                                  Grading Strategy
                                </label>
+                               <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                                 Python and SQL automation are both managed as non-uniform grading (per-lab max score).
+                               </p>
                                <div className="grid gap-2">
                                   {GRADING_TYPES.map(type => (
                                      <label 
@@ -935,7 +989,7 @@ export default function SubjectManagementPage() {
                                           name="gradingType"
                                           value={type.value}
                                           checked={formData.gradingType === type.value}
-                                          onChange={(e) => setFormData({ ...formData, gradingType: e.target.value as any })}
+                                          onChange={(e) => applyGradingTypeDefaults(e.target.value as Exclude<Subject['gradingType'], null>)}
                                           className="w-4 h-4 text-blue-600"
                                         />
                                         <div>
@@ -994,22 +1048,36 @@ export default function SubjectManagementPage() {
                          </div>
                       </div>
                       
-                      <div className="mt-4 pl-2">
-                         <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer">
+                      {formData.gradingType === 'python' || formData.gradingType === 'sql' || formData.gradingType === 'non_uniform' ? (
+                        <div className="mt-4 pl-2">
+                          <div className="flex items-center gap-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                           <div className="w-5 h-5 rounded-full bg-emerald-600 flex items-center justify-center text-white text-[10px] font-bold">ON</div>
+                           <div>
+                            <p className="font-medium text-emerald-800 dark:text-emerald-300 text-sm">Non-uniform scoring is active</p>
+                            <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80">
+                              Python/SQL automation always uses per-lab maximum scores and cannot switch to uniform /2.
+                            </p>
+                           </div>
+                          </div>
+                        </div>
+                       ) : (
+                        <div className="mt-4 pl-2">
+                          <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer">
                             <input 
-                               type="checkbox"
-                               checked={formData.useUniformLabScore || false}
-                               onChange={(e) => setFormData({ ...formData, useUniformLabScore: e.target.checked })}
-                               className="w-5 h-5 rounded text-orange-600 focus:ring-orange-500"
+                              type="checkbox"
+                              checked={formData.useUniformLabScore}
+                              onChange={(e) => setFormData({ ...formData, useUniformLabScore: e.target.checked })}
+                              className="w-5 h-5 rounded text-orange-600 focus:ring-orange-500"
                             />
                             <div>
-                               <p className="font-medium text-slate-900 dark:text-slate-200 text-sm">Use Uniform Lab Score (Always /2)</p>
-                               <p className="text-xs text-slate-500 dark:text-slate-400">
-                                 When enabled, all labs will be displayed and calculated with a maximum score of 2, regardless of individual lab total_score settings. Useful for subjects where all labs should be graded equally.
-                               </p>
+                              <p className="font-medium text-slate-900 dark:text-slate-200 text-sm">Use Uniform Lab Score (Always /2)</p>
+                              <p className="text-xs text-slate-500 dark:text-slate-400">
+                               When enabled, all labs will be displayed and calculated with a maximum score of 2, regardless of individual lab total_score settings.
+                              </p>
                             </div>
-                         </label>
-                      </div>
+                          </label>
+                        </div>
+                       )}
                    </div>
                    
                    {/* Modules */}
@@ -1047,6 +1115,20 @@ export default function SubjectManagementPage() {
                                <p className="text-xs text-slate-500 dark:text-slate-400">Enable input/output test case definition (Required for Python/Java auto-grading).</p>
                             </div>
                          </label>
+
+                         <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                           <input
+                             id="feedback-section-enabled"
+                             type="checkbox"
+                             checked={formData.feedbackSectionEnabled}
+                             onChange={(e) => setFormData({ ...formData, feedbackSectionEnabled: e.target.checked })}
+                             className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500"
+                           />
+                           <label htmlFor="feedback-section-enabled" className="cursor-pointer">
+                             <p className="font-medium text-slate-900 dark:text-slate-200 text-sm">Student Feedback View</p>
+                             <p className="text-xs text-slate-500 dark:text-slate-400">Allow students to see feedback/comment section on their score page.</p>
+                           </label>
+                         </div>
                       </div>
                    </div>
                 </div>

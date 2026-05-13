@@ -49,7 +49,6 @@ export default function PythonGrading({
   const [localQuizSectionEnabled, setLocalQuizSectionEnabled] = useState(quizSectionEnabled)
   const [togglingQuizSection, setTogglingQuizSection] = useState(false)
   const [useUniformLabScore, setUseUniformLabScore] = useState(false)
-  const [togglingUniformScore, setTogglingUniformScore] = useState(false)
   
   // Grade submission dialog state
   const [showGradeDialog, setShowGradeDialog] = useState(false)
@@ -124,10 +123,20 @@ export default function PythonGrading({
 
     fetch(`/api/subjects?code=${subjectCode}`)
       .then(res => res.json())
-      .then(data => {
+      .then(async data => {
         if (data.subjects && data.subjects.length > 0) {
           setLocalQuizSectionEnabled(data.subjects[0].quizSectionEnabled !== false)
-          setUseUniformLabScore(data.subjects[0].useUniformLabScore ?? true)
+          const currentUniformSetting = data.subjects[0].useUniformLabScore ?? false
+          setUseUniformLabScore(false)
+
+          // Python automation is non-uniform only: auto-correct legacy settings.
+          if (currentUniformSetting) {
+            await fetch('/api/subjects', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code: subjectCode, useUniformLabScore: false })
+            })
+          }
         }
       })
       .catch(err => console.error('Failed to fetch subject info:', err))
@@ -220,25 +229,6 @@ export default function PythonGrading({
     }
   }
 
-  async function toggleUniformLabScore() {
-    setTogglingUniformScore(true)
-    try {
-      const res = await fetch('/api/subjects', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: subjectCode, useUniformLabScore: !useUniformLabScore })
-      })
-      
-      if (res.ok) {
-        setUseUniformLabScore(!useUniformLabScore)
-      }
-    } catch (error) {
-      console.error('Failed to toggle uniform lab score:', error)
-    } finally {
-      setTogglingUniformScore(false)
-    }
-  }
-
   async function handleGradeSubmit(e: React.FormEvent) {
     e.preventDefault()
     setGradingError(null)
@@ -260,7 +250,7 @@ export default function PythonGrading({
                 action: 'update',
                 username: studentId,
                 labNumber: selectedLab,
-                score: parseInt(score),
+                score: Number.parseFloat(score),
                 subject: subjectCode,
                 ...(isITCS251or255 && { inClass })
             })
@@ -387,6 +377,31 @@ export default function PythonGrading({
   }
 
   // CSV Upload Functions
+  const getStudentLabScoreFromSheetRow = (studentRow: any, labNumber: string) => {
+    if (!studentRow) return '0'
+
+    const normalizedLabNumber = Number.parseInt(labNumber, 10)
+    const candidateKeys = [
+      `Lab ${normalizedLabNumber}`,
+      `lab ${normalizedLabNumber}`,
+      `Lab ${labNumber}`,
+      `lab ${labNumber}`,
+      `lab${labNumber}`,
+      `lab${String(normalizedLabNumber)}`,
+      `W ${normalizedLabNumber}`,
+      `Week ${normalizedLabNumber}`,
+    ]
+
+    for (const key of candidateKeys) {
+      const value = studentRow[key]
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        return String(value)
+      }
+    }
+
+    return '0'
+  }
+
   async function handleCsvUpload() {
     if (!csvFile || !csvSelectedLab) {
       alert("Please select a lab and upload a CSV file")
@@ -427,8 +442,8 @@ export default function PythonGrading({
         const sheetStudent = currentSheetData.find((s: any) => 
           (s.id || s.studentId) === studentId
         )
-        
-        const sheetScore = sheetStudent ? (sheetStudent[`lab${csvSelectedLab}`] || '0') : '0'
+
+        const sheetScore = getStudentLabScoreFromSheetRow(sheetStudent, csvSelectedLab)
         
         // Include row if score is different
         if (csvScore !== sheetScore) {
@@ -466,7 +481,7 @@ export default function PythonGrading({
       const updates = diffData.map(diff => ({
         username: diff.studentId,
         score: selectedScores[diff.studentId] === 'csv' ? 
-          parseInt(diff.csvScore) : parseInt(diff.sheetScore)
+          Number.parseFloat(diff.csvScore) : Number.parseFloat(diff.sheetScore)
       }))
 
       for (const update of updates) {
@@ -659,21 +674,15 @@ export default function PythonGrading({
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-200">{subjectCode} Dashboard</h1>
           <div className="flex gap-2">
             {['Lecturer', 'Main Admin'].includes(role) && (
-              <button
-                onClick={toggleUniformLabScore}
-                disabled={togglingUniformScore}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all disabled:opacity-50 flex items-center gap-2 ${
-                  useUniformLabScore
-                    ? "bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:hover:bg-orange-900/50"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                }`}
-                title={useUniformLabScore ? "All labs use uniform max score of 2" : "Labs use individual total_score values"}
+              <div
+                className="px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                title="Python automation uses non-uniform lab scoring"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                Uniform /2: {useUniformLabScore ? "ON" : "OFF"}
-              </button>
+                Non-uniform scoring: ON
+              </div>
             )}
             {['Lecturer', 'Main Admin'].includes(role) && (
               <button

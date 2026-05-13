@@ -10,7 +10,7 @@ export default function LogoutButton() {
       await fetch("/api/admin/logout", {
         method: "POST",
       });
-      router.push("/admin/login");
+      router.push("/");
     } catch (err) {
       console.error("Logout failed", err);
     }

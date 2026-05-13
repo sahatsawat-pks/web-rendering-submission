@@ -55,6 +55,7 @@ export interface Subject {
   createLabRunnerPlaceholder?: boolean;
   courseSummaryLink?: string;
   quizSectionEnabled?: boolean;
+  feedbackSectionEnabled?: boolean;
   hasGradingInterface: boolean;
   hasQuizManagement: boolean;
   hasTestCases: boolean;
@@ -79,6 +80,19 @@ export interface Announcement {
   createdBy: string;
   createdAt: string;
   isVisible: boolean;
+}
+
+export interface LabFeedback {
+  id: string;
+  labId?: string;
+  labNumber: string;
+  subject: string;
+  studentId: string;
+  adminComment?: string;
+  isVisibleToStudent: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
 }
 
 // Singleton Pool
@@ -276,12 +290,28 @@ async function ensureTables() {
                 END IF; 
             END $$;
         `);
+
+        // Add feedback_section_enabled to subjects table
+        await client.query(`
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subjects' AND column_name = 'feedback_section_enabled') THEN
+              ALTER TABLE subjects ADD COLUMN feedback_section_enabled BOOLEAN DEFAULT TRUE;
+            END IF;
+          END $$;
+        `);
         
         // Ensure all existing subjects have quiz_section_enabled set to TRUE (if NULL)
         await client.query(`
             UPDATE subjects 
             SET quiz_section_enabled = TRUE 
             WHERE quiz_section_enabled IS NULL;
+        `);
+
+        await client.query(`
+          UPDATE subjects
+          SET feedback_section_enabled = TRUE
+          WHERE feedback_section_enabled IS NULL;
         `);
 
         // Add dynamic routing configuration columns
@@ -678,6 +708,38 @@ async function ensureTables() {
 
         // console.log('✅ Ensured announcements table exists');
 
+        // Create lab_feedback table for storing admin comments on student labs
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS lab_feedback (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                lab_id UUID,
+                lab_number TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                student_id TEXT NOT NULL,
+                admin_comment TEXT,
+                is_visible_to_student BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                created_by TEXT,
+                UNIQUE(lab_number, subject, student_id)
+            );
+        `);
+
+        // Create indexes for faster feedback lookups
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_lab_feedback_student 
+            ON lab_feedback(student_id);
+        `);
+
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_lab_feedback_subject 
+            ON lab_feedback(subject);
+        `);
+
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_lab_feedback_lab 
+            ON lab_feedback(lab_number, subject);
+        `);
 
         // Seed initial admin if needed
         const targetUsername = "kanzaki_aito";
@@ -1192,6 +1254,7 @@ export async function getSubjects(visibleOnly: boolean = false): Promise<Subject
         createLabRunnerPlaceholder: row.create_lab_runner_placeholder,
         courseSummaryLink: row.course_summary_link,
         quizSectionEnabled: row.quiz_section_enabled !== false,
+        feedbackSectionEnabled: row.feedback_section_enabled !== false,
         hasGradingInterface: row.has_grading_interface || false,
         hasQuizManagement: row.has_quiz_management || false,
         hasTestCases: row.has_test_cases || false,
@@ -1316,6 +1379,7 @@ export async function createSubject(
       createLabRunnerPlaceholder: row.create_lab_runner_placeholder,
       courseSummaryLink: row.course_summary_link,
       quizSectionEnabled: row.quiz_section_enabled,
+      feedbackSectionEnabled: row.feedback_section_enabled,
       hasGradingInterface: row.has_grading_interface || false,
       hasQuizManagement: row.has_quiz_management || false,
       hasTestCases: row.has_test_cases || false,
@@ -1361,6 +1425,7 @@ export async function updateSubject(
     if (updates.hasTestCases !== undefined) { fields.push(`has_test_cases = $${idx++}`); values.push(updates.hasTestCases); }
     if (updates.gradingType !== undefined) { fields.push(`grading_type = $${idx++}`); values.push(updates.gradingType); }
     if (updates.quizSectionEnabled !== undefined) { fields.push(`quiz_section_enabled = $${idx++}`); values.push(updates.quizSectionEnabled); }
+    if (updates.feedbackSectionEnabled !== undefined) { fields.push(`feedback_section_enabled = $${idx++}`); values.push(updates.feedbackSectionEnabled); }
     if (updates.googleSheetId !== undefined) { fields.push(`google_sheet_id = $${idx++}`); values.push(updates.googleSheetId); }
     if (updates.headerRow !== undefined) { fields.push(`header_row = $${idx++}`); values.push(updates.headerRow); }
     if (updates.columnPattern !== undefined) { fields.push(`column_pattern = $${idx++}`); values.push(updates.columnPattern); }
@@ -1387,6 +1452,7 @@ export async function updateSubject(
         createLabRunnerPlaceholder: row.create_lab_runner_placeholder,
         courseSummaryLink: row.course_summary_link,
         quizSectionEnabled: row.quiz_section_enabled,
+        feedbackSectionEnabled: row.feedback_section_enabled,
         hasGradingInterface: row.has_grading_interface || false,
         hasQuizManagement: row.has_quiz_management || false,
         hasTestCases: row.has_test_cases || false,
@@ -1428,6 +1494,7 @@ export async function updateSubject(
       createLabRunnerPlaceholder: row.create_lab_runner_placeholder,
       courseSummaryLink: row.course_summary_link,
       quizSectionEnabled: row.quiz_section_enabled,
+      feedbackSectionEnabled: row.feedback_section_enabled,
       hasGradingInterface: row.has_grading_interface || false,
       hasQuizManagement: row.has_quiz_management || false,
       hasTestCases: row.has_test_cases || false,
@@ -1547,6 +1614,24 @@ export async function deleteAllCredentials(subject: string): Promise<number> {
     const result = await client.query(
       'DELETE FROM credentials WHERE subject = $1',
       [subject]
+    );
+    return result.rowCount || 0;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Delete ALL credentials from database (across all subjects)
+ */
+export async function deleteAllCredentialsEverywhere(): Promise<number> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+  
+  try {
+    const result = await client.query(
+      'DELETE FROM credentials'
     );
     return result.rowCount || 0;
   } finally {
@@ -1955,6 +2040,238 @@ export async function deleteAnnouncement(id: string): Promise<void> {
 
   try {
     await client.query('DELETE FROM announcements WHERE id = $1', [id]);
+  } finally {
+    client.release();
+  }
+}
+
+// -- LAB FEEDBACK OPERATIONS --
+
+export async function getLabFeedback(
+  labNumber: string,
+  subject: string,
+  studentId: string
+): Promise<LabFeedback | undefined> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    const res = await client.query(
+      'SELECT * FROM lab_feedback WHERE lab_number = $1 AND subject = $2 AND student_id = $3',
+      [labNumber, subject.toUpperCase(), studentId]
+    );
+    
+    if (res.rowCount === 0) return undefined;
+
+    const r = res.rows[0];
+    return {
+      id: r.id,
+      labId: r.lab_id,
+      labNumber: r.lab_number,
+      subject: r.subject,
+      studentId: r.student_id,
+      adminComment: r.admin_comment,
+      isVisibleToStudent: r.is_visible_to_student,
+      createdAt: r.created_at.toString(),
+      updatedAt: r.updated_at.toString(),
+      createdBy: r.created_by
+    };
+  } finally {
+    client.release();
+  }
+}
+
+export async function getStudentLabFeedback(
+  subject: string,
+  studentId: string
+): Promise<LabFeedback[]> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    const res = await client.query(
+      'SELECT * FROM lab_feedback WHERE subject = $1 AND student_id = $2 ORDER BY lab_number ASC',
+      [subject.toUpperCase(), studentId]
+    );
+    
+    return res.rows.map(r => ({
+      id: r.id,
+      labId: r.lab_id,
+      labNumber: r.lab_number,
+      subject: r.subject,
+      studentId: r.student_id,
+      adminComment: r.admin_comment,
+      isVisibleToStudent: r.is_visible_to_student,
+      createdAt: r.created_at.toString(),
+      updatedAt: r.updated_at.toString(),
+      createdBy: r.created_by
+    }));
+  } finally {
+    client.release();
+  }
+}
+
+export async function getVisibleLabFeedback(
+  subject: string,
+  studentId: string
+): Promise<LabFeedback[]> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    const res = await client.query(
+      'SELECT * FROM lab_feedback WHERE subject = $1 AND student_id = $2 AND is_visible_to_student = TRUE ORDER BY lab_number ASC',
+      [subject.toUpperCase(), studentId]
+    );
+    
+    return res.rows.map(r => ({
+      id: r.id,
+      labId: r.lab_id,
+      labNumber: r.lab_number,
+      subject: r.subject,
+      studentId: r.student_id,
+      adminComment: r.admin_comment,
+      isVisibleToStudent: r.is_visible_to_student,
+      createdAt: r.created_at.toString(),
+      updatedAt: r.updated_at.toString(),
+      createdBy: r.created_by
+    }));
+  } finally {
+    client.release();
+  }
+}
+
+export async function getSubjectFeedback(
+  subject: string
+): Promise<LabFeedback[]> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    const res = await client.query(
+      'SELECT * FROM lab_feedback WHERE subject = $1 ORDER BY student_id ASC, lab_number ASC',
+      [subject.toUpperCase()]
+    );
+    
+    return res.rows.map(r => ({
+      id: r.id,
+      labId: r.lab_id,
+      labNumber: r.lab_number,
+      subject: r.subject,
+      studentId: r.student_id,
+      adminComment: r.admin_comment,
+      isVisibleToStudent: r.is_visible_to_student,
+      createdAt: r.created_at.toString(),
+      updatedAt: r.updated_at.toString(),
+      createdBy: r.created_by
+    }));
+  } finally {
+    client.release();
+  }
+}
+
+export async function upsertLabFeedback(
+  labNumber: string,
+  subject: string,
+  studentId: string,
+  adminComment: string,
+  isVisibleToStudent: boolean,
+  createdBy: string
+): Promise<LabFeedback> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    const res = await client.query(
+      `INSERT INTO lab_feedback (lab_number, subject, student_id, admin_comment, is_visible_to_student, created_by, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+       ON CONFLICT (lab_number, subject, student_id)
+       DO UPDATE SET 
+         admin_comment = $4,
+         is_visible_to_student = $5,
+         created_by = $6,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING *`,
+      [labNumber, subject.toUpperCase(), studentId, adminComment, isVisibleToStudent, createdBy]
+    );
+
+    const r = res.rows[0];
+    return {
+      id: r.id,
+      labId: r.lab_id,
+      labNumber: r.lab_number,
+      subject: r.subject,
+      studentId: r.student_id,
+      adminComment: r.admin_comment,
+      isVisibleToStudent: r.is_visible_to_student,
+      createdAt: r.created_at.toString(),
+      updatedAt: r.updated_at.toString(),
+      createdBy: r.created_by
+    };
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateLabFeedbackVisibility(
+  labNumber: string,
+  subject: string,
+  studentId: string,
+  isVisibleToStudent: boolean
+): Promise<LabFeedback | undefined> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    const res = await client.query(
+      `UPDATE lab_feedback 
+       SET is_visible_to_student = $4, updated_at = CURRENT_TIMESTAMP
+       WHERE lab_number = $1 AND subject = $2 AND student_id = $3
+       RETURNING *`,
+      [labNumber, subject.toUpperCase(), studentId, isVisibleToStudent]
+    );
+
+    if (res.rowCount === 0) return undefined;
+
+    const r = res.rows[0];
+    return {
+      id: r.id,
+      labId: r.lab_id,
+      labNumber: r.lab_number,
+      subject: r.subject,
+      studentId: r.student_id,
+      adminComment: r.admin_comment,
+      isVisibleToStudent: r.is_visible_to_student,
+      createdAt: r.created_at.toString(),
+      updatedAt: r.updated_at.toString(),
+      createdBy: r.created_by
+    };
+  } finally {
+    client.release();
+  }
+}
+
+export async function deleteLabFeedback(
+  labNumber: string,
+  subject: string,
+  studentId: string
+): Promise<boolean> {
+  await init();
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    const res = await client.query(
+      'DELETE FROM lab_feedback WHERE lab_number = $1 AND subject = $2 AND student_id = $3',
+      [labNumber, subject.toUpperCase(), studentId]
+    );
+    return res.rowCount !== null && res.rowCount > 0;
   } finally {
     client.release();
   }
