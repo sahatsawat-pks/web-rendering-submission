@@ -176,10 +176,11 @@ export default function StudentScorePage() {
         .then(res => res.json())
         .then(data => {
           if (data.success && data.feedback) {
-            // Build a map of student-lab -> comment
+            // Build a map of student-lab -> comment (normalize lab numbers with padding)
             const feedbackMap: { [key: string]: string } = {}
             data.feedback.forEach((fb: any) => {
-              const key = `${fb.studentId}-${fb.labNumber}`
+              const paddedLabNumber = String(fb.labNumber).padStart(2, '0')
+              const key = `${fb.studentId}-${paddedLabNumber}`
               feedbackMap[key] = fb.adminComment
             })
             setFeedback(feedbackMap)
@@ -373,7 +374,8 @@ export default function StudentScorePage() {
         if (data.success && data.feedback) {
           const feedbackMap: { [key: string]: string } = {}
           data.feedback.forEach((fb: any) => {
-            const key = `${fb.studentId}-${fb.labNumber}`
+            const paddedLabNumber = String(fb.labNumber).padStart(2, '0')
+            const key = `${fb.studentId}-${paddedLabNumber}`
             feedbackMap[key] = fb.adminComment
           })
           setFeedback(feedbackMap)
@@ -422,7 +424,8 @@ export default function StudentScorePage() {
         if (feedbackData.success && feedbackData.feedback) {
           const feedbackMap: { [key: string]: string } = {}
           feedbackData.feedback.forEach((fb: any) => {
-            const key = `${fb.studentId}-${fb.labNumber}`
+            const paddedLabNumber = String(fb.labNumber).padStart(2, '0')
+            const key = `${fb.studentId}-${paddedLabNumber}`
             feedbackMap[key] = fb.adminComment
           })
           setFeedback(feedbackMap)

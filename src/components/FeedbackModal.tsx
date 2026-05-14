@@ -54,8 +54,9 @@ export function FeedbackModal({
     setLoading(true)
     setError(null)
     try {
+      const paddedLabNumber = String(labNumber).padStart(2, '0')
       const res = await fetch(
-        `/api/feedback?labNumber=${labNumber}&subject=${subject}&studentId=${studentId}`
+        `/api/feedback?labNumber=${paddedLabNumber}&subject=${subject}&studentId=${studentId}`
       )
       if (res.ok) {
         const data = await res.json()
@@ -81,11 +82,12 @@ export function FeedbackModal({
     setSaving(true)
     setError(null)
     try {
+      const paddedLabNumber = String(labNumber).padStart(2, '0')
       const res = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          labNumber,
+          labNumber: paddedLabNumber,
           subject,
           studentId,
           adminComment: comment,
@@ -117,8 +119,9 @@ export function FeedbackModal({
     setSaving(true)
     setError(null)
     try {
+      const paddedLabNumber = String(labNumber).padStart(2, '0')
       const res = await fetch(
-        `/api/feedback?labNumber=${labNumber}&subject=${subject}&studentId=${studentId}`,
+        `/api/feedback?labNumber=${paddedLabNumber}&subject=${subject}&studentId=${studentId}`,
         { method: "DELETE" }
       )
 
