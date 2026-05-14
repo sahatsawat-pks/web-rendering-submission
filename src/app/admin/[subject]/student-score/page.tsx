@@ -424,7 +424,8 @@ export default function StudentScorePage() {
         }
 
         console.log('[StudentScorePage] DELETE successful, refreshing feedback')
-        // Refresh feedback from server
+        // Wait a moment for database to commit, then refresh
+        await new Promise(resolve => setTimeout(resolve, 500))
         const feedbackRes = await fetch(`/api/feedback?subject=${subjectCode}`)
         const feedbackData = await feedbackRes.json()
         console.log('[StudentScorePage] Post-delete GET response:', feedbackData)
