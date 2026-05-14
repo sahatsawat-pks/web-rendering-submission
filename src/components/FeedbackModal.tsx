@@ -113,6 +113,8 @@ export function FeedbackModal({
         console.log('[FeedbackModal] Feedback object saved:', data.feedback)
         console.log('[FeedbackModal] Save successful, calling refresh callback')
         setFeedback(data.feedback)
+        // Wait a moment for database to commit
+        await new Promise(resolve => setTimeout(resolve, 500))
         // Refresh feedback in parent component
         if (onRefreshFeedback) {
           console.log('[FeedbackModal] Calling onRefreshFeedback')
