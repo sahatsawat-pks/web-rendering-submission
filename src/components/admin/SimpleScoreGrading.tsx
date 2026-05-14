@@ -6,6 +6,7 @@ import { getGradientStyleProps, getShadowColorClass } from "@/lib/colors"
 import GradeSubmissionDialog from "./GradeSubmissionDialog"
 import SuccessNotification from "./SuccessNotification"
 import RichTextEditor from "../RichTextEditor"
+import QuickFeedbackSection from "./QuickFeedbackSection"
 
 interface SimpleScoreGradingProps {
   subjectCode: string
@@ -1082,8 +1083,16 @@ export default function SimpleScoreGrading({
         )}
       </div>
 
-      {/* Announcements Section */}
-      {['Lecturer', 'Main Admin'].includes(role) && (
+      {/* Quick Feedback Section */}
+      <div className="glass-card p-8 animate-scale-in hover:shadow-2xl hover:shadow-indigo-500/5 transition-all duration-300 border-white/40">
+        <QuickFeedbackSection 
+          subjectCode={subjectCode}
+          labs={labs}
+          role={role}
+        />
+      </div>
+
+      {/* Announcements Section */}\n      {['Lecturer', 'Main Admin'].includes(role) && (
         <div className="glass-card p-8 animate-scale-in transition-all duration-300 border-white/40">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2">

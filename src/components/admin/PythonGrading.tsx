@@ -1061,6 +1061,15 @@ export default function PythonGrading({
         )}
       </div>
 
+      {/* Quick Feedback Section */}
+      <div className="glass-card p-8 animate-scale-in hover:shadow-2xl hover:shadow-indigo-500/5 transition-all duration-300 border-white/40">
+        <QuickFeedbackSection 
+          subjectCode={subjectCode}
+          labs={labs}
+          role={role}
+        />
+      </div>
+
       {/* Announcements Section */}
       {['Lecturer', 'Main Admin'].includes(role) && (
         <div className="glass-card p-8 animate-scale-in hover:shadow-2xl hover:shadow-blue-500/5 transition-all duration-300 border-white/40">
@@ -1670,12 +1679,6 @@ export default function PythonGrading({
         score={score}
         subjectCode={subjectCode}
         additionalInfo={isITCS251or255 ? `In-Class: ${inClass ? 'Yes' : 'No'}` : undefined}
-      />
-
-      <QuickFeedbackSection 
-        subjectCode={subjectCode}
-        labs={labs}
-        role={role}
       />
     </div>
   )
