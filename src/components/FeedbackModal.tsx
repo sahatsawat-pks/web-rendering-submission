@@ -107,16 +107,25 @@ export function FeedbackModal({
       const data = await res.json()
       
       if (res.ok) {
+        console.log('[FeedbackModal] Save successful, calling refresh callback')
         setFeedback(data.feedback)
         // Refresh feedback in parent component
         if (onRefreshFeedback) {
+          console.log('[FeedbackModal] Calling onRefreshFeedback')
           await onRefreshFeedback()
+          console.log('[FeedbackModal] onRefreshFeedback completed')
+        } else {
+          console.warn('[FeedbackModal] onRefreshFeedback callback not provided!')
         }
+        // Close the modal after successful save
+        console.log('[FeedbackModal] Closing modal after save')
+        onClose()
       } else {
+        console.error('[FeedbackModal] Save failed:', data)
         setError(data.error || "Failed to save feedback")
       }
     } catch (err) {
-      console.error("Failed to save feedback:", err)
+      console.error("[FeedbackModal] Save error:", err)
       setError("Failed to save feedback")
     } finally {
       setSaving(false)
@@ -141,9 +150,14 @@ export function FeedbackModal({
         setIsVisible(false)
         // Refresh feedback in parent component
         if (onRefreshFeedback) {
+          console.log('[FeedbackModal] Calling onRefreshFeedback after delete')
           await onRefreshFeedback()
         }
+        // Close the modal after successful delete
+        console.log('[FeedbackModal] Closing modal after delete')
+        onClose()
       } else {
+        console.error('[FeedbackModal] Delete failed')
         setError("Failed to delete feedback")
       }
     } catch (err) {

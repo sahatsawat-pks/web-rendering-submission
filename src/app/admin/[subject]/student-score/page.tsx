@@ -369,8 +369,10 @@ export default function StudentScorePage() {
 
     const refreshFeedback = async () => {
       try {
+        console.log('[StudentScorePage] refreshFeedback called for subject:', subjectCode)
         const res = await fetch(`/api/feedback?subject=${subjectCode}`)
         const data = await res.json()
+        console.log('[StudentScorePage] Feedback API response:', data)
         if (data.success && data.feedback) {
           const feedbackMap: { [key: string]: string } = {}
           data.feedback.forEach((fb: any) => {
@@ -378,10 +380,11 @@ export default function StudentScorePage() {
             const key = `${fb.studentId}-${paddedLabNumber}`
             feedbackMap[key] = fb.adminComment
           })
+          console.log('[StudentScorePage] Updated feedback map:', feedbackMap)
           setFeedback(feedbackMap)
         }
       } catch (err) {
-        console.error("Failed to refresh feedback", err)
+        console.error("[StudentScorePage] Failed to refresh feedback", err)
       }
     }
 
@@ -406,7 +409,7 @@ export default function StudentScorePage() {
 
     const confirmDeleteFeedback = async () => {
       const paddedLabNumber = String(deleteAlert.labNumber).padStart(2, '0')
-      console.log('Deleting feedback for student:', deleteAlert.studentId, 'lab:', paddedLabNumber)
+      console.log('[StudentScorePage] Deleting feedback for student:', deleteAlert.studentId, 'lab:', paddedLabNumber)
       try {
         const response = await fetch(`/api/feedback?labNumber=${paddedLabNumber}&subject=${subjectCode}&studentId=${deleteAlert.studentId}`, {
           method: 'DELETE',
@@ -418,9 +421,11 @@ export default function StudentScorePage() {
           throw new Error(errData.error || 'Failed to delete feedback')
         }
 
+        console.log('[StudentScorePage] Delete successful, refreshing feedback')
         // Refresh feedback from server
         const feedbackRes = await fetch(`/api/feedback?subject=${subjectCode}`)
         const feedbackData = await feedbackRes.json()
+        console.log('[StudentScorePage] Post-delete feedback response:', feedbackData)
         if (feedbackData.success && feedbackData.feedback) {
           const feedbackMap: { [key: string]: string } = {}
           feedbackData.feedback.forEach((fb: any) => {
@@ -428,13 +433,14 @@ export default function StudentScorePage() {
             const key = `${fb.studentId}-${paddedLabNumber}`
             feedbackMap[key] = fb.adminComment
           })
+          console.log('[StudentScorePage] Updated feedback map after delete:', feedbackMap)
           setFeedback(feedbackMap)
         }
 
-        console.log('✓ Feedback deleted successfully')
+        console.log('[StudentScorePage] ✓ Feedback deleted successfully')
         setDeleteAlert({ isOpen: false, studentId: '', labNumber: '' })
       } catch (error: any) {
-        console.error('Error deleting feedback:', error)
+        console.error('[StudentScorePage] Error deleting feedback:', error)
         alert('Failed to delete feedback: ' + error.message)
         setDeleteAlert({ isOpen: false, studentId: '', labNumber: '' })
       }
