@@ -172,7 +172,7 @@ export default function StudentScorePage() {
         .catch(err => console.error("Failed to fetch labs", err))
       
       // Fetch all feedback for this subject
-      fetch(`/api/feedback?subject=${subjectCode}`)
+      fetch(`/api/feedback?subject=${subjectCode}&t=${Date.now()}`)
         .then(res => res.json())
         .then(data => {
           if (data.success && data.feedback) {
@@ -370,7 +370,8 @@ export default function StudentScorePage() {
     const refreshFeedback = async () => {
       try {
         console.log('[StudentScorePage] refreshFeedback called for subject:', subjectCode)
-        const res = await fetch(`/api/feedback?subject=${subjectCode}`)
+        const timestamp = Date.now() // Cache buster
+        const res = await fetch(`/api/feedback?subject=${subjectCode}&t=${timestamp}`)
         const data = await res.json()
         console.log('[StudentScorePage] Feedback API response:', data)
         if (data.success && data.feedback) {
@@ -426,7 +427,8 @@ export default function StudentScorePage() {
         console.log('[StudentScorePage] DELETE successful, refreshing feedback')
         // Wait a moment for database to commit, then refresh
         await new Promise(resolve => setTimeout(resolve, 500))
-        const feedbackRes = await fetch(`/api/feedback?subject=${subjectCode}`)
+        const timestamp = Date.now() // Cache buster
+        const feedbackRes = await fetch(`/api/feedback?subject=${subjectCode}&t=${timestamp}`)
         const feedbackData = await feedbackRes.json()
         console.log('[StudentScorePage] Post-delete GET response:', feedbackData)
         if (feedbackData.success && feedbackData.feedback) {

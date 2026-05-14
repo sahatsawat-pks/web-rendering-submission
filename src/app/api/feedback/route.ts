@@ -48,6 +48,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       feedback: feedback || null,
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      }
     });
   } catch (error: any) {
     console.error("Get feedback error:", error?.message || error);
