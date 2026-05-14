@@ -37,10 +37,11 @@ interface ScoreCellProps {
   readonly cellClasses: string
   readonly onOpenFeedback: (student: StudentScore, columnName: string) => void
   readonly feedbackComment?: string
+  readonly feedbackCreatedBy?: string
   readonly onDeleteClick?: (studentId: string, labNumber: string, columnName: string) => void
 }
 
-function ScoreCell({ student, columnName, displayValue, cellClasses, onOpenFeedback, feedbackComment, onDeleteClick }: ScoreCellProps) {
+function ScoreCell({ student, columnName, displayValue, cellClasses, onOpenFeedback, feedbackComment, feedbackCreatedBy, onDeleteClick }: ScoreCellProps) {
   const [showTooltip, setShowTooltip] = useState(false)
   const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 })
   const cellRef = useRef<HTMLTableCellElement>(null)
@@ -100,7 +101,10 @@ function ScoreCell({ student, columnName, displayValue, cellClasses, onOpenFeedb
             top: `${tooltipPos.top}px`,
             transform: 'translate(-50%, -100%)'
           }}>
-          {feedbackComment}
+          <div className="space-y-2">
+            <div>{feedbackComment}</div>
+            {feedbackCreatedBy && <div className="text-xs text-slate-400 border-t border-slate-700 pt-2 mt-2">Added by: {feedbackCreatedBy}</div>}
+          </div>
           <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-950"></div>
         </div>
       )}
@@ -131,7 +135,7 @@ export default function StudentScorePage() {
   const [error, setError] = useState<string | null>(null)
   const [subjectConfig, setSubjectConfig] = useState<any>(null)
   const [labs, setLabs] = useState<any[]>([])
-  const [feedback, setFeedback] = useState<{ [key: string]: string }>({}) // student-lab feedback map
+  const [feedback, setFeedback] = useState<{ [key: string]: { comment: string; createdBy?: string } }>({}) // student-lab feedback map
   const [columnFilter, setColumnFilter] = useState<'All' | 'Lab' | 'Challenge'>('All')
   const [studentIdFilter, setStudentIdFilter] = useState('')
   const [exportMode, setExportMode] = useState<'full' | 'summary'>('full')
@@ -177,11 +181,11 @@ export default function StudentScorePage() {
         .then(data => {
           if (data.success && data.feedback) {
             // Build a map of student-lab -> comment (normalize lab numbers with padding)
-            const feedbackMap: { [key: string]: string } = {}
+            const feedbackMap: { [key: string]: { comment: string; createdBy?: string } } = {}
             data.feedback.forEach((fb: any) => {
               const paddedLabNumber = String(fb.labNumber).padStart(2, '0')
               const key = `${fb.studentId}-${paddedLabNumber}`
-              feedbackMap[key] = fb.adminComment
+              feedbackMap[key] = { comment: fb.adminComment, createdBy: fb.createdBy }
             })
             setFeedback(feedbackMap)
           }
@@ -373,11 +377,11 @@ export default function StudentScorePage() {
         const res = await fetch(`/api/feedback?subject=${subjectCode}&t=${timestamp}`)
         const data = await res.json()
         if (data.success && data.feedback) {
-          const feedbackMap: { [key: string]: string } = {}
+          const feedbackMap: { [key: string]: { comment: string; createdBy?: string } } = {}
           data.feedback.forEach((fb: any) => {
             const paddedLabNumber = String(fb.labNumber).padStart(2, '0')
             const key = `${fb.studentId}-${paddedLabNumber}`
-            feedbackMap[key] = fb.adminComment
+            feedbackMap[key] = { comment: fb.adminComment, createdBy: fb.createdBy }
           })
           setFeedback(feedbackMap)
         }
@@ -424,11 +428,11 @@ export default function StudentScorePage() {
         const feedbackRes = await fetch(`/api/feedback?subject=${subjectCode}&t=${timestamp}`)
         const feedbackData = await feedbackRes.json()
         if (feedbackData.success && feedbackData.feedback) {
-          const feedbackMap: { [key: string]: string } = {}
+          const feedbackMap: { [key: string]: { comment: string; createdBy?: string } } = {}
           feedbackData.feedback.forEach((fb: any) => {
             const paddedLabNumber = String(fb.labNumber).padStart(2, '0')
             const key = `${fb.studentId}-${paddedLabNumber}`
-            feedbackMap[key] = fb.adminComment
+            feedbackMap[key] = { comment: fb.adminComment, createdBy: fb.createdBy }
           })
           setFeedback(feedbackMap)
         }
@@ -908,7 +912,9 @@ export default function StudentScorePage() {
                           const studentId = student.username || student.ID || student.studentId || ''
                           const labNum = extractLabNumber(col)
                           const feedbackKey = `${studentId}-${String(labNum).padStart(2, '0')}`
-                          const feedbackComment = feedback[feedbackKey] || ''
+                          const feedbackData = feedback[feedbackKey]
+                          const feedbackComment = feedbackData?.comment || ''
+                          const feedbackCreatedBy = feedbackData?.createdBy
                           
                           // For Lab 0 or when value exists, show the value (or '0' for Lab 0)
                           // For other labs without data, show "no data"
@@ -935,6 +941,7 @@ export default function StudentScorePage() {
                               cellClasses={cellClasses}
                               onOpenFeedback={handleScoreCellClick}
                               feedbackComment={feedbackComment}
+                              feedbackCreatedBy={feedbackCreatedBy}
                               onDeleteClick={handleDeleteFeedbackClick}
                             />
                           )
