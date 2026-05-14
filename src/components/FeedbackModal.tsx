@@ -24,6 +24,7 @@ interface FeedbackModalProps {
   readonly subject: string
   readonly labNumber: string
   readonly labTitle: string
+  readonly onRefreshFeedback?: () => Promise<void> | void
 }
 
 export function FeedbackModal({
@@ -34,6 +35,7 @@ export function FeedbackModal({
   subject,
   labNumber,
   labTitle,
+  onRefreshFeedback,
 }: FeedbackModalProps) {
   const [feedback, setFeedback] = useState<LabFeedback | null>(null)
   const [comment, setComment] = useState("")
@@ -94,6 +96,10 @@ export function FeedbackModal({
       if (res.ok) {
         const data = await res.json()
         setFeedback(data.feedback)
+        // Refresh feedback in parent component
+        if (onRefreshFeedback) {
+          await onRefreshFeedback()
+        }
       } else {
         setError("Failed to save feedback")
       }
@@ -120,6 +126,10 @@ export function FeedbackModal({
         setFeedback(null)
         setComment("")
         setIsVisible(false)
+        // Refresh feedback in parent component
+        if (onRefreshFeedback) {
+          await onRefreshFeedback()
+        }
       } else {
         setError("Failed to delete feedback")
       }

@@ -362,6 +362,25 @@ export default function StudentScorePage() {
         labNumber: '',
         labTitle: '',
       })
+      // Refresh feedback after closing modal
+      refreshFeedback()
+    }
+
+    const refreshFeedback = async () => {
+      try {
+        const res = await fetch(`/api/feedback?subject=${subjectCode}`)
+        const data = await res.json()
+        if (data.success && data.feedback) {
+          const feedbackMap: { [key: string]: string } = {}
+          data.feedback.forEach((fb: any) => {
+            const key = `${fb.studentId}-${fb.labNumber}`
+            feedbackMap[key] = fb.adminComment
+          })
+          setFeedback(feedbackMap)
+        }
+      } catch (err) {
+        console.error("Failed to refresh feedback", err)
+      }
     }
 
     const handleScoreCellClick = (student: StudentScore, columnName: string) => {
@@ -986,6 +1005,7 @@ export default function StudentScorePage() {
           subject={subjectCode}
           labNumber={feedbackModal.labNumber}
           labTitle={feedbackModal.labTitle}
+          onRefreshFeedback={refreshFeedback}
         />
 
         <AlertDialog
