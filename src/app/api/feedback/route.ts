@@ -78,6 +78,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('[POST] Received:', { labNumber, subject, studentId, adminComment, isVisibleToStudent })
     const feedback = await upsertLabFeedback(
       labNumber,
       subject,
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
       isVisibleToStudent ?? false,
       user.username
     );
+    console.log('[POST] Upsert returned:', feedback)
 
     return NextResponse.json({
       success: true,

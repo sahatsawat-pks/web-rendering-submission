@@ -92,21 +92,25 @@ export function FeedbackModal({
     setError(null)
     try {
       const paddedLabNumber = String(labNumber).padStart(2, '0')
+      const payload = {
+        labNumber: paddedLabNumber,
+        subject,
+        studentId,
+        adminComment: comment,
+        isVisibleToStudent: isVisible,
+      }
+      console.log('[FeedbackModal] Sending POST with payload:', JSON.stringify(payload))
       const res = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          labNumber: paddedLabNumber,
-          subject,
-          studentId,
-          adminComment: comment,
-          isVisibleToStudent: isVisible,
-        }),
+        body: JSON.stringify(payload),
       })
 
       const data = await res.json()
       
       if (res.ok) {
+        console.log('[FeedbackModal] Save response data:', JSON.stringify(data))
+        console.log('[FeedbackModal] Feedback object saved:', data.feedback)
         console.log('[FeedbackModal] Save successful, calling refresh callback')
         setFeedback(data.feedback)
         // Refresh feedback in parent component

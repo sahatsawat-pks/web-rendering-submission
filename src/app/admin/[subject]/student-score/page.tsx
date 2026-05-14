@@ -409,23 +409,25 @@ export default function StudentScorePage() {
 
     const confirmDeleteFeedback = async () => {
       const paddedLabNumber = String(deleteAlert.labNumber).padStart(2, '0')
-      console.log('[StudentScorePage] Deleting feedback for student:', deleteAlert.studentId, 'lab:', paddedLabNumber)
+      console.log('[StudentScorePage] Delete request:', { paddedLabNumber, subject: subjectCode, studentId: deleteAlert.studentId })
       try {
         const response = await fetch(`/api/feedback?labNumber=${paddedLabNumber}&subject=${subjectCode}&studentId=${deleteAlert.studentId}`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' }
         })
+        console.log('[StudentScorePage] DELETE response status:', response.status)
 
         if (!response.ok) {
           const errData = await response.json()
+          console.error('[StudentScorePage] DELETE error response:', errData)
           throw new Error(errData.error || 'Failed to delete feedback')
         }
 
-        console.log('[StudentScorePage] Delete successful, refreshing feedback')
+        console.log('[StudentScorePage] DELETE successful, refreshing feedback')
         // Refresh feedback from server
         const feedbackRes = await fetch(`/api/feedback?subject=${subjectCode}`)
         const feedbackData = await feedbackRes.json()
-        console.log('[StudentScorePage] Post-delete feedback response:', feedbackData)
+        console.log('[StudentScorePage] Post-delete GET response:', feedbackData)
         if (feedbackData.success && feedbackData.feedback) {
           const feedbackMap: { [key: string]: string } = {}
           feedbackData.feedback.forEach((fb: any) => {
@@ -433,7 +435,7 @@ export default function StudentScorePage() {
             const key = `${fb.studentId}-${paddedLabNumber}`
             feedbackMap[key] = fb.adminComment
           })
-          console.log('[StudentScorePage] Updated feedback map after delete:', feedbackMap)
+          console.log('[StudentScorePage] Feedback map after delete:', feedbackMap)
           setFeedback(feedbackMap)
         }
 
