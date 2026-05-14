@@ -96,8 +96,11 @@ export function FeedbackModal({
         }),
       })
 
+      console.log('API Response status:', res.status, res.statusText)
+      const data = await res.json()
+      console.log('API Response data:', data)
+      
       if (res.ok) {
-        const data = await res.json()
         console.log('Feedback saved successfully:', data.feedback)
         setFeedback(data.feedback)
         // Refresh feedback in parent component
@@ -107,9 +110,8 @@ export function FeedbackModal({
           console.log('onRefreshFeedback completed')
         }
       } else {
-        const errorData = await res.json()
-        console.error('Save failed:', errorData)
-        setError("Failed to save feedback")
+        console.error('Save failed with status', res.status, ':', data)
+        setError(data.error || "Failed to save feedback")
       }
     } catch (err) {
       console.error("Failed to save feedback:", err)

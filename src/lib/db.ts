@@ -2152,10 +2152,13 @@ export async function getSubjectFeedback(
   const client = await pool.connect();
 
   try {
+    console.log('Querying feedback for subject:', subject.toUpperCase())
     const res = await client.query(
       'SELECT * FROM lab_feedback WHERE subject = $1 ORDER BY student_id ASC, lab_number ASC',
       [subject.toUpperCase()]
     );
+    
+    console.log('Found', res.rows.length, 'feedback records for subject', subject)
     
     return res.rows.map(r => ({
       id: r.id,
@@ -2187,6 +2190,7 @@ export async function upsertLabFeedback(
   const client = await pool.connect();
 
   try {
+    console.log('Upserting feedback:', { labNumber, subject, studentId, adminComment, isVisibleToStudent, createdBy })
     const res = await client.query(
       `INSERT INTO lab_feedback (lab_number, subject, student_id, admin_comment, is_visible_to_student, created_by, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
@@ -2201,6 +2205,7 @@ export async function upsertLabFeedback(
     );
 
     const r = res.rows[0];
+    console.log('Upsert result:', { id: r.id, lab_number: r.lab_number, admin_comment: r.admin_comment })
     return {
       id: r.id,
       labId: r.lab_id,

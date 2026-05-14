@@ -1,7 +1,7 @@
 -- Add lab feedback table for student comments and admin feedback
 CREATE TABLE IF NOT EXISTS lab_feedback (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    lab_id UUID NOT NULL,
+    lab_id UUID,
     lab_number TEXT NOT NULL,
     subject TEXT NOT NULL,
     student_id TEXT NOT NULL,
