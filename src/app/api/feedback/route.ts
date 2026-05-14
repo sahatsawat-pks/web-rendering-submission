@@ -70,10 +70,8 @@ export async function POST(request: NextRequest) {
     }
 
     const { labNumber, subject, studentId, adminComment, isVisibleToStudent } = await request.json();
-    console.log('Received feedback POST:', { labNumber, subject, studentId, adminComment, isVisibleToStudent, user: user.username })
 
     if (!labNumber || !subject || !studentId) {
-      console.error('Missing required fields:', { labNumber, subject, studentId })
       return NextResponse.json(
         { error: "Missing required fields: labNumber, subject, studentId" },
         { status: 400 }
@@ -88,8 +86,6 @@ export async function POST(request: NextRequest) {
       isVisibleToStudent ?? false,
       user.username
     );
-    
-    console.log('Feedback saved to database:', feedback)
 
     return NextResponse.json({
       success: true,

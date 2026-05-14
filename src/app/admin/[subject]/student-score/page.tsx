@@ -175,7 +175,6 @@ export default function StudentScorePage() {
       fetch(`/api/feedback?subject=${subjectCode}`)
         .then(res => res.json())
         .then(data => {
-          console.log('Initial feedback load:', data)
           if (data.success && data.feedback) {
             // Build a map of student-lab -> comment (normalize lab numbers with padding)
             const feedbackMap: { [key: string]: string } = {}
@@ -183,9 +182,7 @@ export default function StudentScorePage() {
               const paddedLabNumber = String(fb.labNumber).padStart(2, '0')
               const key = `${fb.studentId}-${paddedLabNumber}`
               feedbackMap[key] = fb.adminComment
-              console.log('Initial feedback loaded:', { key, comment: fb.adminComment })
             })
-            console.log('Initial feedback map:', feedbackMap)
             setFeedback(feedbackMap)
           }
         })
@@ -372,19 +369,15 @@ export default function StudentScorePage() {
 
     const refreshFeedback = async () => {
       try {
-        console.log('Refreshing feedback for subject:', subjectCode)
         const res = await fetch(`/api/feedback?subject=${subjectCode}`)
         const data = await res.json()
-        console.log('Feedback data received:', data)
         if (data.success && data.feedback) {
           const feedbackMap: { [key: string]: string } = {}
           data.feedback.forEach((fb: any) => {
             const paddedLabNumber = String(fb.labNumber).padStart(2, '0')
             const key = `${fb.studentId}-${paddedLabNumber}`
             feedbackMap[key] = fb.adminComment
-            console.log('Added feedback to map:', { key, comment: fb.adminComment })
           })
-          console.log('Final feedback map:', feedbackMap)
           setFeedback(feedbackMap)
         }
       } catch (err) {

@@ -83,7 +83,6 @@ export function FeedbackModal({
     setError(null)
     try {
       const paddedLabNumber = String(labNumber).padStart(2, '0')
-      console.log('Saving feedback:', { paddedLabNumber, subject, studentId, comment })
       const res = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -96,21 +95,15 @@ export function FeedbackModal({
         }),
       })
 
-      console.log('API Response status:', res.status, res.statusText)
       const data = await res.json()
-      console.log('API Response data:', data)
       
       if (res.ok) {
-        console.log('Feedback saved successfully:', data.feedback)
         setFeedback(data.feedback)
         // Refresh feedback in parent component
         if (onRefreshFeedback) {
-          console.log('Calling onRefreshFeedback')
           await onRefreshFeedback()
-          console.log('onRefreshFeedback completed')
         }
       } else {
-        console.error('Save failed with status', res.status, ':', data)
         setError(data.error || "Failed to save feedback")
       }
     } catch (err) {
