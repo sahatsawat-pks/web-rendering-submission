@@ -2267,11 +2267,17 @@ export async function deleteLabFeedback(
   const client = await pool.connect();
 
   try {
+    console.log('[deleteLabFeedback] Deleting with:', { labNumber, subject: subject.toUpperCase(), studentId })
     const res = await client.query(
       'DELETE FROM lab_feedback WHERE lab_number = $1 AND subject = $2 AND student_id = $3',
       [labNumber, subject.toUpperCase(), studentId]
     );
-    return res.rowCount !== null && res.rowCount > 0;
+    const deleted = res.rowCount !== null && res.rowCount > 0;
+    console.log('[deleteLabFeedback] Delete result - rowCount:', res.rowCount, 'success:', deleted)
+    return deleted;
+  } catch (err) {
+    console.error('[deleteLabFeedback] Error:', err);
+    throw err;
   } finally {
     client.release();
   }

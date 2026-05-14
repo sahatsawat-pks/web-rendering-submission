@@ -163,6 +163,8 @@ export async function DELETE(request: NextRequest) {
     const subject = searchParams.get("subject");
     const studentId = searchParams.get("studentId");
 
+    console.log('[DELETE] Received delete request:', { labNumber, subject, studentId })
+
     if (!labNumber || !subject || !studentId) {
       return NextResponse.json(
         { error: "Missing required parameters: labNumber, subject, studentId" },
@@ -171,6 +173,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const success = await deleteLabFeedback(labNumber, subject, studentId);
+    console.log('[DELETE] deleteLabFeedback result:', success)
 
     if (!success) {
       return NextResponse.json(
@@ -184,7 +187,7 @@ export async function DELETE(request: NextRequest) {
       message: "Feedback deleted successfully",
     });
   } catch (error: any) {
-    console.error("Delete feedback error:", error);
+    console.error("Delete feedback error:", error?.message || error);
     return NextResponse.json(
       { error: "Failed to delete feedback" },
       { status: 500 }
