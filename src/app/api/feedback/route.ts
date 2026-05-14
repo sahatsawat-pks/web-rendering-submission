@@ -47,12 +47,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      feedback,
+      feedback: feedback || null,
     });
   } catch (error: any) {
-    console.error("Get feedback error:", error);
+    console.error("Get feedback error:", error?.message || error);
     return NextResponse.json(
-      { error: "Failed to fetch feedback" },
+      { error: error?.message || "Failed to fetch feedback" },
       { status: 500 }
     );
   }

@@ -69,10 +69,19 @@ export function FeedbackModal({
           setIsVisible(false)
           setFeedback(null)
         }
+      } else {
+        const error = await res.json()
+        setError(error?.error || "Failed to load feedback")
+        setComment("")
+        setIsVisible(false)
+        setFeedback(null)
       }
     } catch (err) {
       console.error("Failed to load feedback:", err)
       setError("Failed to load feedback")
+      setComment("")
+      setIsVisible(false)
+      setFeedback(null)
     } finally {
       setLoading(false)
     }
