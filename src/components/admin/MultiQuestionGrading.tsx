@@ -6,6 +6,7 @@ import { getGradientStyleProps, getShadowColorClass } from "@/lib/colors"
 import SuccessNotification from "./SuccessNotification"
 import GradeSubmissionDialog from "./GradeSubmissionDialog"
 import RichTextEditor from "../RichTextEditor"
+import QuickFeedbackSection from "./QuickFeedbackSection"
 
 interface MultiQuestionGradingProps {
   subjectCode: string
@@ -1308,6 +1309,12 @@ export default function MultiQuestionGrading({
         score={submittedScores.lab || 0}
         challengeScore={submittedScores.challenge}
         subjectCode={subjectCode}
+      />
+
+      <QuickFeedbackSection 
+        subjectCode={subjectCode}
+        labs={labs}
+        role={role}
       />
     </div>
   )

@@ -7,6 +7,7 @@ import { getGradientStyleProps, getShadowColorClass } from "@/lib/colors"
 import GradeSubmissionDialog from "./GradeSubmissionDialog"
 import SuccessNotification from "./SuccessNotification"
 import RichTextEditor from "../RichTextEditor"
+import QuickFeedbackSection from "./QuickFeedbackSection"
 
 interface SQLGradingProps {
   subjectCode: string
@@ -1665,6 +1666,12 @@ export default function SQLGrading({
         score={score}
         subjectCode={subjectCode}
         additionalInfo={isITCS251or255 ? `In-Class: ${inClass ? 'Yes' : 'No'}` : undefined}
+      />
+
+      <QuickFeedbackSection 
+        subjectCode={subjectCode}
+        labs={labs}
+        role={role}
       />
     </div>
   )

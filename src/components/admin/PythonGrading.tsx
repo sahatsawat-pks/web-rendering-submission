@@ -7,6 +7,7 @@ import { getGradientStyleProps, getShadowColorClass } from "@/lib/colors"
 import SuccessNotification from "./SuccessNotification"
 import GradeSubmissionDialog from "./GradeSubmissionDialog"
 import RichTextEditor from "../RichTextEditor"
+import QuickFeedbackSection from "./QuickFeedbackSection"
 
 interface PythonGradingProps {
   subjectCode: string
@@ -1669,6 +1670,12 @@ export default function PythonGrading({
         score={score}
         subjectCode={subjectCode}
         additionalInfo={isITCS251or255 ? `In-Class: ${inClass ? 'Yes' : 'No'}` : undefined}
+      />
+
+      <QuickFeedbackSection 
+        subjectCode={subjectCode}
+        labs={labs}
+        role={role}
       />
     </div>
   )

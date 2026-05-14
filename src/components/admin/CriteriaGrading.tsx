@@ -6,6 +6,7 @@ import { getGradientStyleProps, getShadowColorClass } from "@/lib/colors"
 import GradeSubmissionDialog from "./GradeSubmissionDialog"
 import SuccessNotification from "./SuccessNotification"
 import RichTextEditor from "../RichTextEditor"
+import QuickFeedbackSection from "./QuickFeedbackSection"
 
 interface CriteriaGradingProps {
   subjectCode: string
@@ -1387,6 +1388,12 @@ export default function CriteriaGrading({
         labNumber={selectedLab}
         score={`E:${ethicsScore} U:${understandingScore} R:${reflectionScore}`}
         subjectCode={subjectCode}
+      />
+
+      <QuickFeedbackSection 
+        subjectCode={subjectCode}
+        labs={labs}
+        role={role}
       />
     </div>
   )
