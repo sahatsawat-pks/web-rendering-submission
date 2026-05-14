@@ -99,7 +99,6 @@ export function FeedbackModal({
         adminComment: comment,
         isVisibleToStudent: isVisible,
       }
-      console.log('[FeedbackModal] Sending POST with payload:', JSON.stringify(payload))
       const res = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -109,22 +108,16 @@ export function FeedbackModal({
       const data = await res.json()
       
       if (res.ok) {
-        console.log('[FeedbackModal] Save response data:', JSON.stringify(data))
-        console.log('[FeedbackModal] Feedback object saved:', data.feedback)
-        console.log('[FeedbackModal] Save successful, calling refresh callback')
         setFeedback(data.feedback)
         // Wait a moment for database to commit
         await new Promise(resolve => setTimeout(resolve, 500))
         // Refresh feedback in parent component
         if (onRefreshFeedback) {
-          console.log('[FeedbackModal] Calling onRefreshFeedback')
           await onRefreshFeedback()
-          console.log('[FeedbackModal] onRefreshFeedback completed')
         } else {
           console.warn('[FeedbackModal] onRefreshFeedback callback not provided!')
         }
         // Close the modal after successful save
-        console.log('[FeedbackModal] Closing modal after save')
         onClose()
       } else {
         console.error('[FeedbackModal] Save failed:', data)
@@ -156,11 +149,9 @@ export function FeedbackModal({
         setIsVisible(false)
         // Refresh feedback in parent component
         if (onRefreshFeedback) {
-          console.log('[FeedbackModal] Calling onRefreshFeedback after delete')
           await onRefreshFeedback()
         }
         // Close the modal after successful delete
-        console.log('[FeedbackModal] Closing modal after delete')
         onClose()
       } else {
         console.error('[FeedbackModal] Delete failed')

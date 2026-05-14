@@ -2157,16 +2157,6 @@ export async function getSubjectFeedback(
       [subject.toUpperCase()]
     );
     
-    console.log('[getSubjectFeedback] Query subject:', subject.toUpperCase(), '- Found rows:', res.rows.length)
-    if (res.rows.length > 0) {
-      console.log('[getSubjectFeedback] Records:', res.rows.map(r => ({ 
-        id: r.id,
-        studentId: r.student_id,
-        labNumber: r.lab_number,
-        comment: r.admin_comment
-      })))
-    }
-    
     return res.rows.map(r => ({
       id: r.id,
       labId: r.lab_id,
@@ -2197,7 +2187,6 @@ export async function upsertLabFeedback(
   const client = await pool.connect();
 
   try {
-    console.log('[upsertLabFeedback] Input:', { labNumber, subject, studentId, adminComment, isVisibleToStudent, createdBy })
     const res = await client.query(
       `INSERT INTO lab_feedback (lab_number, subject, student_id, admin_comment, is_visible_to_student, created_by, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
@@ -2212,13 +2201,6 @@ export async function upsertLabFeedback(
     );
 
     const r = res.rows[0];
-    console.log('[upsertLabFeedback] Returned from DB:', { 
-      id: r.id, 
-      labNumber: r.lab_number, 
-      subject: r.subject,
-      studentId: r.student_id,
-      adminComment: r.admin_comment 
-    })
     return {
       id: r.id,
       labId: r.lab_id,
@@ -2286,30 +2268,12 @@ export async function deleteLabFeedback(
 
   try {
     const upperSubject = subject.toUpperCase();
-    console.log('[deleteLabFeedback] Parameters:', { labNumber, subject: upperSubject, studentId })
-    
-    // First, check what's in the database for this entry
-    const checkRes = await client.query(
-      'SELECT id, lab_number, subject, student_id FROM lab_feedback WHERE lab_number = $1 AND subject = $2 AND student_id = $3',
-      [labNumber, upperSubject, studentId]
-    );
-    console.log('[deleteLabFeedback] Records matching query:', checkRes.rows.length, checkRes.rows);
     
     const res = await client.query(
       'DELETE FROM lab_feedback WHERE lab_number = $1 AND subject = $2 AND student_id = $3',
       [labNumber, upperSubject, studentId]
     );
     const deleted = res.rowCount !== null && res.rowCount > 0;
-    console.log('[deleteLabFeedback] DELETE result - rowCount:', res.rowCount, 'success:', deleted)
-    
-    if (deleted) {
-      // Verify deletion
-      const verifyRes = await client.query(
-        'SELECT COUNT(*) as count FROM lab_feedback WHERE lab_number = $1 AND subject = $2 AND student_id = $3',
-        [labNumber, upperSubject, studentId]
-      );
-      console.log('[deleteLabFeedback] Post-delete verification - remaining records:', verifyRes.rows[0].count);
-    }
     
     return deleted;
   } catch (err) {

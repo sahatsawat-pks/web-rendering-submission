@@ -84,7 +84,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('[POST] Received:', { labNumber, subject, studentId, adminComment, isVisibleToStudent })
     const feedback = await upsertLabFeedback(
       labNumber,
       subject,
@@ -93,7 +92,6 @@ export async function POST(request: NextRequest) {
       isVisibleToStudent ?? false,
       user.username
     );
-    console.log('[POST] Upsert returned:', feedback)
 
     return NextResponse.json({
       success: true,
@@ -171,8 +169,6 @@ export async function DELETE(request: NextRequest) {
     const subject = searchParams.get("subject");
     const studentId = searchParams.get("studentId");
 
-    console.log('[DELETE] Received delete request:', { labNumber, subject, studentId })
-
     if (!labNumber || !subject || !studentId) {
       return NextResponse.json(
         { error: "Missing required parameters: labNumber, subject, studentId" },
@@ -181,7 +177,6 @@ export async function DELETE(request: NextRequest) {
     }
 
     const success = await deleteLabFeedback(labNumber, subject, studentId);
-    console.log('[DELETE] deleteLabFeedback result:', success)
 
     if (!success) {
       return NextResponse.json(

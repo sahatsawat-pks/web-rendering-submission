@@ -369,11 +369,9 @@ export default function StudentScorePage() {
 
     const refreshFeedback = async () => {
       try {
-        console.log('[StudentScorePage] refreshFeedback called for subject:', subjectCode)
         const timestamp = Date.now() // Cache buster
         const res = await fetch(`/api/feedback?subject=${subjectCode}&t=${timestamp}`)
         const data = await res.json()
-        console.log('[StudentScorePage] Feedback API response:', data)
         if (data.success && data.feedback) {
           const feedbackMap: { [key: string]: string } = {}
           data.feedback.forEach((fb: any) => {
@@ -381,7 +379,6 @@ export default function StudentScorePage() {
             const key = `${fb.studentId}-${paddedLabNumber}`
             feedbackMap[key] = fb.adminComment
           })
-          console.log('[StudentScorePage] Updated feedback map:', feedbackMap)
           setFeedback(feedbackMap)
         }
       } catch (err) {
@@ -410,27 +407,22 @@ export default function StudentScorePage() {
 
     const confirmDeleteFeedback = async () => {
       const paddedLabNumber = String(deleteAlert.labNumber).padStart(2, '0')
-      console.log('[StudentScorePage] Delete request:', { paddedLabNumber, subject: subjectCode, studentId: deleteAlert.studentId })
       try {
         const response = await fetch(`/api/feedback?labNumber=${paddedLabNumber}&subject=${subjectCode}&studentId=${deleteAlert.studentId}`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' }
         })
-        console.log('[StudentScorePage] DELETE response status:', response.status)
 
         if (!response.ok) {
           const errData = await response.json()
-          console.error('[StudentScorePage] DELETE error response:', errData)
           throw new Error(errData.error || 'Failed to delete feedback')
         }
 
-        console.log('[StudentScorePage] DELETE successful, refreshing feedback')
         // Wait a moment for database to commit, then refresh
         await new Promise(resolve => setTimeout(resolve, 500))
         const timestamp = Date.now() // Cache buster
         const feedbackRes = await fetch(`/api/feedback?subject=${subjectCode}&t=${timestamp}`)
         const feedbackData = await feedbackRes.json()
-        console.log('[StudentScorePage] Post-delete GET response:', feedbackData)
         if (feedbackData.success && feedbackData.feedback) {
           const feedbackMap: { [key: string]: string } = {}
           feedbackData.feedback.forEach((fb: any) => {
@@ -438,11 +430,9 @@ export default function StudentScorePage() {
             const key = `${fb.studentId}-${paddedLabNumber}`
             feedbackMap[key] = fb.adminComment
           })
-          console.log('[StudentScorePage] Feedback map after delete:', feedbackMap)
           setFeedback(feedbackMap)
         }
 
-        console.log('[StudentScorePage] ✓ Feedback deleted successfully')
         setDeleteAlert({ isOpen: false, studentId: '', labNumber: '' })
       } catch (error: any) {
         console.error('[StudentScorePage] Error deleting feedback:', error)
