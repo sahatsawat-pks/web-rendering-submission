@@ -940,6 +940,15 @@ export default function SimpleScoreGrading({
         </form>
       </div>
 
+      {/* Quick Feedback Section */}
+      <div className="glass-card p-8 animate-scale-in hover:shadow-2xl hover:shadow-indigo-500/5 transition-all duration-300 border-white/40">
+        <QuickFeedbackSection 
+          subjectCode={subjectCode}
+          labs={labs}
+          role={role}
+        />
+      </div>
+
       {/* Labs Section */}
       <div className="glass-card p-8 animate-scale-in transition-all duration-300 border-white/40">
         <div className="flex items-center justify-between mb-8">
@@ -1081,15 +1090,6 @@ export default function SimpleScoreGrading({
             ))}
           </div>
         )}
-      </div>
-
-      {/* Quick Feedback Section */}
-      <div className="glass-card p-8 animate-scale-in hover:shadow-2xl hover:shadow-indigo-500/5 transition-all duration-300 border-white/40">
-        <QuickFeedbackSection 
-          subjectCode={subjectCode}
-          labs={labs}
-          role={role}
-        />
       </div>
 
       {/* Announcements Section */}\n      {['Lecturer', 'Main Admin'].includes(role) && (
