@@ -44,14 +44,20 @@ interface ScoreCellProps {
 function ScoreCell({ student, columnName, displayValue, cellClasses, onOpenFeedback, feedbackComment, feedbackCreatedBy, onDeleteClick }: ScoreCellProps) {
   const [showTooltip, setShowTooltip] = useState(false)
   const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 })
+  const [tooltipBelow, setTooltipBelow] = useState(false)
   const cellRef = useRef<HTMLTableCellElement>(null)
   const hasFeedback = feedbackComment && feedbackComment.trim().length > 0
   
   const handleMouseEnter = () => {
     if (hasFeedback && cellRef.current) {
       const rect = cellRef.current.getBoundingClientRect()
+      // Check if there's enough space above (need ~120px for tooltip)
+      const spaceAbove = rect.top
+      const hasSpaceAbove = spaceAbove > 120
+      
+      setTooltipBelow(!hasSpaceAbove)
       setTooltipPos({
-        top: rect.top - 8,
+        top: hasSpaceAbove ? rect.top - 8 : rect.bottom + 8,
         left: rect.left + rect.width / 2
       })
       setShowTooltip(true)
@@ -94,23 +100,27 @@ function ScoreCell({ student, columnName, displayValue, cellClasses, onOpenFeedb
 
       {/* Fade-in/out tooltip on hover with animation - using fixed positioning to avoid clipping */}
       {showTooltip && hasFeedback && (
-        <div className="fixed z-50 bg-slate-900 dark:bg-slate-950 text-white dark:text-slate-100 text-xs rounded-lg p-3 max-w-xs whitespace-normal break-words shadow-xl border border-slate-700 dark:border-slate-600 pointer-events-none animate-fade-in-slide"
+        <div className="fixed z-50 bg-slate-900 dark:bg-slate-950 text-white dark:text-slate-100 text-xs rounded-lg p-3 max-w-xs whitespace-normal break-words shadow-xl border border-slate-700 dark:border-slate-600 pointer-events-none"
           style={{ 
-            animation: 'fadeInSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+            animation: tooltipBelow ? 'fadeInSlideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards' : 'fadeInSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
             left: `${tooltipPos.left}px`,
             top: `${tooltipPos.top}px`,
-            transform: 'translate(-50%, -100%)'
+            transform: tooltipBelow ? 'translate(-50%, 0)' : 'translate(-50%, -100%)'
           }}>
           <div className="space-y-2">
             <div>{feedbackComment}</div>
             {feedbackCreatedBy && <div className="text-xs text-slate-400 border-t border-slate-700 pt-2 mt-2">Added by: {feedbackCreatedBy}</div>}
           </div>
-          <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-950"></div>
+          {tooltipBelow ? (
+            <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 border-4 border-transparent border-b-slate-900 dark:border-b-slate-950"></div>
+          ) : (
+            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-950"></div>
+          )}
         </div>
       )}
 
       <style jsx>{`
-        @keyframes fadeInSlide {
+        @keyframes fadeInSlideUp {
           from {
             opacity: 0;
             transform: translate(-50%, calc(-100% - 8px));
@@ -118,6 +128,16 @@ function ScoreCell({ student, columnName, displayValue, cellClasses, onOpenFeedb
           to {
             opacity: 1;
             transform: translate(-50%, -100%);
+          }
+        }
+        @keyframes fadeInSlideDown {
+          from {
+            opacity: 0;
+            transform: translate(-50%, calc(100% + 8px));
+          }
+          to {
+            opacity: 1;
+            transform: translate(-50%, 0);
           }
         }
       `}</style>
