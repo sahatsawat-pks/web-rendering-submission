@@ -36,7 +36,11 @@ export function clearSheetsCache(subject?: string) {
     if (subject) {
         // Clear cache for specific subject
         for (const key of sheetsCache.keys()) {
-            if (key.includes(`_${subject}_`) || key.includes(`_${subject}`)) {
+            if (
+              key.includes(`_${subject}_`) ||
+              key.includes(`_${subject}`) ||
+              key === `prefixes_${subject}`
+            ) {
                 sheetsCache.delete(key);
             }
         }
@@ -164,7 +168,7 @@ async function getDriveClient() {
 
 // Simple in-memory cache for Google Sheets data with LRU eviction
 interface CacheEntry {
-    data: any[][];
+    data: any[][] | string[];
     timestamp: number;
 }
 interface CacheWithLRU {
@@ -217,6 +221,7 @@ const createLRUCache = (maxSize: number): CacheWithLRU => ({
 
 const sheetsCache = createLRUCache(100); // Max 100 cached sheets
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache (reduced for freshness)
+const PREFIX_CACHE_TTL = 30 * 60 * 1000; // Student ID prefixes change rarely
 
 const GOOGLE_SHEETS_MIME = 'application/vnd.google-apps.spreadsheet';
 const XLSX_MIME_TYPES = new Set([
@@ -256,8 +261,8 @@ async function listGoogleSheetTabNames(spreadsheetId: string): Promise<string[]>
     fields: 'sheets.properties.title',
   });
   return (info.data.sheets || [])
-    .map((s) => s.properties?.title || '')
-    .filter((title) => title.length > 0);
+    .map((s: { properties?: { title?: string | null } }) => s.properties?.title || '')
+    .filter((title: string) => title.length > 0);
 }
 
 async function resolveGoogleSheetTabName(
@@ -715,6 +720,11 @@ function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] 
     if (REGEX_PATTERNS.codeUnderstandingColumn.test(h)) criteriaIndices.codeUnderstanding = idx;
     if (REGEX_PATTERNS.reflectionColumn.test(h)) criteriaIndices.reflection = idx;
   });
+
+  const isCriteriaBasedFormat =
+    criteriaIndices.ethics !== -1 ||
+    criteriaIndices.codeUnderstanding !== -1 ||
+    criteriaIndices.reflection !== -1;
   
   const idIndex = resolveIdColumnIndex(headers, subject, config);
   
@@ -852,6 +862,121 @@ function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] 
 
     return student;
   });
+}
+
+/** Tabs to scan for student IDs (one roster tab is enough for tab-per-lab). */
+function resolveTabsForStudentIds(subject: string, config?: any): string[] {
+  if (config?.dataSourceType === 'tab_per_lab') {
+    if (config?.sheetTabs) {
+      const tabs = config.sheetTabs.split(',').map((t: string) => t.trim()).filter(Boolean);
+      return tabs.length > 0 ? [tabs[0]] : ['Lab1'];
+    }
+    return ['Lab1'];
+  }
+
+  const isMultiSection =
+    config?.dataSourceType === 'tab_per_section' ||
+    subject === 'ITCS123' ||
+    subject === 'ITCS223' ||
+    subject === 'ITDS283';
+
+  if (isMultiSection) {
+    if (config?.sheetTabs) {
+      return config.sheetTabs.split(',').map((t: string) => t.trim()).filter(Boolean);
+    }
+    if (subject === 'ITCS123') return ['Sec1', 'Sec2', 'Sec3'];
+    if (subject === 'ITCS223') return ['Section 1', 'Section 2', 'Section 3'];
+    if (subject === 'ITDS283') return ['Section 1', 'Section 2'];
+    return ['Sec1', 'Sec2'];
+  }
+
+  return [config?.singleSheetTabName || subject];
+}
+
+function extractPrefixesFromIdColumn(rows: any[][]): string[] {
+  const prefixSet = new Set<string>();
+  for (const row of rows) {
+    const id = String(row?.[0] ?? '').trim().replace(/^[uU]/, '');
+    if (id.length >= 4 && /^\d{4}/.test(id)) {
+      prefixSet.add(id.substring(0, 4));
+    }
+  }
+  return Array.from(prefixSet).sort();
+}
+
+/**
+ * Fast path for /api/student-prefixes — reads only the student ID column, not full scores.
+ */
+export async function getStudentIdPrefixes(
+  subject: string,
+  bypassCache: boolean = false
+): Promise<string[]> {
+  const cacheKey = `prefixes_${subject}`;
+  if (!bypassCache) {
+    const cached = sheetsCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < PREFIX_CACHE_TTL) {
+      return cached.data as string[];
+    }
+  }
+
+  const config = await getSubjectConfig(subject);
+  const spreadsheetId = await getSubjectSheetId(subject);
+  const sheets = await getSheetsClient();
+  const tabs = resolveTabsForStudentIds(subject, config);
+
+  const headerRow = (subject === 'ITCS251' || subject === 'ITCS255')
+    ? (config?.headerRow || 5)
+    : (config?.headerRow || 1);
+  const dataStartRow = headerRow + 1;
+
+  const configuredCol = config?.studentIdColumn?.trim();
+  let idColLetter =
+    configuredCol && /^[A-Za-z]+$/.test(configuredCol)
+      ? configuredCol.toUpperCase()
+      : null;
+
+  const resolvedTabs: string[] = [];
+  for (const tab of tabs) {
+    try {
+      resolvedTabs.push(
+        await resolveTabNameForSpreadsheet(spreadsheetId, tab, [subject, 'Sheet1'])
+      );
+    } catch {
+      // skip invalid tab name
+    }
+  }
+
+  if (!idColLetter && resolvedTabs.length > 0) {
+    const headerRes = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${resolvedTabs[0]}!A${headerRow}:ZZ${headerRow}`,
+    });
+    const headers = headerRes.data.values?.[0] || [];
+    const idIndex = resolveIdColumnIndex(headers, subject, config);
+    idColLetter = getColumnLetter(idIndex + 1);
+  }
+
+  if (!idColLetter) {
+    idColLetter = 'A';
+  }
+
+  const prefixSet = new Set<string>();
+
+  await Promise.all(
+    resolvedTabs.map(async (targetTab) => {
+      try {
+        const range = `${targetTab}!${idColLetter}${dataStartRow}:${idColLetter}1000`;
+        const res = await sheets.spreadsheets.values.get({ spreadsheetId, range });
+        extractPrefixesFromIdColumn(res.data.values || []).forEach((p) => prefixSet.add(p));
+      } catch {
+        // skip failed tab
+      }
+    })
+  );
+
+  const prefixes = Array.from(prefixSet).sort();
+  sheetsCache.set(cacheKey, { data: prefixes, timestamp: Date.now() });
+  return prefixes;
 }
 
 // Main Score Fetching Logic - optimized for concurrency

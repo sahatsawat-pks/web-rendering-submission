@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAllScores, clearSheetsCache, clearSubjectsCache } from '@/lib/sheets';
+import { getStudentIdPrefixes, clearSheetsCache, clearSubjectsCache } from '@/lib/sheets';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,50 +7,26 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const subject = searchParams.get('subject');
+    const bypassCache = searchParams.get('bypassCache') === 'true';
 
     if (!subject) {
       return NextResponse.json({ error: 'Subject is required' }, { status: 400 });
     }
 
-    // Fetch all student data from Google Sheets
-    let students = await getAllScores(subject);
+    let prefixes = await getStudentIdPrefixes(subject, bypassCache);
 
-    // If no students found, clear cache and try once more (for new subjects)
-    if (!students || students.length === 0) {
+    // Retry once if empty (e.g. new subject) — single lightweight fetch
+    if (prefixes.length === 0 && !bypassCache) {
       clearSheetsCache(subject);
       clearSubjectsCache();
-      students = await getAllScores(subject);
+      prefixes = await getStudentIdPrefixes(subject, true);
     }
 
-    if (!students || students.length === 0) {
-      return NextResponse.json({ prefixes: [] });
-    }
-
-    // Extract first 4 digits from student IDs
-    const prefixSet = new Set<string>();
-    
-    students.forEach((student: any) => {
-      if (student.username) {
-        const id = String(student.username).trim();
-        if (id.length >= 4) {
-          const prefix = id.substring(0, 4);
-          // Only add if it's numeric
-          if (/^\d{4}$/.test(prefix)) {
-            prefixSet.add(prefix);
-          }
-        }
-      }
-    });
-
-    // Convert to sorted array
-    const prefixes = Array.from(prefixSet).sort();
-
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       prefixes,
-      count: prefixes.length
+      count: prefixes.length,
     });
-
   } catch (error: any) {
     console.error('Error fetching student prefixes:', error);
     return NextResponse.json(
