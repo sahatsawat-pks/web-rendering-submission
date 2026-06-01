@@ -661,10 +661,10 @@ function StatusChecker({ subject, config, isAdmin = false }: { subject: string, 
                                 <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h6m-6 4h8M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" />
                                 </svg>
-                                Instructor Feedback
+                                Instructor & LAs Feedback
                             </h3>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                Visible comments from your instructor for completed labs.
+                                Visible comments from your instructor & LAs for completed labs.
                             </p>
                         </div>
                         <div className="grid gap-4 md:grid-cols-2">

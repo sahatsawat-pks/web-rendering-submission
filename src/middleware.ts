@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { verifyToken } from './lib/auth' 
-// Note: verifyToken logic might need adjustment for Edge Runtime if it uses Node-specific crypto, 
-// but 'jose' (which is used in lib/auth via previous checks) is Edge compatible.
 
 // Subject paths that need visibility check
 const subjectPaths = ['itcs223', 'itcs227', 'itge162', 'itcs123', 'itcs251', 'itcs255', 'itds283']

@@ -65,6 +65,8 @@ export interface Subject {
   columnPattern?: string;
   dataSourceType?: string;
   sheetTabs?: string;
+  singleSheetTabName?: string; // Custom tab name for single-sheet subjects
+  studentIdColumn?: string; // Column letter, 1-based index, or header name for student IDs
   labWeight?: number;
   labMaxScore?: number;
   useUniformLabScore?: boolean;
@@ -393,6 +395,24 @@ async function ensureTables() {
             BEGIN 
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subjects' AND column_name = 'sheet_tabs') THEN 
                     ALTER TABLE subjects ADD COLUMN sheet_tabs TEXT; 
+                END IF; 
+            END $$;
+        `);
+
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subjects' AND column_name = 'single_sheet_tab_name') THEN 
+                    ALTER TABLE subjects ADD COLUMN single_sheet_tab_name VARCHAR(255); 
+                END IF; 
+            END $$;
+        `);
+
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subjects' AND column_name = 'student_id_column') THEN 
+                    ALTER TABLE subjects ADD COLUMN student_id_column VARCHAR(50); 
                 END IF; 
             END $$;
         `);
@@ -1264,6 +1284,8 @@ export async function getSubjects(visibleOnly: boolean = false): Promise<Subject
         columnPattern: row.column_pattern,
         dataSourceType: row.data_source_type,
         sheetTabs: row.sheet_tabs,
+        singleSheetTabName: row.single_sheet_tab_name || undefined,
+        studentIdColumn: row.student_id_column || undefined,
         labWeight: row.lab_weight,
         labMaxScore: row.lab_max_score,
         useUniformLabScore: row.use_uniform_lab_score ?? true,
@@ -1389,6 +1411,8 @@ export async function createSubject(
       columnPattern: row.column_pattern,
       dataSourceType: row.data_source_type,
       sheetTabs: row.sheet_tabs,
+      singleSheetTabName: row.single_sheet_tab_name || undefined,
+      studentIdColumn: row.student_id_column || undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
@@ -1431,6 +1455,8 @@ export async function updateSubject(
     if (updates.columnPattern !== undefined) { fields.push(`column_pattern = $${idx++}`); values.push(updates.columnPattern); }
     if (updates.dataSourceType !== undefined) { fields.push(`data_source_type = $${idx++}`); values.push(updates.dataSourceType); }
     if (updates.sheetTabs !== undefined) { fields.push(`sheet_tabs = $${idx++}`); values.push(updates.sheetTabs); }
+    if (updates.singleSheetTabName !== undefined) { fields.push(`single_sheet_tab_name = $${idx++}`); values.push(updates.singleSheetTabName || null); }
+    if (updates.studentIdColumn !== undefined) { fields.push(`student_id_column = $${idx++}`); values.push(updates.studentIdColumn || null); }
     if (updates.labWeight !== undefined) { fields.push(`lab_weight = $${idx++}`); values.push(updates.labWeight); }
     if (updates.labMaxScore !== undefined) { fields.push(`lab_max_score = $${idx++}`); values.push(updates.labMaxScore); }
     if (updates.useUniformLabScore !== undefined) { fields.push(`use_uniform_lab_score = $${idx++}`); values.push(updates.useUniformLabScore); }
@@ -1462,6 +1488,8 @@ export async function updateSubject(
         columnPattern: row.column_pattern,
         dataSourceType: row.data_source_type,
         sheetTabs: row.sheet_tabs,
+        singleSheetTabName: row.single_sheet_tab_name || undefined,
+        studentIdColumn: row.student_id_column || undefined,
         labWeight: row.lab_weight,
         labMaxScore: row.lab_max_score,
         useUniformLabScore: row.use_uniform_lab_score ?? true,
@@ -1504,6 +1532,8 @@ export async function updateSubject(
       columnPattern: row.column_pattern,
       dataSourceType: row.data_source_type,
       sheetTabs: row.sheet_tabs,
+      singleSheetTabName: row.single_sheet_tab_name || undefined,
+      studentIdColumn: row.student_id_column || undefined,
       labWeight: row.lab_weight,
       labMaxScore: row.lab_max_score,
       useUniformLabScore: row.use_uniform_lab_score ?? true,

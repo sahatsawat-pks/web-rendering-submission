@@ -57,6 +57,8 @@ export async function POST(request: NextRequest) {
       columnPattern,
       dataSourceType,
       sheetTabs,
+      singleSheetTabName,
+      studentIdColumn,
       // Grading configuration
       labWeight,
       labMaxScore
@@ -103,6 +105,8 @@ export async function POST(request: NextRequest) {
         columnPattern: columnPattern || '',
         dataSourceType: dataSourceType || 'single_sheet',
         sheetTabs: sheetTabs || '',
+        singleSheetTabName: singleSheetTabName || null,
+        studentIdColumn: studentIdColumn || null,
         labWeight: labWeight || null,
         labMaxScore: labMaxScore || null
       });

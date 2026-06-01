@@ -27,8 +27,10 @@ interface Subject {
   // Advanced Config
   headerRow?: number
   columnPattern?: string
+  studentIdColumn?: string
   dataSourceType?: 'single_sheet' | 'tab_per_section' | 'tab_per_lab'
   sheetTabs?: string
+  singleSheetTabName?: string
   // Grading Configuration
   labWeight?: number
   labMaxScore?: number
@@ -104,8 +106,10 @@ export default function SubjectManagementPage() {
     googleSheetId: '',
     headerRow: 1,
     columnPattern: '',
+    studentIdColumn: '',
     dataSourceType: 'single_sheet',
     sheetTabs: '',
+    singleSheetTabName: '',
     labWeight: 20,
     labMaxScore: 0,
     useUniformLabScore: false
@@ -211,8 +215,10 @@ export default function SubjectManagementPage() {
       googleSheetId: '',
       headerRow: 1,
       columnPattern: '',
+      studentIdColumn: '',
       dataSourceType: 'single_sheet',
       sheetTabs: '',
+      singleSheetTabName: '',
       labWeight: 20,
       labMaxScore: 0,
       useUniformLabScore: false
@@ -242,8 +248,10 @@ export default function SubjectManagementPage() {
       googleSheetId: subject.googleSheetId || '',
       headerRow: subject.headerRow || 1,
       columnPattern: subject.columnPattern || '',
+      studentIdColumn: subject.studentIdColumn || '',
       dataSourceType: (subject.dataSourceType as any) || 'single_sheet',
       sheetTabs: subject.sheetTabs || '',
+      singleSheetTabName: subject.singleSheetTabName || '',
       labWeight: subject.labWeight ?? 20,
       labMaxScore: subject.labMaxScore ?? 0,
       useUniformLabScore: subject.useUniformLabScore ?? false
@@ -860,7 +868,7 @@ export default function SubjectManagementPage() {
                      </p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-slate-200 dark:border-slate-700">
                       <div>
                          <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                            Header Row
@@ -874,6 +882,22 @@ export default function SubjectManagementPage() {
                          />
                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                            Row number where column headers are located (Default: 1).
+                         </p>
+                      </div>
+
+                      <div>
+                         <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                           Student ID Column
+                         </label>
+                         <input
+                           type="text"
+                           value={formData.studentIdColumn}
+                           onChange={(e) => setFormData({ ...formData, studentIdColumn: e.target.value })}
+                           placeholder="A, B, 1, or ID"
+                           className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 font-mono text-sm"
+                         />
+                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                           Column letter (e.g. A), 1-based number, or header name. Leave empty to auto-detect.
                          </p>
                       </div>
                       
@@ -909,7 +933,23 @@ export default function SubjectManagementPage() {
                      </select>
                   </div>
 
-                  {formData.dataSourceType !== 'single_sheet' && (
+                  {formData.dataSourceType === 'single_sheet' ? (
+                      <div>
+                         <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                           Sheet Tab Name
+                         </label>
+                         <input
+                           type="text"
+                           value={formData.singleSheetTabName}
+                           onChange={(e) => setFormData({ ...formData, singleSheetTabName: e.target.value })}
+                           placeholder={formData.code || "e.g. Grades, Sheet1"}
+                           className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
+                         />
+                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                           Google Sheet tab to read/write. Leave empty to use the subject code ({formData.code || "ITCS362"}).
+                         </p>
+                      </div>
+                  ) : (
                       <div>
                          <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                            Sheet Tabs (Comma Separated)

@@ -107,11 +107,24 @@ async function getSubjectSheetId(subject: string): Promise<string> {
 
 import * as XLSX from 'xlsx';
 
+// Connection pool for API clients to reduce initialization overhead
+let cachedAuthClient: any = null;
+let cachedSheetsClient: any = null;
+let cachedDriveClient: any = null;
+let clientCacheTime = 0;
+const CLIENT_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
 async function getAuthClient() {
   if (!GOOGLE_CLIENT_EMAIL || !GOOGLE_PRIVATE_KEY) {
     throw new Error('Missing Google Sheets credential environment variables');
   }
-  return new google.auth.GoogleAuth({
+  
+  // Reuse cached client if still valid
+  if (cachedAuthClient && Date.now() - clientCacheTime < CLIENT_CACHE_TTL) {
+    return cachedAuthClient;
+  }
+  
+  cachedAuthClient = new google.auth.GoogleAuth({
     credentials: {
       client_email: GOOGLE_CLIENT_EMAIL,
       private_key: GOOGLE_PRIVATE_KEY,
@@ -123,27 +136,296 @@ async function getAuthClient() {
         'https://www.googleapis.com/auth/drive.file' 
     ],
   });
+  clientCacheTime = Date.now();
+  return cachedAuthClient;
 }
 
 async function getSheetsClient() {
+  // Reuse cached client if still valid
+  if (cachedSheetsClient && Date.now() - clientCacheTime < CLIENT_CACHE_TTL) {
+    return cachedSheetsClient;
+  }
+  
   const auth = await getAuthClient();
-  return google.sheets({ version: 'v4', auth });
+  cachedSheetsClient = google.sheets({ version: 'v4', auth });
+  return cachedSheetsClient;
 }
 
 async function getDriveClient() {
+    // Reuse cached client if still valid
+    if (cachedDriveClient && Date.now() - clientCacheTime < CLIENT_CACHE_TTL) {
+      return cachedDriveClient;
+    }
+    
     const auth = await getAuthClient();
-    return google.drive({ version: 'v3', auth });
+    cachedDriveClient = google.drive({ version: 'v3', auth });
+    return cachedDriveClient;
 }
 
-// Simple in-memory cache for Google Sheets data
+// Simple in-memory cache for Google Sheets data with LRU eviction
 interface CacheEntry {
     data: any[][];
     timestamp: number;
 }
-const sheetsCache = new Map<string, CacheEntry>();
-const CACHE_TTL = 10 * 60 * 1000; // 10 minutes cache (increased for better performance)
+interface CacheWithLRU {
+    cache: Map<string, CacheEntry>;
+    accessOrder: string[];
+    maxSize: number;
+    set(key: string, value: CacheEntry): void;
+    get(key: string): CacheEntry | undefined;
+    has(key: string): boolean;
+    delete(key: string): void;
+    clear(): void;
+    keys(): IterableIterator<string>;
+}
 
-async function getXlsxData(spreadsheetId: string, tabName: string) {
+const createLRUCache = (maxSize: number): CacheWithLRU => ({
+    cache: new Map(),
+    accessOrder: [],
+    maxSize,
+    set(key, value) {
+        if (this.cache.has(key)) {
+            this.accessOrder = this.accessOrder.filter(k => k !== key);
+        } else if (this.cache.size >= this.maxSize) {
+            const oldest = this.accessOrder.shift();
+            if (oldest) this.cache.delete(oldest);
+        }
+        this.cache.set(key, value);
+        this.accessOrder.push(key);
+    },
+    get(key) {
+        if (!this.cache.has(key)) return undefined;
+        this.accessOrder = this.accessOrder.filter(k => k !== key);
+        this.accessOrder.push(key);
+        return this.cache.get(key);
+    },
+    has(key) {
+        return this.cache.has(key);
+    },
+    delete(key) {
+        this.cache.delete(key);
+        this.accessOrder = this.accessOrder.filter(k => k !== key);
+    },
+    clear() {
+        this.cache.clear();
+        this.accessOrder = [];
+    },
+    keys() {
+        return this.cache.keys();
+    }
+});
+
+const sheetsCache = createLRUCache(100); // Max 100 cached sheets
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache (reduced for freshness)
+
+const GOOGLE_SHEETS_MIME = 'application/vnd.google-apps.spreadsheet';
+const XLSX_MIME_TYPES = new Set([
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+]);
+
+const mimeTypeCache = new Map<string, { mime: string; timestamp: number }>();
+const MIME_CACHE_TTL = 10 * 60 * 1000;
+
+/** Only true for uploaded .xlsx files — not generic Sheets API 400 errors (e.g. bad tab name). */
+function isUnsupportedSpreadsheetDocumentError(err: any): boolean {
+  const message = String(err?.message || err?.response?.data?.error?.message || '');
+  return message.includes('not supported for this document');
+}
+
+async function getSpreadsheetMimeType(spreadsheetId: string): Promise<string | null> {
+  const cached = mimeTypeCache.get(spreadsheetId);
+  if (cached && Date.now() - cached.timestamp < MIME_CACHE_TTL) {
+    return cached.mime;
+  }
+  try {
+    const drive = await getDriveClient();
+    const res = await drive.files.get({ fileId: spreadsheetId, fields: 'mimeType' });
+    const mime = res.data.mimeType || '';
+    mimeTypeCache.set(spreadsheetId, { mime, timestamp: Date.now() });
+    return mime;
+  } catch {
+    return null;
+  }
+}
+
+async function listGoogleSheetTabNames(spreadsheetId: string): Promise<string[]> {
+  const sheets = await getSheetsClient();
+  const info = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: 'sheets.properties.title',
+  });
+  return (info.data.sheets || [])
+    .map((s) => s.properties?.title || '')
+    .filter((title) => title.length > 0);
+}
+
+async function resolveGoogleSheetTabName(
+  spreadsheetId: string,
+  preferredTab: string,
+  fallbacks: string[] = []
+): Promise<string> {
+  const tabs = await listGoogleSheetTabNames(spreadsheetId);
+  if (tabs.includes(preferredTab)) return preferredTab;
+  for (const fallback of fallbacks) {
+    if (fallback && tabs.includes(fallback)) return fallback;
+  }
+  throw new Error(
+    `Sheet tab "${preferredTab}" not found. Available tabs: ${tabs.join(', ')}`
+  );
+}
+
+/** Resolve tab for native Google Sheets; skip for uploaded .xlsx files. */
+async function resolveTabNameForSpreadsheet(
+  spreadsheetId: string,
+  preferredTab: string,
+  fallbacks: string[] = []
+): Promise<string> {
+  const mime = await getSpreadsheetMimeType(spreadsheetId);
+  if (mime && XLSX_MIME_TYPES.has(mime)) {
+    return preferredTab;
+  }
+  if (mime && mime !== GOOGLE_SHEETS_MIME) {
+    return preferredTab;
+  }
+  return resolveGoogleSheetTabName(spreadsheetId, preferredTab, fallbacks);
+}
+
+function formatSheetUpdateError(tabName: string, err: any, availableTabs?: string[]): Error {
+  const base = String(err?.message || err?.response?.data?.error?.message || 'Unknown error');
+  if (availableTabs?.length) {
+    return new Error(
+      `Failed to update sheet tab "${tabName}". Available tabs: ${availableTabs.join(', ')}. (${base})`
+    );
+  }
+  return new Error(`Failed to update sheet tab "${tabName}": ${base}`);
+}
+
+function studentIdsMatch(sheetId: string | undefined, inputId: string): boolean {
+  const a = String(sheetId ?? '').trim();
+  const b = String(inputId ?? '').trim();
+  if (!a || !b) return false;
+  if (a === b) return true;
+  return a.replace(/^[uU]/, '') === b.replace(/^[uU]/, '');
+}
+
+const MULTI_SECTION_SUBJECTS = new Set([
+  'ITCS123', 'ITCS223', 'ITCS251', 'ITCS255', 'ITDS283', 'ITCS113', 'ITCS258',
+]);
+
+/** Parse admin-configured student ID column (letter, 1-based number, or header name). */
+function parseStudentIdColumnConfig(configured: string, headers: any[]): number {
+  const value = configured.trim();
+  if (!value) return -1;
+
+  if (/^[A-Za-z]+$/.test(value)) {
+    let colIndex = 0;
+    const upper = value.toUpperCase();
+    for (let i = 0; i < upper.length; i++) {
+      colIndex = colIndex * 26 + (upper.charCodeAt(i) - 64);
+    }
+    return colIndex - 1;
+  }
+
+  const asNumber = parseInt(value, 10);
+  if (!Number.isNaN(asNumber) && asNumber >= 1) {
+    return asNumber - 1;
+  }
+
+  const lower = value.toLowerCase();
+  const headerIndex = headers.findIndex(
+    (h) => String(h ?? '').toLowerCase().trim() === lower
+  );
+  if (headerIndex !== -1) return headerIndex;
+
+  return -1;
+}
+
+/** Resolve which column holds student IDs — must match mapRowsToStudents logic. */
+function resolveIdColumnIndex(
+  headers: any[],
+  subject: string,
+  config?: { studentIdColumn?: string }
+): number {
+  const configured = config?.studentIdColumn?.trim();
+  if (configured) {
+    const fromConfig = parseStudentIdColumnConfig(configured, headers);
+    if (fromConfig !== -1) return fromConfig;
+  }
+
+  const headerIndices = new Map<string, number>();
+  headers.forEach((h: string, idx: number) => {
+    const lowerH = String(h ?? '').toLowerCase().trim();
+    if (lowerH) headerIndices.set(lowerH, idx);
+  });
+
+  const isCriteriaBasedFormat = headers.some((h: string) => {
+    const hStr = String(h ?? '');
+    return (
+      REGEX_PATTERNS.ethicsColumn.test(hStr) ||
+      REGEX_PATTERNS.codeUnderstandingColumn.test(hStr) ||
+      REGEX_PATTERNS.reflectionColumn.test(hStr)
+    );
+  });
+
+  for (const name of ['id', 'student id', 'studentid', 'no', 'number', 'student no']) {
+    if (headerIndices.has(name)) {
+      return headerIndices.get(name)!;
+    }
+  }
+
+  if (isCriteriaBasedFormat) {
+    return 1;
+  }
+
+  if (subject === 'ITDS283') {
+    const found = headers.findIndex((h: string) => String(h).toLowerCase().trim() === 'id');
+    if (found !== -1) return found;
+  }
+
+  if (MULTI_SECTION_SUBJECTS.has(subject)) {
+    if (headerIndices.has('name') || headerIndices.has('firstname')) {
+      return 0;
+    }
+    return 1;
+  }
+
+  return 0;
+}
+
+/** Find a student row; scans columns A–C if the configured ID column does not match. */
+function findStudentInRows(
+  rows: any[][],
+  username: string,
+  headerIdx: number,
+  headers: any[],
+  subject: string,
+  config?: { studentIdColumn?: string }
+): { rowIndex: number; idIndex: number } {
+  const preferredIdIndex = resolveIdColumnIndex(headers, subject, config);
+  const columnsToTry = [preferredIdIndex, 0, 1, 2].filter(
+    (col, i, arr) => col >= 0 && arr.indexOf(col) === i
+  );
+
+  for (let idx = 0; idx < rows.length; idx++) {
+    if (idx <= headerIdx) continue;
+    const row = rows[idx];
+    for (const col of columnsToTry) {
+      if (col < row.length && studentIdsMatch(row[col], username)) {
+        return { rowIndex: idx, idIndex: col };
+      }
+    }
+  }
+
+  return { rowIndex: -1, idIndex: preferredIdIndex };
+}
+
+function isGridLimitsError(err: any): boolean {
+  const message = String(err?.message || err?.response?.data?.error?.message || '');
+  return message.includes('exceeds grid limits');
+}
+
+async function getXlsxData(spreadsheetId: string, tabName: string, timeout: number = 30000) {
     const cacheKey = `xlsx_${spreadsheetId}_${tabName}`;
     const cached = sheetsCache.get(cacheKey);
     if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
@@ -152,22 +434,27 @@ async function getXlsxData(spreadsheetId: string, tabName: string) {
 
     try {
         const drive = await getDriveClient();
+        
+        // Add timeout to API call
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        
         const res = await drive.files.get({
             fileId: spreadsheetId,
             alt: 'media',
         }, { responseType: 'arraybuffer' });
+        
+        clearTimeout(timeoutId);
 
         const buffer = Buffer.from(res.data as ArrayBuffer);
         const workbook = XLSX.read(buffer, { type: 'buffer' });
 
         let targetSheet = tabName;
         if (!workbook.Sheets[targetSheet]) {
-            if (workbook.SheetNames.length > 0) {
-                 if (workbook.Sheets['Sheet1']) {
-                     targetSheet = 'Sheet1';
-                 } else {
-                     targetSheet = workbook.SheetNames[0];
-                 }
+            if (workbook.Sheets['Sheet1']) {
+                 targetSheet = 'Sheet1';
+            } else if (workbook.SheetNames.length > 0) {
+                 targetSheet = workbook.SheetNames[0];
             }
         }
 
@@ -181,13 +468,16 @@ async function getXlsxData(spreadsheetId: string, tabName: string) {
         return jsonData;
 
     } catch (e: any) {
-        // console.error(`[getXlsxData] Failed to parse XLSX: ${e.message}`);
+        if (e.name === 'AbortError') {
+            console.warn(`[getXlsxData] Request timeout for ${spreadsheetId}`);
+        }
         return [];
     }
 }
 
 export async function getSheetData(subject: string = 'Sheet1', tabName?: string, bypassCache: boolean = false) {
   const spreadsheetId = await getSubjectSheetId(subject);
+  const config = await getSubjectConfig(subject);
 
   // Removed ITCS113 special block to default to starting from 'A' and using 'Sheet1' or subject name fallback
   let firstRow = 'A';
@@ -196,7 +486,10 @@ export async function getSheetData(subject: string = 'Sheet1', tabName?: string,
     tabName = 'lab';
   }
 
-  const targetTab = tabName || subject;
+  // Use provided tabName, or configured tab name for single sheets, or fallback to subject code
+  let targetTab = tabName || config?.singleSheetTabName || subject;
+
+  targetTab = await resolveTabNameForSpreadsheet(spreadsheetId, targetTab, [subject, 'Sheet1']);
   
   const cacheKey = `sheets_${spreadsheetId}_${targetTab}`;
   const cached = sheetsCache.get(cacheKey);
@@ -220,12 +513,7 @@ export async function getSheetData(subject: string = 'Sheet1', tabName?: string,
       sheetsCache.set(cacheKey, { data, timestamp: Date.now() });
       return data;
   } catch (err: any) {
-      // Check for XLSX error (400 Bad Request usually, or specific message)
-      // Message: "This operation is not supported for this document"
-      const isXlsxError = err.code === 400 || (err.message && err.message.includes('not supported'));
-      
-      if (isXlsxError) {
-          // console.log(`[getSheetData] Detected potential XLSX file (Error ${err.code}), attempting fallback.`);
+      if (isUnsupportedSpreadsheetDocumentError(err)) {
           return await getXlsxData(spreadsheetId, targetTab);
       }
 
@@ -245,14 +533,145 @@ export async function getSheetData(subject: string = 'Sheet1', tabName?: string,
   }
 }
 
+// Pre-compiled regex patterns for better performance
+const REGEX_PATTERNS = {
+    camelCase: /[a-z][A-Z]/,
+    labNumber: /^(?:Lab\s*|L)(\d+)(?:\s*\(.*\))?$/i,
+    weekNumber: /^(?:W|Week)\s*(\d+)/i,
+    challengeNumber: /^(?:Ch\s*|Challenge\s*)(\d+)(?:\s*\(.*\))?$/i,
+    labQuestionFormat: /^l(\d+)-q(\d+)$/i,
+    labTabPattern: /^lab\s*\d+$/i,
+    feedbackColumn: /Feedback/i,
+    nameColumn: /^\s*(name|firstname)\s*$/i,
+    surnameColumn: /^\s*(surname|lastname)\s*$/i,
+    totalColumn: /^\s*(Sum|Total)(?:\s*\((\d+)\))?\s*$/i,
+    inClassColumn: /^\s*in-class\s*$/i,
+    ethicsColumn: /ethics/i,
+    codeUnderstandingColumn: /code understanding/i,
+    reflectionColumn: /reflection/i,
+};
+
+/** Parse lab number from a column header (full-string patterns only). */
+function parseLabNumberFromColumnHeader(header: string): number | null {
+  const h = String(header ?? '').trim();
+  if (!h) return null;
+
+  const patterns = [
+    REGEX_PATTERNS.labNumber,
+    REGEX_PATTERNS.weekNumber,
+    REGEX_PATTERNS.challengeNumber,
+  ];
+  for (const pattern of patterns) {
+    const match = h.match(pattern);
+    if (match?.[1]) {
+      const n = parseInt(match[1], 10);
+      if (!Number.isNaN(n)) return n;
+    }
+  }
+  return null;
+}
+
+/**
+ * Parse the intended lab number from API/UI input.
+ * Avoids parseInt("012") === 12 when labNumber is "Lab01 (2)" (ITCS123).
+ */
+function parseRequestedLabNumber(labNumber: string): number | null {
+  const trimmed = String(labNumber ?? '').trim();
+  if (!trimmed) return null;
+
+  const fromHeader = parseLabNumberFromColumnHeader(trimmed);
+  if (fromHeader !== null) return fromHeader;
+
+  if (/^\d{1,2}$/.test(trimmed)) {
+    const n = parseInt(trimmed, 10);
+    return Number.isNaN(n) ? null : n;
+  }
+
+  return null;
+}
+
+function buildAnchoredColumnPattern(configPattern: string, labInt: string, labNumPad: string): RegExp {
+  const labIdPattern = `(?:${labNumPad}|${labInt})`;
+  let pattern = configPattern
+    .replace(/\{labId\}/g, labIdPattern)
+    .replace(/\{questionId\}/g, '\\w+');
+  if (!pattern.startsWith('^')) pattern = `^${pattern}`;
+  if (!pattern.endsWith('$')) pattern = `${pattern}$`;
+  return new RegExp(pattern, 'i');
+}
+
+/** Find the sheet column for a lab score — avoids matching L12 when updating lab 1. */
+function findLabColumnIndex(
+  headers: any[],
+  labNumber: string,
+  subject: string,
+  config?: { columnPattern?: string }
+): number {
+  const labIntNum = parseRequestedLabNumber(labNumber);
+  if (labIntNum === null) return -1;
+  const labInt = labIntNum.toString();
+  const labNumPad = labIntNum.toString().padStart(2, '0');
+  const labNumberStr = labNumber.toString().trim();
+
+  const exactIdx = headers.findIndex(
+    (h) => String(h ?? '').trim().toLowerCase() === labNumberStr.toLowerCase()
+  );
+  if (exactIdx !== -1) return exactIdx;
+
+  if (config?.columnPattern?.trim()) {
+    try {
+      const regex = buildAnchoredColumnPattern(config.columnPattern, labInt, labNumPad);
+      const idx = headers.findIndex((h) => regex.test(String(h ?? '').trim()));
+      if (idx !== -1) return idx;
+    } catch {
+      // invalid pattern — fall through
+    }
+  }
+
+  const matches: { index: number; specificity: number }[] = [];
+  headers.forEach((h, index) => {
+    const header = String(h ?? '').trim();
+    if (parseLabNumberFromColumnHeader(header) !== labIntNum) return;
+
+    let specificity = 10;
+    if (new RegExp(`^L${labNumPad}$`, 'i').test(header)) specificity = 100;
+    else if (new RegExp(`^L${labInt}$`, 'i').test(header)) specificity = 90;
+    else if (new RegExp(`^Lab\\s*${labNumPad}$`, 'i').test(header)) specificity = 80;
+    else if (new RegExp(`^Lab\\s*${labInt}$`, 'i').test(header)) specificity = 70;
+    else if (REGEX_PATTERNS.weekNumber.test(header)) specificity = 60;
+
+    matches.push({ index, specificity });
+  });
+
+  if (matches.length > 0) {
+    matches.sort((a, b) => b.specificity - a.specificity);
+    return matches[0].index;
+  }
+
+  if (subject === 'ITCS251' || subject === 'ITCS255') {
+    const wPattern = `W ${labInt}`;
+    const idx = headers.findIndex((h) => String(h).trim() === wPattern);
+    if (idx !== -1) return idx;
+  }
+
+  return -1;
+}
+
+/** Pick header name for a new lab column based on existing sheet conventions. */
+function inferLabColumnHeaderName(headers: any[], labInt: string, labNumPad: string, labNumber: string): string {
+  const trimmed = headers.map((h) => String(h ?? '').trim()).filter(Boolean);
+  if (trimmed.some((h) => /^L\d{2}$/i.test(h))) return `L${labNumPad}`;
+  if (trimmed.some((h) => /^L\d+$/i.test(h))) return `L${labInt}`;
+  if (trimmed.some((h) => /^Lab\s+\d+/i.test(h))) return `Lab ${labInt}`;
+  if (/^L\d*$/i.test(labNumber.trim())) return `L${labNumPad}`;
+  return labNumber;
+}
+
 // Helper to fix mashed names (e.g., "NatanonKreangarekul" -> "Natanon Kreangarekul")
 function fixMashedName(name: string): string {
     if (!name || typeof name !== 'string') return '';
     // If name has no spaces and has CamelCase (lower followed by Upper), split it.
-    // Exclude 'Mc...' cases? Thai names don't have Mc.
-    // Basic heuristic: lowercase char followed by Uppercase char.
-    // This handles "FirstLast" -> "First Last"
-    if (!name.includes(' ') && /[a-z][A-Z]/.test(name)) {
+    if (!name.includes(' ') && REGEX_PATTERNS.camelCase.test(name)) {
         return name.replace(/([a-z])([A-Z])/g, '$1 $2');
     }
     return name.trim();
@@ -270,77 +689,74 @@ async function getSubjectConfig(subjectCode: string) {
     }
 }
 
-// Helper to map raw rows to student objects
+// Helper to map raw rows to student objects with optimized header matching
 function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] {
   if (rows.length === 0) return [];
 
   // Determine header row index (0-based)
-  // All subjects use config or default to row 1
   const headerRowIndex = (config?.headerRow || 1) - 1;
-  
-  // Safety check
   if (headerRowIndex >= rows.length) return [];
 
   const headers = rows[headerRowIndex];
-  
   const data = rows.slice(headerRowIndex + 1);
   
-  // Determine ID Column Index
-  // Default logic: ITCS123/223/251/255/ITDS283/ITCS113/ITCS258 -> Index 1 (Col B)
-  // Criteria-based subjects (with Ethics, Code Understanding, Reflection columns) -> Index 1 (Col B)
-  // Others -> Index 0 (Col A)
-  // We can make this configurable later, but for now stick to patterns + overrides
-  let idIndex = (subject === 'ITCS123' || subject === 'ITCS223' || subject === 'ITCS251' || subject === 'ITCS255' || subject === 'ITDS283' || subject === 'ITCS113' || subject === 'ITCS258') ? 1 : 0;
+  // Pre-compute header column indices for faster lookups
+  const headerIndices = new Map<string, number>();
+  const criteriaIndices = {
+    ethics: -1,
+    codeUnderstanding: -1,
+    reflection: -1,
+  };
   
-  // Check for criteria-based format (Ethics, Code Understanding, Reflection columns)
-  const isCriteriaBasedFormat = headers.some((h: string) => 
-    String(h).toLowerCase().includes('ethics') || 
-    String(h).toLowerCase().includes('code understanding') || 
-    String(h).toLowerCase().includes('reflection')
-  );
-  if (isCriteriaBasedFormat) {
-    idIndex = 1; // ID is in column B for criteria format
-  }
+  headers.forEach((h: string, idx: number) => {
+    const lowerH = String(h).toLowerCase();
+    headerIndices.set(lowerH, idx);
+    if (REGEX_PATTERNS.ethicsColumn.test(h)) criteriaIndices.ethics = idx;
+    if (REGEX_PATTERNS.codeUnderstandingColumn.test(h)) criteriaIndices.codeUnderstanding = idx;
+    if (REGEX_PATTERNS.reflectionColumn.test(h)) criteriaIndices.reflection = idx;
+  });
   
-  // ITDS283 Dynamic Search
-  if (subject === 'ITDS283') {
-      const foundIndex = headers.findIndex((h: string) => String(h).toLowerCase().trim() === 'id');
-      if (foundIndex !== -1) idIndex = foundIndex;
+  const idIndex = resolveIdColumnIndex(headers, subject, config);
+  
+  // ITCS123 Auto-detect column indices by header matching
+  let itcs123Indices = { name: -1, surname: -1, nickname: -1, email: -1 };
+  if (subject === 'ITCS123') {
+      // Try to find columns by header names
+      headers.forEach((h: string, idx: number) => {
+          const lowerH = String(h).toLowerCase();
+          if (lowerH === 'name' || lowerH === 'firstname') itcs123Indices.name = idx;
+          if (lowerH === 'lastname' || lowerH === 'surname') itcs123Indices.surname = idx;
+          if (lowerH === 'nickname') itcs123Indices.nickname = idx;
+          if (lowerH === 'email') itcs123Indices.email = idx;
+      });
   }
 
-  // Regex for Custom Pattern
+  // Compile custom regex once
   let customRegex: RegExp | null = null;
   if (config?.columnPattern) {
       try {
-          // User provides pattern like "^Lab\s*{labId}"
-          // We prefer they provide valid Regex string. 
-          // If they use {labId}, we prepare to match it dynamically? 
-          // Actually, mapRows iterates headers to FIND what they are.
-          // So we need a Regex that captures the Lab ID.
-          // Example pattern: "^Lab\s*(\d+)"
-          // If user puts "{labId}", we replace it with "(\d+)" for capturing.
           const patternStr = config.columnPattern.replace('{labId}', '(\\d+)').replace('{questionId}', '(\\w+)');
           customRegex = new RegExp(patternStr, 'i');
       } catch (e) {
-        //   console.error(`[mapRows] Invalid Regex Pattern for ${subject}: ${config.columnPattern}`);
+        // Invalid pattern, skip
       }
   }
 
-  return data.map((row) => {
+  return data.map((row: any[]) => {
     const rawUsername = row[idIndex];
     const student: any = { username: rawUsername ? String(rawUsername).trim() : "" };
     
-    // ... [Existing Name Mapping Logic preserved for legacy/specific subjects] ...
+    // Subject-specific name extraction
     if (subject === 'ITCS123') {
-        student['name'] = fixMashedName(row[3]);
-        student['surname'] = fixMashedName(row[4]);
-        student['nickname'] = row[5];
+        // Use auto-detected indices or fallback
+        student['name'] = itcs123Indices.name !== -1 ? fixMashedName(row[itcs123Indices.name]) : '';
+        student['surname'] = itcs123Indices.surname !== -1 ? fixMashedName(row[itcs123Indices.surname]) : '';
+        student['nickname'] = itcs123Indices.nickname !== -1 ? row[itcs123Indices.nickname] : '';
+        student['email'] = itcs123Indices.email !== -1 ? row[itcs123Indices.email] : '';
     } else if (subject === 'ITCS223') {
         student['name'] = fixMashedName(row[2]);
         student['surname'] = fixMashedName(row[3]);
     } else if (subject === 'ITCS251' || subject === 'ITCS255') {
-        // ITCS251 and ITCS255 have similar structure with header starting at row 5
-        // Based on the data structure, names appear to be in specific columns
         student['name'] = fixMashedName(row[2]);
         student['surname'] = fixMashedName(row[3]);
     } else if (subject === 'ITCS227') {
@@ -354,14 +770,13 @@ function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] 
         student['nicknameEng'] = row[9];
         student['email'] = row[10];
     } else if (isCriteriaBasedFormat) {
-        // For criteria-based format, discover columns dynamically from headers
-        // Don't hardcode indices as different tabs may have different structures
         student['name'] = fixMashedName(row[2]);
         student['surname'] = fixMashedName(row[3]);
     }
     
     let lastLabNumber: string | null = null;
 
+    // Process headers with pre-computed indices
     headers.slice(idIndex + 1).forEach((header: string, relativeIndex: number) => {
          const trueIndex = idIndex + 1 + relativeIndex;
          const cellValue = row[trueIndex];
@@ -371,20 +786,16 @@ function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] 
          if (customRegex) {
              const match = String(header).match(customRegex);
              if (match && match[1]) {
-                 // Store with original header format to maintain consistency
-                 // This ensures "l1-q1" stays as "l1-q1" instead of becoming "Lab 1 q1"
                  student[header] = cellValue;
-                 
-                 // Extract lab number for potential in-class tracking
                  lastLabNumber = match[1];
                  return;
              }
          }
 
-        // 2. Legacy/Hardcoded Matchers
-        const wMatch = header.match(/^(?:W|Week)\s*(\d+)/i);
-        const match = header.match(/^(?:Lab\s*|L)(\d+)(?:\s*\(.*\))?$/i);
-        const chMatch = header.match(/^(?:Ch\s*|Challenge\s*)(\d+)(?:\s*\(.*\))?$/i);
+        // 2. Legacy/Hardcoded Matchers using pre-compiled regexes
+        const wMatch = header.match(REGEX_PATTERNS.weekNumber);
+        const match = header.match(REGEX_PATTERNS.labNumber);
+        const chMatch = header.match(REGEX_PATTERNS.challengeNumber);
         
         if (wMatch) {
             const labNum = parseInt(wMatch[1]).toString();
@@ -398,30 +809,26 @@ function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] 
             const chNum = parseInt(chMatch[1]).toString();
             student[`Challenge ${chNum}`] = cellValue;
             lastLabNumber = null; 
-        } else if (header.match(/^l(\d+)-q(\d+)$/i)) {
-             // Support for l1-q1 format
+        } else if (REGEX_PATTERNS.labQuestionFormat.test(header)) {
              student[header] = cellValue;
-             // Also optionally map to Lab X if needed, but keeping original key is safer for now
-        } else if (header.match(/Feedback/i)) {
+        } else if (REGEX_PATTERNS.feedbackColumn.test(header)) {
              student[header] = cellValue;
-        } else if (header.match(/^\s*(name|firstname)\s*$/i)) {
+        } else if (REGEX_PATTERNS.nameColumn.test(header)) {
              if (!student['name']) student['name'] = fixMashedName(cellValue);
-        } else if (header.match(/^\s*(surname|lastname)\s*$/i)) {
+        } else if (REGEX_PATTERNS.surnameColumn.test(header)) {
              if (!student['surname']) student['surname'] = fixMashedName(cellValue);
-        } else if (header.match(/^\s*(Sum|Total)(?:\s*\((\d+)\))?\s*$/i)) {
+        } else if (REGEX_PATTERNS.totalColumn.test(header)) {
              student['total'] = cellValue;
              const match = header.match(/\((\d+)\)/);
              if (match) student['max_score'] = match[1];
         } else if (header === 'Ethics' || header === 'Code Understanding' || header === 'Reflection') {
-             // For tab-per-lab subjects, prefix with lab number
              if (config?.currentLabNumber) {
                const labKey = `Lab ${config.currentLabNumber} ${header}`;
                student[labKey] = cellValue;
              } else {
-               // Single sheet: use plain column name
                student[header] = cellValue;
              }
-        } else if (String(header).toLowerCase().trim() === 'in-class') {
+        } else if (REGEX_PATTERNS.inClassColumn.test(header)) {
              if (lastLabNumber) {
                  student[`In-Class ${lastLabNumber}`] = cellValue;
              }
@@ -447,122 +854,101 @@ function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] 
   });
 }
 
-// Main Score Fetching Logic
+// Main Score Fetching Logic - optimized for concurrency
 export async function getAllScores(subject: string = 'Sheet1', bypassCache: boolean = false) {
   const config = await getSubjectConfig(subject);
   
-  // Strategy: Tab per Lab (New)
+  // Strategy: Tab per Lab (New) - parallelized fetching
   if (config?.dataSourceType === 'tab_per_lab') {
       let labTabs: string[] = [];
       
       try {
-        // First try to use configured tabs if available
         if (config?.sheetTabs) {
           labTabs = config.sheetTabs.split(',').map((t: string) => t.trim());
         } else if (config?.tabPattern) {
-          // Use configured tab pattern with lab numbers from database
           const { getAllLabs } = await import("./db");
           const labs = await getAllLabs(true, subject);
-          
           labTabs = labs.map(lab => {
             const labNum = parseInt(lab.labNumber);
             return config.tabPattern.replace('{labId}', labNum.toString());
           });
         } else {
-          // Try to get spreadsheet info to scan for lab tabs
           const sheets = await getSheetsClient();
           const spreadsheetId = await getSubjectSheetId(subject);
-          const spreadsheetInfo = await sheets.spreadsheets.get({
-            spreadsheetId
-          });
+          const spreadsheetInfo = await sheets.spreadsheets.get({ spreadsheetId });
           
           const allSheets = spreadsheetInfo.data.sheets || [];
-          
-          // Find lab tabs using regex pattern: lab1, lab2, Lab 1, Lab 2, etc.
-          const labTabRegex = /^lab\s*\d+$/i;
+          const labTabRegex = REGEX_PATTERNS.labTabPattern;
           labTabs = allSheets
-            .map(sheet => sheet.properties?.title || '')
-            .filter(name => labTabRegex.test(name))
-            .sort((a, b) => {
-              // Sort by lab number
+            .map((sheet: any) => sheet.properties?.title || '')
+            .filter((name: string) => labTabRegex.test(name))
+            .sort((a: string, b: string) => {
               const aNum = parseInt(a.replace(/\D/g, '')) || 0;
               const bNum = parseInt(b.replace(/\D/g, '')) || 0;
               return aNum - bNum;
             });
         }
       } catch (error: any) {
-        // console.warn(`[getAllScores] Cannot access spreadsheet info for ${subject}, using fallback:`, error.message);
-        
-        // Fallback: try common lab tab patterns
         const { getAllLabs } = await import("./db");
         const labs = await getAllLabs(true, subject);
         
         if (labs.length > 0) {
-          // Try different naming patterns: Lab1, Lab 1, lab1
           const patterns = [
-            (num: number) => `Lab${num}`,      // Lab1, Lab2, Lab3
-            (num: number) => `Lab ${num}`,     // Lab 1, Lab 2, Lab 3
-            (num: number) => `lab${num}`,      // lab1, lab2, lab3
-            (num: number) => `lab ${num}`,     // lab 1, lab 2, lab 3
+            (num: number) => `Lab${num}`,
+            (num: number) => `Lab ${num}`,
+            (num: number) => `lab${num}`,
+            (num: number) => `lab ${num}`,
           ];
           
-          labTabs = [];
           for (const pattern of patterns) {
-            labTabs = labs.map(lab => pattern(parseInt(lab.labNumber)));
-            // Test if any of these tabs work by trying to access the first one
             try {
-              const testRows = await getSheetData(subject, labTabs[0], bypassCache);
-              if (testRows.length > 0) break; // Found working pattern
+              const testTabs = labs.map(lab => pattern(parseInt(lab.labNumber)));
+              const testRows = await getSheetData(subject, testTabs[0], bypassCache);
+              if (testRows.length > 0) {
+                labTabs = testTabs;
+                break;
+              }
             } catch (e: any) {
-              continue; // Try next pattern
+              continue;
             }
           }
           
           if (labTabs.length === 0) {
-            // Ultimate fallback: Lab1, Lab2, Lab3, Lab4, Lab5
             labTabs = ['Lab1', 'Lab2', 'Lab3', 'Lab4', 'Lab5'];
           }
         } else {
-          // Default fallback tabs - prefer Lab1 format based on user feedback
           labTabs = ['Lab1', 'Lab2', 'Lab3', 'Lab4', 'Lab5'];
         }
       }
       
       if (labTabs.length === 0) {
-        // console.warn(`[getAllScores] No lab tabs configured for ${subject}`);
         return [];
       }
       
-      // Get student roster from first available lab tab
+      // Fetch first tab for roster with fallback
       let baseStudents: any[] = [];
-      let firstTabFound = false;
-      
       for (const tabName of labTabs) {
         try {
           const rosterRows = await getSheetData(subject, tabName, bypassCache);
           if (rosterRows.length > 0) {
             baseStudents = mapRowsToStudents(rosterRows, subject, config);
-            firstTabFound = true;
             break;
           }
         } catch (e: any) {
-        //   console.warn(`[getAllScores] Cannot access ${tabName} for ${subject}:`, e.message);
           continue;
         }
       }
       
-      if (!firstTabFound) {
-        // console.warn(`[getAllScores] No accessible lab tabs found for ${subject}`);
+      if (baseStudents.length === 0) {
         return [];
       }
       
-      // Create student map with ID, name, surname from first tab
+      // Create base map
       let allStudentsMap: Record<string, any> = {};
       baseStudents.forEach(student => {
         if (student.username) {
           allStudentsMap[student.username] = {
             username: student.username,
-            // Extract name and surname if available
             name: student.name || '',
             surname: student.surname || '',
             LA: student.LA || '',
@@ -572,92 +958,95 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
         }
       });
       
-      // Fetch scores from each lab tab (skip errors)
+      // Fetch all lab tabs in parallel (optimized)
       const labDataResults = await Promise.all(labTabs.map(async (tabName, index) => {
           try {
               const rows = await getSheetData(subject, tabName, bypassCache);
               if (rows.length === 0) return [];
-              // Extract lab number from tab name for criteria column naming
-              const labNum = index + 1; // Or extract from tabName if it contains the number
               const labNumMatch = tabName.match(/\d+/);
-              const actualLabNum = labNumMatch ? labNumMatch[0] : String(labNum);
+              const actualLabNum = labNumMatch ? labNumMatch[0] : String(index + 1);
               return mapRowsToStudents(rows, subject, { ...config, currentLabNumber: actualLabNum });
           } catch(e: any) {
-            //   console.warn(`[getAllScores] Failed to fetch ${tabName}: ${e.message}`);
               return [];
           }
       }));
 
-      // Merge scores from all lab tabs while preserving student info
+      // Merge results efficiently
       labDataResults.flat().forEach(student => {
           if (!student.username || !allStudentsMap[student.username]) return;
           
-          // Merge lab scores and criteria scores but keep original student info
           Object.keys(student).forEach(key => {
-            // Include multi-question format (l1-q1, l2-q1, etc.)
             if (key.startsWith('l') && key.includes('-q')) {
               allStudentsMap[student.username][key] = student[key];
-            }
-            // Include criteria columns (Ethics, Code Understanding, Reflection)
-            else if (key === 'Ethics' || key === 'Code Understanding' || key === 'Reflection') {
+            } else if (key === 'Ethics' || key === 'Code Understanding' || key === 'Reflection') {
               allStudentsMap[student.username][key] = student[key];
-            }
-            // Include Lab-specific criteria columns (Lab 1 Ethics, Lab 2 Code Understanding, etc.)
-            else if (key.match(/^Lab \d+ (Ethics|Code Understanding|Reflection)$/)) {
+            } else if (key.match(/^Lab \d+ (Ethics|Code Understanding|Reflection)$/)) {
               allStudentsMap[student.username][key] = student[key];
-            }
-            // Include Lab scores (Lab 1, Lab 2, etc.)
-            else if (key.startsWith('Lab ')) {
+            } else if (key.startsWith('Lab ')) {
               allStudentsMap[student.username][key] = student[key];
             }
           });
-          // Update total if provided
+          
           if (student.total && student.total !== '0') {
             allStudentsMap[student.username].total = student.total;
           }
       });
       
-      const result = Object.values(allStudentsMap);
-    //   console.log(`[getAllScores] Tab per lab strategy for ${subject}: found ${result.length} students from ${labTabs.length} tabs`);
-    //   if (result.length > 0) {
-        // console.log(`[getAllScores] Sample student keys for ${subject}:`, Object.keys(result[0]));
-    //   }
-      return result;
+      return Object.values(allStudentsMap);
   }
 
-  // Strategy: Tab per Section
+  // Strategy: Tab per Section - parallel fetching
   const isMultiSection = (config?.dataSourceType === 'tab_per_section') || 
                          (subject === 'ITCS123' || subject === 'ITCS223' || subject === 'ITDS283');
                          
   if (isMultiSection) {
       let tabs: string[] = [];
       
-      // Use configured tabs if available
       if (config?.sheetTabs) {
           tabs = config.sheetTabs.split(',').map((t: string) => t.trim());
       } else {
-          // Fallback legacy defaults
           if (subject === 'ITCS123') tabs = ['Sec1', 'Sec2', 'Sec3'];
           else if (subject === 'ITCS223') tabs = ['Section 1', 'Section 2', 'Section 3'];
           else if (subject === 'ITDS283') tabs = ['Section 1', 'Section 2'];
-          else tabs = ['Sec1', 'Sec2']; // Generic default
+          else tabs = ['Sec1', 'Sec2'];
       }
 
-      // console.log(`[getAllScores] Fetching multi-section: ${tabs.join(', ')}`);
+      // Try to fetch with initially configured tabs
+      let promises = tabs.map(tab => 
+        getSheetData(subject, tab, bypassCache).catch(e => [])
+      );
       
-      const promises = tabs.map(tab => getSheetData(subject, tab, bypassCache).catch(e => {
-        //   console.warn(`[getAllScores] Failed to fetch ${tab}: ${e.message}`);
-          return [];
-      }));
+      let results = await Promise.all(promises);
+      let hasData = results.some(r => r.length > 0);
+
+      // If no data found with default tabs, try to auto-detect available tabs
+      if (!hasData) {
+          try {
+              const sheets = await getSheetsClient();
+              const spreadsheetId = await getSubjectSheetId(subject);
+              const spreadsheetInfo = await sheets.spreadsheets.get({ spreadsheetId });
+              
+              const allSheets = spreadsheetInfo.data.sheets || [];
+              const allTabNames = allSheets.map((s: any) => s.properties?.title || '').filter((t: string) => t.length > 0);
+              
+              // Try all available tabs
+              promises = allTabNames.map((tab: string) => 
+                getSheetData(subject, tab, bypassCache).catch((e: any) => [])
+              );
+              
+              results = await Promise.all(promises);
+              tabs = allTabNames;
+          } catch (e: any) {
+              // Auto-detection failed, continue with original results
+          }
+      }
       
-      const results = await Promise.all(promises);
       let allStudents: any[] = [];
       
       results.forEach((rows, i) => {
           if (rows.length > 0) {
               const studs = mapRowsToStudents(rows, subject, config);
               const tabName = tabs[i];
-              // extract section ID from tab name? "Section 1" -> "1"
               const secMatch = tabName.match(/\d+/);
               const secId = secMatch ? secMatch[0] : tabName;
               
@@ -679,7 +1068,6 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
       const nameSheetId = '1Sa8K_SPKuhqDHFuwlIrH_8lSdA3aMPqzuKsadwEkCXc';
       const sheets = await getSheetsClient();
       
-      // First get sheet info to see the sheet names
       const spreadsheetInfo = await sheets.spreadsheets.get({
         spreadsheetId: nameSheetId,
       });
@@ -693,36 +1081,29 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
       
       const nameRows = nameResponse.data.values || [];
       if (nameRows.length > 0) {
-        // Create a map of ID -> {name, surname}
         const nameMap: { [key: string]: { name: string, surname: string } } = {};
         
-        // Skip header row (index 0)
         for (let i = 1; i < nameRows.length; i++) {
           const row = nameRows[i];
-          const id = row[0]?.toString().trim(); // ID column
-          const name = row[1]?.toString().trim(); // Name column  
-          const surname = row[2]?.toString().trim(); // Surname column
+          const id = row[0]?.toString().trim();
+          const name = row[1]?.toString().trim();
+          const surname = row[2]?.toString().trim();
           
           if (id && name && surname) {
             nameMap[id] = { name, surname };
           }
         }
         
-        // Merge name data into students
         students = students.map(student => {
           const nameData = nameMap[student.username];
           if (nameData) {
-            return {
-              ...student,
-              name: nameData.name,
-              surname: nameData.surname
-            };
+            return { ...student, name: nameData.name, surname: nameData.surname };
           }
           return student;
         });
       }
     } catch (error) {
-      // Failed to fetch name data
+      // Failed to fetch name data, continue
     }
   }
   
@@ -770,7 +1151,7 @@ export async function updateStudentLabScore(
       // BUT `updateSpecificTab` also does regex watching.
       // If dynamic, we usually want to search by Header matching rather than guessing exact string
       // But we can try to guess a "Standard" display name.
-      const labInt = parseInt(labNumber.replace(/[^\d]/g, '')) || labNumber;
+      const labInt = parseRequestedLabNumber(labNumber) ?? labNumber;
       // If it's multi-question (e.g. L1-Q1), we might receive "L1-Q1" as labNumber.
       // If the pattern is "Lab {labId}", it won't suffice for question sub-parts unless pattern supports it.
       // We assume `labNumber` passed here IS the column header identifier or close to it.
@@ -781,17 +1162,21 @@ export async function updateStudentLabScore(
     const labNumPadded = labNumber.padStart(2, '0');
     actualLabNumber = scoreType === 'lab' ? `Lab${labNumPadded} (2)` : `Ch${labNumPadded} (2)`;
   } else if (sheetName === 'ITDS283' && scoreType === 'challenge') {
-    const labInt = parseInt(labNumber.toString().replace(/[^\d]/g, '')).toString();
+    const labInt = (parseRequestedLabNumber(labNumber) ?? parseInt(labNumber, 10)).toString();
     actualLabNumber = `Ch${labInt}`;
   }
 
   // Determine Target Tabs
-  let targetTabs: string[] = [sheetName];
+  const isSingleSheet = !config?.dataSourceType || config.dataSourceType === 'single_sheet';
+  let targetTabs: string[] = isSingleSheet
+    ? [config?.singleSheetTabName || sheetName]
+    : [sheetName];
   
   // Strategy: Tab Per Lab
   if (config?.dataSourceType === 'tab_per_lab') {
       // Use configurable tab pattern or fallback to default
-      const labInt = parseInt(labNumber.replace(/[^\d]/g, ''));
+      const labInt = parseRequestedLabNumber(labNumber);
+      if (labInt === null) return;
       
       if (config?.tabPattern) {
           // Replace {labId} with actual lab number
@@ -840,22 +1225,12 @@ export async function updateStudentLabScore(
            const rows = await getSheetData(sheetName, tab).catch(() => []);
            if (rows.length === 0) continue;
            
-           // Check existence
            const headerRowConfig = config?.headerRow ? config.headerRow - 1 : 0;
-           // ID col defaults
-           let idIndex = ['ITCS123','ITCS223','ITCS251','ITCS255','ITDS283'].includes(sheetName) ? 1 : 0;
-           if (sheetName === 'ITDS283' && rows.length > headerRowConfig) {
-                const h = rows[headerRowConfig];
-                const found = h.findIndex((x: any) => String(x).toLowerCase().trim() === 'id');
-                if (found !== -1) idIndex = found;
-           }
-           
-           const exists = rows.some((row, idx) => {
-               if (idx <= headerRowConfig) return false;
-               const sheetId = String(row[idIndex] || '').trim();
-               const inputId = String(username).trim();
-               return sheetId === inputId || sheetId.replace(/^[uU]/,'') === inputId.replace(/^[uU]/,'');
-           });
+           const headerRowData = rows.length > headerRowConfig ? rows[headerRowConfig] : [];
+           const { rowIndex: studentRow } = findStudentInRows(
+             rows, username, headerRowConfig, headerRowData, sheetName, config
+           );
+           const exists = studentRow !== -1;
            
            if (exists) {
                // console.log(`[updateStudentLabScore] Found user in ${tab}`);
@@ -962,10 +1337,9 @@ async function updateXlsxData(spreadsheetId: string, tabName: string, updates: {
         // console.error(`[updateXlsxData] Status:`, e.code || 'unknown');
         
         if (e.code === 403) {
-            // console.error(`[updateXlsxData] Permission denied! The service account needs write access to this file.`);
-            // console.error(`[updateXlsxData] File ID: ${spreadsheetId}`);
-            // console.error(`[updateXlsxData] Service account: ${process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL}`);
-            // console.error(`[updateXlsxData] Solution: Share the Google Sheet with the service account email and grant 'Editor' permissions.`);
+            throw new Error(
+              `Cannot update uploaded Excel file (Drive permission denied). Share the file with ${GOOGLE_CLIENT_EMAIL} as Editor, or convert it to a native Google Sheet.`
+            );
         }
         
         throw e;
@@ -976,79 +1350,44 @@ async function updateXlsxData(spreadsheetId: string, tabName: string, updates: {
 const studentRowCache = new Map<string, { spreadsheetId: string, rowIndex: number, timestamp: number }>();
 const STUDENT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-// Internal helper for actual update logic
+// Internal helper for actual update logic - optimized for performance
 async function updateSpecificTab(subject: string, tabName: string, username: string, labNumber: string, score: number, feedback?: string, isCsv: boolean = false, config?: any, inClass?: boolean) {
   const sheets = await getSheetsClient();
   const spreadsheetId = await getSubjectSheetId(subject);
+
+  const resolvedTab = await resolveTabNameForSpreadsheet(spreadsheetId, tabName, [subject, 'Sheet1']);
   
-  // Use cached sheet data to avoid repeated API calls
-  const rows = await getSheetData(subject, tabName, false); // Use cache
+  const rows = await getSheetData(subject, resolvedTab, false);
   
-  // Header Config - For ITCS251/255, both header and data start at row 5
   const headerRow = (subject === 'ITCS251' || subject === 'ITCS255') ? 5 : (config?.headerRow || 1);
   const startRow = (subject === 'ITCS251' || subject === 'ITCS255') ? 5 : 1;
-  const headerIdx = headerRow - startRow; // Relative index in 'rows' array
+  const headerIdx = headerRow - startRow;
 
   let headers = (rows.length > headerIdx && rows[headerIdx]) ? rows[headerIdx] : [];
   
-  // Ensure headers is always an array
   if (!Array.isArray(headers)) {
     headers = [];
   }
   
-  // ... [Existing init logic if empty sheet, but using headerRow] ...
   if (rows.length === 0) {
-      // Create Sheet with header at correct row?
-      // Complicated if headerRow > 1. Assume 1 for empty.
       headers = ['Username', `Lab ${labNumber}`, `Lab ${labNumber} Feedback`];
-      // Update...
   }
 
-  // Column Matching Logic
-  const labInt = parseInt(labNumber.toString().replace(/[^\d]/g, '')).toString(); 
-  const labNumPad = labInt.length === 1 ? `0${labInt}` : labInt;
-  
+  // Pre-compute header lowercase map for faster searching
+  const headerLowerMap = new Map<string, number>();
+  headers.forEach((h: string, idx: number) => {
+    if (h) headerLowerMap.set(String(h).toLowerCase(), idx);
+  });
 
-  
-  // 1. Exact Match
-  let labIndex = headers.findIndex((h: string) => h === labNumber);
-  
-  if (labIndex === -1) {
-      labIndex = headers.findIndex((h: string) => h.toLowerCase() === labNumber.toLowerCase());
-  }
-  
-  // 2. Subject-specific pattern matching
-  if (labIndex === -1) {
-      if (subject === 'ITCS251' || subject === 'ITCS255') {
-          // For Python and SQL courses, look for "W {labNumber}" pattern
-          const labInt = parseInt(labNumber.toString().replace(/[^\d]/g, '')).toString();
-          const wPattern = `W ${labInt}`;
-          labIndex = headers.findIndex((h: string) => String(h).trim() === wPattern);
-      }
-  }
-  
-  // 3. Regex Match (Enhanced)
-  if (labIndex === -1) {
-      if (config?.columnPattern) {
-           const safePattern = config.columnPattern.replace('{labId}', `(${labInt}|${labNumPad})`).replace('{questionId}', '.*');
-           try {
-               const regex = new RegExp(safePattern, 'i');
-               labIndex = headers.findIndex((h: string) => regex.test(h));
-           } catch (e) {}
-      }
-      
-      if (labIndex === -1) {
-          // Standard Fallbacks
-          const labRegex = new RegExp(`^(Lab|Ch|L|W|Week)\\s*(${labInt}|${labNumPad})\\b`, 'i');
-          labIndex = headers.findIndex((h: string) => labRegex.test(h));
-      }
-  }
+  const requestedLabNum = parseRequestedLabNumber(labNumber);
+  const labInt = requestedLabNum !== null ? requestedLabNum.toString() : '0';
+  const labNumPad = requestedLabNum !== null ? requestedLabNum.toString().padStart(2, '0') : '00';
+
+  let labIndex = findLabColumnIndex(headers, labNumber, subject, config);
   
   // Feedback Column
-  // Usually adjacent or named specifically
   let feedbackIndex = headers.findIndex((h: string) => h === `${labNumber} Feedback` || h === `Lab ${labInt} Feedback`);
   
-  // Subject-specific feedback patterns
   if (feedbackIndex === -1 && (subject === 'ITCS251' || subject === 'ITCS255')) {
       feedbackIndex = headers.findIndex((h: string) => h === `W ${labInt} Feedback`);
   }
@@ -1059,73 +1398,44 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
   // Add Header if missing
   if (labIndex === -1) {
       labIndex = headers.length; 
-      let headerValue = labNumber;
+      let headerValue = inferLabColumnHeaderName(headers, labInt, labNumPad, labNumber);
       
-      // Format header for specific subjects
       if (subject === 'ITDS283') {
-          const labInt = parseInt(labNumber.toString().replace(/[^\d]/g, '')).toString();
-          const labNumPadded = labInt.padStart(2, '0');
-          headerValue = `Lab${labNumPadded}`;
+          headerValue = `Lab${labNumPad}`;
       } else if (subject === 'ITCS251' || subject === 'ITCS255') {
-          // For Python and SQL courses, use "W {labNumber}" format
-          const labInt = parseInt(labNumber.toString().replace(/[^\d]/g, '')).toString();
           headerValue = `W ${labInt}`;
       }
       
-      // If we need to respect pattern for creation, it's hard. Just use passed Value.
       headers.push(headerValue);
       
       pendingUpdates.push({
-          range: `${tabName}!${getColumnLetter(labIndex + 1)}${headerRow}`,
+          range: `${resolvedTab}!${getColumnLetter(labIndex + 1)}${headerRow}`,
           values: [[headerValue]]
       });
       xlsxUpdates.push({ col: labIndex + 1, row: headerRow, value: headerValue });
   }
 
-  // Find Row
-  // Use same ID logic as mapRows
-  let idIndex = ['ITCS123','ITCS223','ITCS251','ITCS255','ITDS283','ITCS113','ITCS258'].includes(subject) ? 1 : 0;
-  
-  // Check for criteria-based format (Ethics, Code Understanding, Reflection columns)
-  const isCriteriaBasedFormat = headers.some((h: string) => 
-    String(h).toLowerCase().includes('ethics') || 
-    String(h).toLowerCase().includes('code understanding') || 
-    String(h).toLowerCase().includes('reflection')
-  );
-  if (isCriteriaBasedFormat) {
-    idIndex = 1; // ID is in column B for criteria format
-  }
-  
-  if (subject === 'ITDS283') {
-       const found = headers.findIndex((h: string) => String(h).toLowerCase().trim() === 'id');
-       if (found !== -1) idIndex = found;
-  }
+  const idIndex = resolveIdColumnIndex(headers, subject, config);
 
   // Optimized student row finding with cache
-  const cacheKey = `${spreadsheetId}_${tabName}_${username}`;
+  const cacheKey = `${spreadsheetId}_${resolvedTab}_${username}`;
   const cached = studentRowCache.get(cacheKey);
   let rowIndex = -1;
   
   if (cached && cached.spreadsheetId === spreadsheetId && (Date.now() - cached.timestamp < STUDENT_CACHE_TTL)) {
-    // Use cached row index, but verify it's still valid
     if (cached.rowIndex < rows.length) {
-      const val = rows[cached.rowIndex][idIndex];
-      if (String(val).trim() === String(username).trim()) {
+      const row = rows[cached.rowIndex];
+      const colsToCheck = [idIndex, 0, 1, 2].filter((c, i, a) => c >= 0 && a.indexOf(c) === i);
+      if (colsToCheck.some((col) => col < row.length && studentIdsMatch(row[col], username))) {
         rowIndex = cached.rowIndex;
       }
     }
   }
   
-  // Fall back to search if cache miss or invalid
   if (rowIndex === -1) {
-    rowIndex = rows.findIndex((row, idx) => {
-        if (idx < headerIdx) return false; // Skip pre-header
-        const val = row[idIndex];
-        const isMatch = String(val).trim() === String(username).trim();
-        return isMatch;
-    });
+    const found = findStudentInRows(rows, username, headerIdx, headers, subject, config);
+    rowIndex = found.rowIndex;
     
-    // Cache the found row index
     if (rowIndex !== -1) {
       studentRowCache.set(cacheKey, { 
         spreadsheetId, 
@@ -1134,55 +1444,79 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
       });
     }
   }
-  
 
-  
-  if (rowIndex === -1) {
+  const isNewStudentRow = rowIndex === -1;
+  if (isNewStudentRow) {
     rowIndex = rows.length;
-    let newRow = new Array(Math.max(idIndex + 1, headers.length)).fill("");
-    newRow[idIndex] = username;
-    
-    // The `rows` array returned by `getSheetData` is already adjusted for `startRow`.
-    // The relative index of the new row is `rows.length`.
-    // The actual sheet row number is `rows.length` + `startRow`.
-    const actualSheetRow = rows.length + startRow;
-    
-    pendingUpdates.push({
-        range: `${tabName}!A${actualSheetRow}`,
-        values: [newRow]
-    });
-    newRow.forEach((val, idx) => {
-        xlsxUpdates.push({ col: idx + 1, row: actualSheetRow, value: val });
-    });
   }
 
-  // Score Update
-  // We need precise row number.
-  // if rowIndex is from `rows` (which starts at `startRow`), then:
-  // Sheet Row = rowIndex + startRow.
   const actualSheetRow = rowIndex + startRow;
 
-  const scoreRange = `${tabName}!${getColumnLetter(labIndex + 1)}${actualSheetRow}`;
+  if (isNewStudentRow) {
+    const newRow = new Array(Math.max(idIndex + 1, headers.length, labIndex + 1)).fill('');
+    newRow[idIndex] = username;
+    if (labIndex !== -1) newRow[labIndex] = score;
 
-  
+    if ((subject === 'ITCS251' || subject === 'ITCS255') && !isCsv && inClass !== undefined) {
+      const nextColumnIndex = labIndex + 1;
+      if (nextColumnIndex < headers.length) {
+        const nextColumnHeader = headers[nextColumnIndex];
+        if (nextColumnHeader && String(nextColumnHeader).toLowerCase().trim() === 'in-class') {
+          newRow[nextColumnIndex] = inClass;
+        }
+      }
+    }
+
+    if (feedback !== undefined && feedbackIndex !== -1) {
+      newRow[feedbackIndex] = feedback;
+    }
+
+    try {
+      if (pendingUpdates.length > 0) {
+        await sheets.spreadsheets.values.batchUpdate({
+          spreadsheetId,
+          requestBody: { valueInputOption: 'RAW', data: pendingUpdates },
+        });
+      }
+
+      await sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range: `${resolvedTab}!A:A`,
+        valueInputOption: 'RAW',
+        insertDataOption: 'INSERT_ROWS',
+        requestBody: { values: [newRow] },
+      });
+      return;
+    } catch (err: any) {
+      if (isUnsupportedSpreadsheetDocumentError(err)) {
+        newRow.forEach((val, idx) => {
+          if (val !== '') {
+            xlsxUpdates.push({ col: idx + 1, row: actualSheetRow, value: val });
+          }
+        });
+        return await updateXlsxData(spreadsheetId, resolvedTab, xlsxUpdates);
+      }
+      const availableTabs = await listGoogleSheetTabNames(spreadsheetId).catch(() => undefined);
+      throw formatSheetUpdateError(resolvedTab, err, availableTabs);
+    }
+  }
+
+  const scoreRange = `${resolvedTab}!${getColumnLetter(labIndex + 1)}${actualSheetRow}`;
+
   pendingUpdates.push({
       range: scoreRange,
       values: [[score]]
   });
   xlsxUpdates.push({ col: labIndex + 1, row: actualSheetRow, value: score });
   
-  // Special handling for ITCS251 and ITCS255: Update In-Class column adjacent to W column
-  // Skip if initiated via CSV upload
+  // Special handling for ITCS251 and ITCS255
   if ((subject === 'ITCS251' || subject === 'ITCS255') && !isCsv && inClass !== undefined) {
-    // Check if the column immediately after the lab column is "In-Class"
     const nextColumnIndex = labIndex + 1;
     if (nextColumnIndex < headers.length) {
       const nextColumnHeader = headers[nextColumnIndex];
-      // Check if next column is an In-Class checkbox
       if (nextColumnHeader && String(nextColumnHeader).toLowerCase().trim() === 'in-class') {
-        // Update the In-Class column adjacent to this specific W column
         pendingUpdates.push({
-          range: `${tabName}!${getColumnLetter(nextColumnIndex + 1)}${actualSheetRow}`,
+          range: `${resolvedTab}!${getColumnLetter(nextColumnIndex + 1)}${actualSheetRow}`,
           values: [[inClass]]
         });
         xlsxUpdates.push({ col: nextColumnIndex + 1, row: actualSheetRow, value: inClass });
@@ -1193,32 +1527,36 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
   // Feedback
   if (feedback !== undefined && feedbackIndex !== -1) {
       pendingUpdates.push({
-          range: `${tabName}!${getColumnLetter(feedbackIndex + 1)}${actualSheetRow}`,
+          range: `${resolvedTab}!${getColumnLetter(feedbackIndex + 1)}${actualSheetRow}`,
           values: [[feedback]]
       });
       xlsxUpdates.push({ col: feedbackIndex + 1, row: actualSheetRow, value: feedback });
   }
 
-  // Exec Updates (same as before)
+  // Execute updates
   try {
-
       if (pendingUpdates.length > 0) {
-          const result = await sheets.spreadsheets.values.batchUpdate({
+          await sheets.spreadsheets.values.batchUpdate({
               spreadsheetId,
               requestBody: {
                   valueInputOption: 'RAW',
                   data: pendingUpdates
               }
           });
-
       }
       return; 
   } catch (err: any) {
-       const isXlsxError = err.code === 400 || (err.message && err.message.includes('not supported'));
-       if (isXlsxError) {
-           return await updateXlsxData(spreadsheetId, tabName, xlsxUpdates);
+       if (isUnsupportedSpreadsheetDocumentError(err)) {
+           return await updateXlsxData(spreadsheetId, resolvedTab, xlsxUpdates);
        }
-       throw err; 
+       if (isGridLimitsError(err)) {
+         throw new Error(
+           `Cannot write to row ${actualSheetRow} on tab "${resolvedTab}" (sheet has reached its row limit). ` +
+           `Add a blank row at the bottom of the sheet or ask an admin to expand the grid.`
+         );
+       }
+       const availableTabs = await listGoogleSheetTabNames(spreadsheetId).catch(() => undefined);
+       throw formatSheetUpdateError(resolvedTab, err, availableTabs);
   }
 }
 
@@ -1255,15 +1593,15 @@ export async function batchUpdateCriteriaScores(updates: {username: string, labN
 // Enhanced helper function to update criteria with configurable tab patterns
 async function updateCriteriaInTabWithPattern(subject: string, labNumber: string, username: string, criteria: {[key: string]: number}) {
     const config = await getSubjectConfig(subject);
-    const labInt = parseInt(labNumber.replace(/[^\d]/g, ''));
+    const labInt = parseRequestedLabNumber(labNumber);
     
     // Determine possible tab names based on configuration
     let possibleTabNames: string[] = [];
     
-    if (config?.tabPattern) {
+    if (config?.tabPattern && labInt !== null) {
         // Use configured pattern
         possibleTabNames = [config.tabPattern.replace('{labId}', labInt.toString())];
-    } else if (!isNaN(labInt)) {
+    } else if (labInt !== null) {
         // Try multiple common patterns in order
         possibleTabNames = [
             `Lab${labInt}`,      // Lab1, Lab2, Lab3 (ITCS258 style) 
@@ -1294,74 +1632,50 @@ async function updateCriteriaInTabWithPattern(subject: string, labNumber: string
     return false;
 }
 
-// Helper function to update specific criteria columns in a tab
+// Helper function to update specific criteria columns in a tab - optimized
 async function updateCriteriaInTab(subject: string, tabName: string, username: string, criteria: {[key: string]: number}) {
-    // console.log(`[updateCriteriaInTab] Starting update for ${username} in ${subject}-${tabName}:`, criteria);
     const sheets = await getSheetsClient();
     const spreadsheetId = await getSubjectSheetId(subject);
+    const config = await getSubjectConfig(subject);
     
     const rows = await getSheetData(subject, tabName);
-    // console.log(`[updateCriteriaInTab] Got ${rows.length} rows from ${tabName}`);
     
     const headerRow = 1;
     const startRow = 1;
     const headerIdx = headerRow - startRow;
     
     let headers = rows.length > headerIdx ? rows[headerIdx] : [];
-    // console.log(`[updateCriteriaInTab] Headers:`, headers);
     
-    // Find ID column (should be column B = index 1 for criteria format)
-    let idIndex = 1;
+    // Pre-compute criteria column indices once
+    const criteriaColumns: Record<string, number> = {
+        'Ethics': headers.findIndex((h: any) => REGEX_PATTERNS.ethicsColumn.test(h)),
+        'Code Understanding': headers.findIndex((h: any) => REGEX_PATTERNS.codeUnderstandingColumn.test(h)),
+        'Reflection': headers.findIndex((h: any) => REGEX_PATTERNS.reflectionColumn.test(h))
+    };
     
-    // Find row for the user
-    let rowIndex = rows.findIndex((row, idx) => {
-        if (idx < headerIdx) return false;
-        const val = row[idIndex];
-        const isMatch = String(val).trim() === String(username).trim();
-        if (isMatch) {
-            // console.log(`[updateCriteriaInTab] Found user at row ${idx}, ID: "${val}"`);
-        }
-        return isMatch;
-    });
+    const { rowIndex } = findStudentInRows(rows, username, headerIdx, headers, subject, config);
     
     if (rowIndex === -1) {
-        // console.error(`[updateCriteriaInTab] User ${username} not found in ${subject}-${tabName}`);
-        // console.log(`[updateCriteriaInTab] Available IDs:`, rows.slice(1).map(row => row[idIndex]).filter(id => id));
         return;
     }
     
     const actualSheetRow = rowIndex + startRow;
-    // console.log(`[updateCriteriaInTab] User found at row ${actualSheetRow}`);
     
     const pendingUpdates: any[] = [];
     const xlsxUpdates: { col: number, row: number, value: any }[] = [];
     
-    // Find column indices for each criteria
-    const criteriaColumns = {
-        'Ethics': headers.findIndex(h => String(h).toLowerCase().includes('ethics')),
-        'Code Understanding': headers.findIndex(h => String(h).toLowerCase().includes('code understanding')),
-        'Reflection': headers.findIndex(h => String(h).toLowerCase().includes('reflection'))
-    };
-    
-    // console.log(`[updateCriteriaInTab] Criteria columns:`, criteriaColumns);
-    
     // Update each criteria score
     for (const [criteriaName, score] of Object.entries(criteria)) {
-        const columnIndex = criteriaColumns[criteriaName as keyof typeof criteriaColumns];
+        const columnIndex = criteriaColumns[criteriaName];
         if (columnIndex !== -1) {
             const range = `${tabName}!${getColumnLetter(columnIndex + 1)}${actualSheetRow}`;
-            // console.log(`[updateCriteriaInTab] Updating ${criteriaName}: ${range} = ${score}`);
             pendingUpdates.push({
                 range: range,
                 values: [[score]]
             });
             xlsxUpdates.push({ col: columnIndex + 1, row: actualSheetRow, value: score });
-        } else {
-            // console.error(`[updateCriteriaInTab] Column for ${criteriaName} not found!`);
         }
     }
-    
-    // console.log(`[updateCriteriaInTab] Total updates: ${pendingUpdates.length}`);
     
     // Apply updates
     try {
@@ -1373,12 +1687,10 @@ async function updateCriteriaInTab(subject: string, tabName: string, username: s
                     data: pendingUpdates,
                 },
             });
-            // console.log(`[updateCriteriaInTab] Google Sheets API update successful`);
         }
         return true;
     } catch (e: any) {
-        // console.error(`[updateCriteriaInTab] Google Sheets API failed, trying XLSX update:`, e.message);
-        if (xlsxUpdates.length > 0) {
+        if (isUnsupportedSpreadsheetDocumentError(e) && xlsxUpdates.length > 0) {
             return await updateXlsxData(spreadsheetId, tabName, xlsxUpdates);
         }
         return false;
@@ -1392,6 +1704,7 @@ export async function fillMissingScores(subject: string, labNumber: string, valu
   const isMultiSection = subject === 'ITCS123' || subject === 'ITCS223' || subject === 'ITDS283';
   const isSingleSubjectTab = subject === 'ITCS251' || subject === 'ITCS255' || subject === 'ITCS227';
   let tabs: string[] = [];
+  
   if (isMultiSection) {
       let allTabs: string[] = [];
       if (subject === 'ITCS123') allTabs = ['Sec1', 'Sec2', 'Sec3'];
@@ -1417,36 +1730,29 @@ export async function fillMissingScores(subject: string, labNumber: string, valu
           if (rows.length === 0) continue;
 
           const headers = rows[0];
-          const labInt = parseInt(labNumber.toString()).toString();
-          const labNumPad = labInt.length === 1 ? `0${labInt}` : labInt;
-          const labRegex = new RegExp(`^(Lab\\s*${labInt}|L${labInt}|L${labNumPad})(\\s*\\(.*\\))?$`, 'i');
-          let labIndex = headers.findIndex((h: string) => labRegex.test(h));
+          const labIndex = findLabColumnIndex(headers, labNumber, subject);
 
           if (labIndex === -1) continue;
 
           const updates = [];
           const xlsxUpdates: any[] = [];
 
-          // For ITCS227, filter by section (column F = index 5)
           const sectionIndex = subject === 'ITCS227' ? 5 : -1;
-          // For ITCS251/ITCS255, header starts at row 5 (already handled by getSheetData)
           const headerRowOffset = (subject === 'ITCS251' || subject === 'ITCS255') ? 4 : 0;
 
           for (let i = 1; i < rows.length; i++) {
               const row = rows[i];
               
-              // If section filtering is enabled for ITCS227, check section match
               if (subject === 'ITCS227' && section && section !== 'all' && sectionIndex !== -1) {
                   const rowSection = String(row[sectionIndex] || '').trim();
                   if (rowSection !== section) {
-                      continue; // Skip rows not in selected section
+                      continue;
                   }
               }
               
               const cellValue = row[labIndex];
 
               if (cellValue === undefined || cellValue === null || cellValue === '') {
-                  // Adjust row number for subjects with header offset
                   const actualRow = i + 1 + headerRowOffset;
                   updates.push({
                       range: `${tabName}!${getColumnLetter(labIndex + 1)}${actualRow}`,
@@ -1466,9 +1772,7 @@ export async function fillMissingScores(subject: string, labNumber: string, valu
                       }
                   });
               } catch (err: any) {
-                   const isXlsxError = err.code === 400 || (err.message && err.message.includes('not supported'));
-                   if (isXlsxError) {
-                       // console.log(`[fillMissingScores] XLSX Write Fallback for ${tabName}`);
+                   if (isUnsupportedSpreadsheetDocumentError(err)) {
                        await updateXlsxData(spreadsheetId, tabName, xlsxUpdates);
                    } else {
                        throw err;
@@ -1498,4 +1802,45 @@ function getColumnLetter(colIndex: number) {
     colIndex = (colIndex - temp - 1) / 26;
   }
   return letter;
+}
+
+// Debug function to see available tabs and data in a Google Sheet
+export async function debugSheetTabs(subject: string) {
+  try {
+    const spreadsheetId = await getSubjectSheetId(subject);
+    const sheets = await getSheetsClient();
+    
+    const spreadsheetInfo = await sheets.spreadsheets.get({
+      spreadsheetId,
+    });
+    
+    const allSheets = spreadsheetInfo.data.sheets || [];
+    
+    console.log(`\n=== Debug: ${subject} (Sheet ID: ${spreadsheetId.substring(0, 20)}...) ===`);
+    console.log(`Total tabs found: ${allSheets.length}\n`);
+    
+    for (const sheet of allSheets) {
+      const tabName = sheet.properties?.title || 'UNKNOWN';
+      try {
+        const response = await sheets.spreadsheets.values.get({
+          spreadsheetId,
+          range: `${tabName}!A1:E5`,
+        });
+        
+        const rows = response.data.values || [];
+        console.log(`📄 Tab: "${tabName}"`);
+        console.log(`   Rows: ${rows.length}`);
+        if (rows.length > 0) {
+          console.log(`   Header: ${rows[0].join(' | ')}`);
+          if (rows.length > 1) {
+            console.log(`   Sample: ${rows[1].join(' | ')}`);
+          }
+        }
+      } catch (e: any) {
+        console.log(`📄 Tab: "${tabName}" - ERROR: ${e.message}`);
+      }
+    }
+  } catch (error: any) {
+    console.error(`Debug failed for ${subject}:`, error.message);
+  }
 }
