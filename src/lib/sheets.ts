@@ -1172,8 +1172,21 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
           if (rows.length > 0) {
               const studs = mapRowsToStudents(rows, subject, config);
               const tabName = tabs[i];
-              const secMatch = tabName.match(/\d+/);
-              const secId = secMatch ? secMatch[0] : tabName;
+              let secId = '-';
+              
+              // Remove the subject code (case-insensitive) to prevent matching digits in the course code (e.g. 123 in ITCS123)
+              let searchName = tabName;
+              const subIdx = tabName.toLowerCase().indexOf(subject.toLowerCase());
+              if (subIdx !== -1) {
+                  searchName = tabName.substring(0, subIdx) + tabName.substring(subIdx + subject.length);
+              }
+              
+              const cleanSearch = searchName.trim().toLowerCase();
+              // Only extract if there's actually a section-like name left and it's not a generic sheet
+              if (cleanSearch && !cleanSearch.includes('sheet')) {
+                  const secMatch = searchName.match(/\d+/);
+                  secId = secMatch ? secMatch[0] : searchName.trim();
+              }
               
               studs.forEach(s => s.Section = secId);
               allStudents = [...allStudents, ...studs];
