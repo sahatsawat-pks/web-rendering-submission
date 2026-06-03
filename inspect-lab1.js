@@ -12,9 +12,11 @@ async function inspect() {
     
     try {
         const client = await pool.connect();
-        const res = await client.query("SELECT id, lab_number, title, lab_type FROM labs WHERE subject = 'ITCS123' AND lab_number = '1'");
+        const res = await client.query(
+            "SELECT id, lab_number, title, lab_type, quiz_enabled, quiz_questions, quiz_categories FROM labs WHERE subject = 'ITCS123' AND lab_number IN ('1', '01')"
+        );
         console.log("Lab 1 Data:");
-        console.table(res.rows);
+        console.log(JSON.stringify(res.rows, null, 2));
         client.release();
     } catch (e) {
         console.error(e);

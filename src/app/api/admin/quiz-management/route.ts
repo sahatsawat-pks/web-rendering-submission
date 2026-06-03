@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
     const subject = url.searchParams.get("subject") || undefined
 
     // Get all labs with quiz information
-    const labs = await getAllLabs(false, subject)
+    const allLabs = await getAllLabs(false, subject)
+    const labs = allLabs.filter(lab => lab.labType !== 'Challenge')
     
     // Transform labs to quiz format
     const result = { rows: labs.map(lab => ({

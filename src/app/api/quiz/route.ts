@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
 
     // Get all labs with quiz for subject
     const labs = await getAllLabs(true, subject)
-    const subjectLabs = labs.filter((lab: any) => lab.quizEnabled === true)
+    const subjectLabs = labs.filter((lab: any) => lab.quizEnabled === true && lab.labType !== 'Challenge')
 
     const labsWithQuiz = subjectLabs.map((lab: any) => {
       let questionCount = 0

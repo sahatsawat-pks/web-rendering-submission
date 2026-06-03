@@ -1002,17 +1002,28 @@ export async function getLabById(id: string): Promise<Lab | undefined> {
   }
 }
 
-export async function getLabByNumber(labNumber: string, subject?: string): Promise<Lab | undefined> {
+export async function getLabByNumber(
+  labNumber: string,
+  subject?: string,
+  labType: 'Lab' | 'Challenge' = 'Lab'
+): Promise<Lab | undefined> {
     await init();
     const client = await getPool().connect();
     try {
         let query = 'SELECT * FROM labs WHERE lab_number = $1';
         const params: any[] = [labNumber];
+        let idx = 2;
         
         if (subject) {
-            query += ' AND subject = $2';
+            query += ` AND subject = $${idx++}`;
             // Convert to uppercase for case-insensitive matching (DB stores uppercase)
             params.push(subject.toUpperCase());
+        }
+        
+        if (labType) {
+            query += ` AND (lab_type = $${idx} OR ($${idx} = 'Lab' AND lab_type IS NULL))`;
+            params.push(labType);
+            idx++;
         }
         
         query += ' LIMIT 1';

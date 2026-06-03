@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { ModeToggle } from "@/components/mode-toggle"
-import { ArrowLeft, Download, RefreshCw, Trophy, TrendingUp, Users } from "lucide-react"
+import { ArrowLeft, Download, RefreshCw, Trophy, TrendingUp, Users, BarChart2 } from "lucide-react"
 
 interface QuizScore {
   id: string
@@ -136,7 +136,28 @@ export default function QuizScoresPage({
       : 0,
     highestScore: filteredScores.length > 0
       ? Math.max(...filteredScores.map(s => s.score))
+      : 0,
+    passRate: filteredScores.length > 0
+      ? Math.round((filteredScores.filter(s => s.score >= 60).length / filteredScores.length) * 100)
       : 0
+  }
+
+  // Build histogram buckets: 0-9, 10-19, ..., 90-100
+  const histogramBuckets = Array.from({ length: 10 }, (_, i) => {
+    const min = i * 10
+    const max = i === 9 ? 100 : min + 9
+    const label = i === 9 ? "90-100" : `${min}-${max}`
+    const count = filteredScores.filter(s => s.score >= min && s.score <= max).length
+    return { label, min, max, count }
+  })
+  const histogramMax = Math.max(...histogramBuckets.map(b => b.count), 1)
+
+  const getBucketColor = (min: number) => {
+    if (min >= 90) return { bar: "bg-emerald-500", text: "text-emerald-700 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/30" }
+    if (min >= 70) return { bar: "bg-green-400", text: "text-green-700 dark:text-greenald-400", bg: "bg-green-50 dark:bg-green-900/30" }
+    if (min >= 60) return { bar: "bg-yellow-400", text: "text-yellow-700 dark:text-yellow-400", bg: "bg-yellow-50 dark:bg-yellow-900/30" }
+    if (min >= 40) return { bar: "bg-orange-400", text: "text-orange-700 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-900/30" }
+    return { bar: "bg-red-400", text: "text-red-700 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/30" }
   }
 
   const exportToCSV = () => {
@@ -201,51 +222,75 @@ export default function QuizScoresPage({
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Overall Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5">
             <div className="flex items-center gap-3">
-              <div className={`p-3 bg-${colorTheme.accent}-100 dark:bg-${colorTheme.accent}-900 rounded-lg`}>
-                <Users className={`w-6 h-6 ${colorTheme.primary} dark:text-${colorTheme.accent}-400`} />
+              <div className={`p-2.5 bg-${colorTheme.accent}-100 dark:bg-${colorTheme.accent}-900/40 rounded-lg`}>
+                <Users className={`w-5 h-5 ${colorTheme.primary} dark:text-${colorTheme.accent}-400`} />
               </div>
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Students</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Students</p>
                 <p className="text-2xl font-bold text-gray-800 dark:text-slate-200">{overallStats.totalStudents}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                <RefreshCw className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              <div className="p-2.5 bg-blue-100 dark:bg-blue-900/40 rounded-lg">
+                <RefreshCw className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Attempts</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Attempts</p>
                 <p className="text-2xl font-bold text-gray-800 dark:text-slate-200">{overallStats.totalAttempts}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-green-100 dark:bg-green-900 rounded-lg">
-                <TrendingUp className="w-6 h-6 text-green-600 dark:text-green-400" />
+              <div className="p-2.5 bg-green-100 dark:bg-green-900/40 rounded-lg">
+                <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
               </div>
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Average Score</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Avg Score</p>
                 <p className="text-2xl font-bold text-gray-800 dark:text-slate-200">{overallStats.averageScore}%</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
-                <Trophy className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+              <div className="p-2.5 bg-yellow-100 dark:bg-yellow-900/40 rounded-lg">
+                <Trophy className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
               </div>
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Highest Score</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Highest</p>
                 <p className="text-2xl font-bold text-gray-800 dark:text-slate-200">{overallStats.highestScore}%</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="col-span-2 md:col-span-1 bg-white dark:bg-gray-800 rounded-lg shadow-md p-5">
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-lg ${
+                overallStats.passRate >= 80 ? 'bg-emerald-100 dark:bg-emerald-900/40' :
+                overallStats.passRate >= 60 ? 'bg-green-100 dark:bg-green-900/40' :
+                'bg-orange-100 dark:bg-orange-900/40'
+              }`}>
+                <BarChart2 className={`w-5 h-5 ${
+                  overallStats.passRate >= 80 ? 'text-emerald-600 dark:text-emerald-400' :
+                  overallStats.passRate >= 60 ? 'text-green-600 dark:text-green-400' :
+                  'text-orange-600 dark:text-orange-400'
+                }`} />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Pass Rate (≥60%)</p>
+                <p className={`text-2xl font-bold ${
+                  overallStats.passRate >= 80 ? 'text-emerald-600 dark:text-emerald-400' :
+                  overallStats.passRate >= 60 ? 'text-green-600 dark:text-green-400' :
+                  'text-orange-600 dark:text-orange-400'
+                }`}>{overallStats.passRate}%</p>
               </div>
             </div>
           </div>
@@ -326,6 +371,97 @@ export default function QuizScoresPage({
           </div>
         ) : (
           <>
+            {/* Score Distribution Histogram */}
+            {filteredScores.length > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 rounded-lg">
+                    <BarChart2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-800 dark:text-slate-200">Score Distribution</h2>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">How many students scored in each range</p>
+                  </div>
+                </div>
+
+                {/* Histogram bars */}
+                <div className="flex items-end gap-1 md:gap-2 h-48 px-2">
+                  {histogramBuckets.map((bucket) => {
+                    const pct = histogramMax > 0 ? (bucket.count / histogramMax) * 100 : 0
+                    const colors = getBucketColor(bucket.min)
+                    const scorePct = filteredScores.length > 0
+                      ? Math.round((bucket.count / filteredScores.length) * 100)
+                      : 0
+                    return (
+                      <div key={bucket.label} className="flex-1 flex flex-col items-center gap-1 group">
+                        {/* Tooltip */}
+                        <div className="relative w-full flex flex-col items-center">
+                          {bucket.count > 0 && (
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-16 left-1/2 -translate-x-1/2 z-10 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-lg pointer-events-none">
+                              <div className="font-bold">{bucket.count} {bucket.count === 1 ? 'student' : 'students'}</div>
+                              <div className="text-gray-300">{scorePct}% of class</div>
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+                            </div>
+                          )}
+                          {/* Bar */}
+                          <div
+                            className={`w-full rounded-t-md transition-all duration-500 ${colors.bar} relative`}
+                            style={{ height: `${Math.max(pct * 1.6, bucket.count > 0 ? 8 : 2)}px`, minHeight: '2px' }}
+                          >
+                            {bucket.count > 0 && (
+                              <div className="absolute -top-6 left-0 right-0 text-center text-xs font-bold text-gray-700 dark:text-gray-300">
+                                {bucket.count}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {/* Label */}
+                        <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-1 font-medium" style={{ fontSize: '0.6rem' }}>
+                          {bucket.label}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Legend */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-5 pt-4 border-t border-gray-100 dark:border-gray-700">
+                  {[
+                    { label: 'Excellent (90-100)', color: 'bg-emerald-500' },
+                    { label: 'Good (70-89)', color: 'bg-green-400' },
+                    { label: 'Passing (60-69)', color: 'bg-yellow-400' },
+                    { label: 'Below avg (40-59)', color: 'bg-orange-400' },
+                    { label: 'Failing (0-39)', color: 'bg-red-400' },
+                  ].map(item => (
+                    <div key={item.label} className="flex items-center gap-1.5">
+                      <div className={`w-3 h-3 rounded-sm ${item.color}`} />
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Score range summary row */}
+                <div className="grid grid-cols-3 md:grid-cols-5 gap-2 mt-4">
+                  {[
+                    { label: 'Excellent', range: [90, 100], color: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400' },
+                    { label: 'Good', range: [70, 89], color: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400' },
+                    { label: 'Passing', range: [60, 69], color: 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-400' },
+                    { label: 'Below Avg', range: [40, 59], color: 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400' },
+                    { label: 'Failing', range: [0, 39], color: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400' },
+                  ].map(item => {
+                    const cnt = filteredScores.filter(s => s.score >= item.range[0] && s.score <= item.range[1]).length
+                    const pct = filteredScores.length > 0 ? Math.round((cnt / filteredScores.length) * 100) : 0
+                    return (
+                      <div key={item.label} className={`rounded-lg border px-3 py-2 text-center ${item.color}`}>
+                        <div className="text-lg font-bold">{cnt}</div>
+                        <div className="text-xs font-medium">{item.label}</div>
+                        <div className="text-xs opacity-70">{pct}%</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
             {/* Student Statistics Table */}
             {studentStats.length > 0 && (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden mb-6">
