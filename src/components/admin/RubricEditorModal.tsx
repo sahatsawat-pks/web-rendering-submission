@@ -37,7 +37,9 @@ export default function RubricEditorModal({
 
   useEffect(() => {
     if (isOpen) {
-      setLevels(initialLevels.length > 0 ? [...initialLevels] : [...DEFAULT_LEVELS])
+      // Deep copy to avoid mutating parent state
+      const source = initialLevels.length > 0 ? initialLevels : DEFAULT_LEVELS
+      setLevels(source.map(l => ({ ...l })))
       setEditingIndex(null)
       setRemovingIndex(null)
     }
@@ -93,9 +95,11 @@ export default function RubricEditorModal({
 
   function saveEdit() {
     if (editingIndex === null) return
-    const updated = [...levels]
-    updated[editingIndex].description = editValue.trim() || updated[editingIndex].description
-    setLevels(updated)
+    setLevels(prev => prev.map((level, i) =>
+      i === editingIndex
+        ? { ...level, description: editValue.trim() || level.description }
+        : level
+    ))
     setEditingIndex(null)
   }
 
@@ -122,10 +126,12 @@ export default function RubricEditorModal({
     if (levels.length <= 1) return
     setRemovingIndex(index)
     setTimeout(() => {
-      const updated = levels.filter((_, i) => i !== index)
-      // Re-number scores sequentially
-      updated.forEach((level, i) => { level.score = i })
-      setLevels(updated)
+      setLevels(prev => {
+        // Filter then re-number with new objects
+        return prev
+          .filter((_, i) => i !== index)
+          .map((level, i) => ({ ...level, score: i }))
+      })
       setRemovingIndex(null)
       if (editingIndex === index) setEditingIndex(null)
       else if (editingIndex !== null && editingIndex > index) setEditingIndex(editingIndex - 1)
@@ -133,12 +139,13 @@ export default function RubricEditorModal({
   }
 
   function resetToDefault() {
-    setLevels([...DEFAULT_LEVELS])
+    setLevels(DEFAULT_LEVELS.map(l => ({ ...l })))
     setEditingIndex(null)
   }
 
   function handleSave() {
-    onSave(levels)
+    // Deep copy so parent gets fresh objects React can detect
+    onSave(levels.map(l => ({ ...l })))
     onClose()
   }
 

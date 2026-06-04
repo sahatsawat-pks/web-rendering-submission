@@ -70,6 +70,7 @@ export interface Subject {
   labWeight?: number;
   labMaxScore?: number;
   useUniformLabScore?: boolean;
+  rubricLevels?: any[] | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -417,6 +418,15 @@ async function ensureTables() {
             END $$;
         `);
 
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subjects' AND column_name = 'rubric_levels') THEN 
+                    ALTER TABLE subjects ADD COLUMN rubric_levels TEXT; 
+                END IF; 
+            END $$;
+        `);
+
         // Create subjects table
         await client.query(`
             CREATE TABLE IF NOT EXISTS subjects (
@@ -428,6 +438,7 @@ async function ensureTables() {
                 color VARCHAR(100),
                 is_visible BOOLEAN DEFAULT true,
                 display_order INTEGER DEFAULT 0,
+                rubric_levels TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -1300,6 +1311,7 @@ export async function getSubjects(visibleOnly: boolean = false): Promise<Subject
         labWeight: row.lab_weight,
         labMaxScore: row.lab_max_score,
         useUniformLabScore: row.use_uniform_lab_score ?? true,
+        rubricLevels: row.rubric_levels ? JSON.parse(row.rubric_levels) : null,
         createdAt: row.created_at,
         updatedAt: row.updated_at
       }));
@@ -1424,6 +1436,7 @@ export async function createSubject(
       sheetTabs: row.sheet_tabs,
       singleSheetTabName: row.single_sheet_tab_name || undefined,
       studentIdColumn: row.student_id_column || undefined,
+      rubricLevels: row.rubric_levels ? JSON.parse(row.rubric_levels) : null,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
@@ -1471,6 +1484,7 @@ export async function updateSubject(
     if (updates.labWeight !== undefined) { fields.push(`lab_weight = $${idx++}`); values.push(updates.labWeight); }
     if (updates.labMaxScore !== undefined) { fields.push(`lab_max_score = $${idx++}`); values.push(updates.labMaxScore); }
     if (updates.useUniformLabScore !== undefined) { fields.push(`use_uniform_lab_score = $${idx++}`); values.push(updates.useUniformLabScore); }
+    if (updates.rubricLevels !== undefined) { fields.push(`rubric_levels = $${idx++}`); values.push(updates.rubricLevels ? JSON.stringify(updates.rubricLevels) : null); }
 
     if (fields.length === 0) {
       const existing = await client.query('SELECT * FROM subjects WHERE code = $1', [code]);
@@ -1504,6 +1518,7 @@ export async function updateSubject(
         labWeight: row.lab_weight,
         labMaxScore: row.lab_max_score,
         useUniformLabScore: row.use_uniform_lab_score ?? true,
+        rubricLevels: row.rubric_levels ? JSON.parse(row.rubric_levels) : null,
         createdAt: row.created_at,
         updatedAt: row.updated_at
       };
@@ -1548,6 +1563,7 @@ export async function updateSubject(
       labWeight: row.lab_weight,
       labMaxScore: row.lab_max_score,
       useUniformLabScore: row.use_uniform_lab_score ?? true,
+      rubricLevels: row.rubric_levels ? JSON.parse(row.rubric_levels) : null,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };

@@ -133,6 +133,9 @@ export default function SimpleScoreGrading({
         if (data.subjects && data.subjects.length > 0) {
           setLocalQuizSectionEnabled(data.subjects[0].quizSectionEnabled !== false)
           setUseUniformLabScore(data.subjects[0].useUniformLabScore ?? true)
+          if (data.subjects[0].rubricLevels && data.subjects[0].rubricLevels.length > 0) {
+            setRubricLevels(data.subjects[0].rubricLevels)
+          }
         }
       })
       .catch(err => console.error('Failed to fetch subject info:', err))
@@ -776,15 +779,17 @@ export default function SimpleScoreGrading({
               <div className="order-1 md:order-2">
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Score</label>
-                  <button
-                    type="button"
-                    onClick={() => setShowRubricEditor(true)}
-                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/20 hover:bg-violet-100 dark:hover:bg-violet-900/40 rounded-lg transition-colors border border-violet-200 dark:border-violet-800"
-                    title="Edit scoring rubric"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                    Edit Rubric
-                  </button>
+                  {['Lecturer', 'Main Admin'].includes(role) && (
+                    <button
+                      type="button"
+                      onClick={() => setShowRubricEditor(true)}
+                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/20 hover:bg-violet-100 dark:hover:bg-violet-900/40 rounded-lg transition-colors border border-violet-200 dark:border-violet-800"
+                      title="Edit scoring rubric"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                      Edit Rubric
+                    </button>
+                  )}
                 </div>
                 {useUniformLabScore ? (
                   // Uniform scoring: uses rubric levels
@@ -1616,12 +1621,21 @@ export default function SimpleScoreGrading({
       <RubricEditorModal
         isOpen={showRubricEditor}
         onClose={() => setShowRubricEditor(false)}
-        onSave={(levels) => {
+        onSave={async (levels) => {
           setRubricLevels(levels)
           // Ensure selected score is still valid
           const maxScore = levels.length > 0 ? levels[levels.length - 1].score : 2
           if (parseInt(score) > maxScore) {
             setScore(String(maxScore))
+          }
+          try {
+            await fetch('/api/subjects', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code: subjectCode, rubricLevels: levels })
+            })
+          } catch (error) {
+            console.error('Failed to save rubric levels:', error)
           }
         }}
         initialLevels={rubricLevels}

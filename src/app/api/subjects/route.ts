@@ -146,10 +146,8 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const user = await getAuthUser();
-    
-    // Only main admin can manage subjects
-    if (!user || user.username !== 'kanzaki_aito') {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
@@ -157,6 +155,17 @@ export async function PATCH(request: NextRequest) {
 
     if (!code) {
       return NextResponse.json({ error: "Subject code is required" }, { status: 400 });
+    }
+
+    // Permission Check: Only main admin (kanzaki_aito) OR a user with explicit canEdit permission for this subject can update it
+    if (user.username !== 'kanzaki_aito') {
+      const { getUserPermissions } = await import("@/lib/db");
+      const userPerms = await getUserPermissions(user.userId);
+      const hasPermission = userPerms.some(p => p.subjectCode === code.toLowerCase() && p.canEdit);
+      
+      if (!hasPermission) {
+        return NextResponse.json({ error: "Forbidden: You don't have permission to modify this subject" }, { status: 403 });
+      }
     }
 
     const { updateSubject } = await import("@/lib/db");
