@@ -163,6 +163,19 @@ export default function LabChallengeGrading({
       .catch(err => console.error("Failed to fetch prefixes", err))
   }, [subjectCode])
 
+  // Auto-set default score to maximum score when labs or configuration change
+  useEffect(() => {
+    if (selectedLab) {
+      const selectedLabData = labs.find(lab => lab.labNumber === selectedLab)
+      const maxRubricScore = rubricLevels.length > 0 ? rubricLevels[rubricLevels.length - 1].score : 2
+      const maxVal = useUniformLabScore
+        ? maxRubricScore
+        : Math.max(selectedLabData?.totalScore || 2, maxRubricScore)
+      setLabScore(String(maxVal))
+      setChallengeScore("2")
+    }
+  }, [selectedLab, rubricLevels, useUniformLabScore, labs])
+
   // Fetch announcements
   useEffect(() => {
     async function fetchAnnouncements() {
@@ -384,6 +397,15 @@ export default function LabChallengeGrading({
              setRemainingDigits("");
              setShowConfirmDialog(false);
              setPendingSubmission(null);
+
+             // Reset scores to max score for next student
+             const selectedLabData = labs.find(lab => lab.labNumber === selectedLab)
+             const maxRubricScore = rubricLevels.length > 0 ? rubricLevels[rubricLevels.length - 1].score : 2
+             const maxVal = useUniformLabScore
+               ? maxRubricScore
+               : Math.max(selectedLabData?.totalScore || 2, maxRubricScore)
+             setLabScore(String(maxVal))
+             setChallengeScore("2")
         } else {
             const data = await res.json();
             setGradingError(data.error || "Failed to update score");

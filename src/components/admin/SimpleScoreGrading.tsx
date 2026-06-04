@@ -154,6 +154,18 @@ export default function SimpleScoreGrading({
       .catch(console.error)
   }, [subjectCode]) // Removed dependency on labs to prevent loops
 
+  // Auto-set default score to maximum score when labs or configuration change
+  useEffect(() => {
+    if (selectedLab) {
+      const selectedLabData = labs.find(lab => lab.labNumber === selectedLab)
+      const maxRubricScore = rubricLevels.length > 0 ? rubricLevels[rubricLevels.length - 1].score : 2
+      const maxVal = useUniformLabScore
+        ? maxRubricScore
+        : Math.max(selectedLabData?.totalScore || 2, maxRubricScore)
+      setScore(String(maxVal))
+    }
+  }, [selectedLab, rubricLevels, useUniformLabScore, labs])
+
   async function toggleQuizSection() {
     setTogglingQuizSection(true)
     try {
@@ -257,6 +269,14 @@ export default function SimpleScoreGrading({
         setStudentId("")
         setRemainingDigits("")
         setShowConfirmDialog(false)
+
+        // Reset score to max score for next student
+        const selectedLabData = labs.find(lab => lab.labNumber === selectedLab)
+        const maxRubricScore = rubricLevels.length > 0 ? rubricLevels[rubricLevels.length - 1].score : 2
+        const maxVal = useUniformLabScore
+          ? maxRubricScore
+          : Math.max(selectedLabData?.totalScore || 2, maxRubricScore)
+        setScore(String(maxVal))
       } else {
         const data = await res.json()
         setGradingError(data.error || "Failed to submit grade")
