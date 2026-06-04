@@ -8,6 +8,7 @@ import GradeSubmissionDialog from "./GradeSubmissionDialog"
 import SuccessNotification from "./SuccessNotification"
 import RichTextEditor from "../RichTextEditor"
 import QuickFeedbackSection from "./QuickFeedbackSection"
+import RubricEditorModal, { type RubricLevel } from "./RubricEditorModal"
 
 interface LabChallengeGradingProps {
   subjectCode: string
@@ -88,15 +89,26 @@ export default function LabChallengeGrading({
   const [useUniformLabScore, setUseUniformLabScore] = useState(false)
   const [togglingUniformScore, setTogglingUniformScore] = useState(false)
 
+  // Rubric Editor state
+  const [showRubricEditor, setShowRubricEditor] = useState(false)
+  const [rubricLevels, setRubricLevels] = useState<RubricLevel[]>([
+    { score: 0, description: 'Not Submitted' },
+    { score: 1, description: 'Partial' },
+    { score: 2, description: 'Complete' },
+  ])
+
   const assignmentLabel = (subjectCode === 'ITCS251' || subjectCode === 'ITCS255') ? 'Week' : 'Lab'
 
   useEffect(() => {
-    // Fetch subject config for useUniformLabScore
+    // Fetch subject config for useUniformLabScore and rubricLevels
     fetch(`/api/subjects?code=${subjectCode}`)
       .then(res => res.json())
       .then(data => {
         if (data.success && data.subjects && data.subjects.length > 0) {
           setUseUniformLabScore(data.subjects[0].useUniformLabScore ?? true)
+          if (data.subjects[0].rubricLevels && data.subjects[0].rubricLevels.length > 0) {
+            setRubricLevels(data.subjects[0].rubricLevels)
+          }
         }
       })
       .catch(err => console.error("Failed to fetch subject config", err))
@@ -714,9 +726,20 @@ export default function LabChallengeGrading({
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                      Lab Score
-                    </label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Lab Score</label>
+                      {['Lecturer', 'Main Admin'].includes(role) && (
+                        <button
+                          type="button"
+                          onClick={() => setShowRubricEditor(true)}
+                          className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/20 hover:bg-violet-100 dark:hover:bg-violet-900/40 rounded-lg transition-colors border border-violet-200 dark:border-violet-800"
+                          title="Edit scoring rubric"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                          Edit Rubric
+                        </button>
+                      )}
+                    </div>
                     {useUniformLabScore ? (
                       <select
                         value={labScore}
@@ -724,9 +747,11 @@ export default function LabChallengeGrading({
                         required
                         className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 shadow-sm hover:border-orange-300 dark:hover:border-orange-600 transition-all"
                       >
-                        <option value="0">0 - Not Submitted</option>
-                        <option value="1">1 - Partial</option>
-                        <option value="2">2 - Complete</option>
+                        {rubricLevels.map((level) => (
+                          <option key={level.score} value={level.score}>
+                            {level.score}{level.description ? ` - ${level.description}` : ''}
+                          </option>
+                        ))}
                       </select>
                     ) : (
                       (() => {
@@ -739,16 +764,22 @@ export default function LabChallengeGrading({
                             required
                             className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 shadow-sm hover:border-orange-300 dark:hover:border-orange-600 transition-all"
                           >
-                            {Array.from({ length: maxScore + 1 }, (_, i) => (
-                              <option key={i} value={i}>
-                                {i === 0 ? `${i} - Not Submitted` : i === maxScore ? `${i} - Complete` : `${i} - Partial`}
-                              </option>
-                            ))}
+                            {Array.from({ length: maxScore + 1 }, (_, i) => {
+                              const rubricMatch = rubricLevels.find(l => l.score === i)
+                              const label = rubricMatch?.description
+                                ? rubricMatch.description
+                                : (i === 0 ? 'Not Submitted' : i === maxScore ? 'Complete' : 'Partial')
+                              return (
+                                <option key={i} value={i}>
+                                  {i} - {label}
+                                </option>
+                              )
+                            })}
                           </select>
                         )
                       })()
                     )}
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Column: Lab{selectedLab.padStart(2, '0')} ({useUniformLabScore ? '2' : labs.find(lab => lab.labNumber === selectedLab)?.totalScore || '2'})</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Column: Lab{selectedLab.padStart(2, '0')} ({useUniformLabScore ? (rubricLevels.length > 0 ? rubricLevels[rubricLevels.length - 1].score : '2') : labs.find(lab => lab.labNumber === selectedLab)?.totalScore || '2'})</p>
                   </div>
 
                   <div>
@@ -1574,6 +1605,31 @@ export default function LabChallengeGrading({
         score={submittedScores.lab || ''}
         challengeScore={submittedScores.challenge}
         subjectCode={subjectCode}
+      />
+
+      {/* Rubric Editor Modal */}
+      <RubricEditorModal
+        isOpen={showRubricEditor}
+        onClose={() => setShowRubricEditor(false)}
+        onSave={async (levels) => {
+          setRubricLevels(levels)
+          // Ensure selected score is still valid
+          const maxScore = levels.length > 0 ? levels[levels.length - 1].score : 2
+          if (parseInt(labScore) > maxScore) {
+            setLabScore(String(maxScore))
+          }
+          try {
+            await fetch('/api/subjects', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code: subjectCode, rubricLevels: levels })
+            })
+          } catch (error) {
+            console.error('Failed to save rubric levels:', error)
+          }
+        }}
+        initialLevels={rubricLevels}
+        color={color}
       />
     </div>
   )
