@@ -756,7 +756,8 @@ export default function LabChallengeGrading({
                     ) : (
                       (() => {
                         const selectedLabData = labs.find(lab => lab.labNumber === selectedLab)
-                        const maxScore = selectedLabData?.totalScore || 2
+                        const maxRubricScore = rubricLevels.length > 0 ? rubricLevels[rubricLevels.length - 1].score : 0
+                        const maxScore = Math.max(selectedLabData?.totalScore || 2, maxRubricScore)
                         return (
                           <select
                             value={labScore}
