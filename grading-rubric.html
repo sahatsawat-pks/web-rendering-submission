@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grading Rubric Editor</title>
+  <meta name="description" content="Interactive grading rubric editor with customizable score levels and descriptions" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-primary: #0f0f1a;
+      --bg-secondary: #161625;
+      --bg-card: rgba(255, 255, 255, 0.04);
+      --bg-card-hover: rgba(255, 255, 255, 0.07);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-active: rgba(139, 92, 246, 0.5);
+      --text-primary: #f0f0f5;
+      --text-secondary: #9d9db5;
+      --text-muted: #6b6b82;
+      --accent-violet: #8b5cf6;
+      --accent-violet-soft: rgba(139, 92, 246, 0.15);
+      --accent-blue: #3b82f6;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --accent-rose-soft: rgba(244, 63, 94, 0.15);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 20px;
+      --shadow-glow: 0 0 40px rgba(139, 92, 246, 0.08);
+      --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+      --transition-smooth: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Ambient background */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background:
+        radial-gradient(ellipse at 20% 20%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(59, 130, 246, 0.05) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(16, 185, 129, 0.03) 0%, transparent 50%);
+      z-index: 0;
+      animation: ambientDrift 20s ease-in-out infinite alternate;
+    }
+
+    @keyframes ambientDrift {
+      0% { transform: translate(0, 0) rotate(0deg); }
+      100% { transform: translate(-2%, -1%) rotate(1deg); }
+    }
+
+    .app-container {
+      position: relative;
+      z-index: 1;
+      max-width: 840px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: var(--accent-violet-soft);
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent-violet);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .header-badge svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .header h1 {
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      font-size: 15px;
+      color: var(--text-muted);
+      max-width: 400px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+
+    /* Score Cards */
+    .scores-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .score-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+      transition: all var(--transition-smooth);
+      position: relative;
+      overflow: hidden;
+      animation: cardEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    }
+
+    .score-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      border-radius: 4px 0 0 4px;
+      transition: background var(--transition-smooth);
+    }
+
+    .score-card:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(255, 255, 255, 0.12);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-glow);
+    }
+
+    .score-card.exiting {
+      animation: cardExit 0.35s cubic-bezier(0.4, 0, 1, 1) forwards;
+    }
+
+    @keyframes cardEnter {
+      0% {
+        opacity: 0;
+        transform: translateY(16px) scale(0.97);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes cardExit {
+      0% {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translateX(30px) scale(0.95);
+      }
+    }
+
+    .score-card-top {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+
+    .score-badge {
+      flex-shrink: 0;
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      transition: all var(--transition-smooth);
+    }
+
+    .score-label {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .score-label-text {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    .score-label-value {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .score-actions {
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity var(--transition-fast);
+    }
+
+    .score-card:hover .score-actions {
+      opacity: 1;
+    }
+
+    .btn-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition-fast);
+    }
+
+    .btn-icon:hover {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: var(--border-subtle);
+      color: var(--text-primary);
+    }
+
+    .btn-icon.danger:hover {
+      background: var(--accent-rose-soft);
+      border-color: rgba(244, 63, 94, 0.3);
+      color: var(--accent-rose);
+    }
+
+    .btn-icon svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* Description area */
+    .description-area {
+      position: relative;
+    }
+
+    .description-display {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      min-height: 42px;
+      word-wrap: break-word;
+    }
+
+    .description-display:hover {
+      background: rgba(255, 255, 255, 0.03);
+      border-color: var(--border-subtle);
+    }
+
+    .description-display .placeholder {
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    .description-input {
+      width: 100%;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-active);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      resize: vertical;
+      min-height: 60px;
+      outline: none;
+      transition: all var(--transition-fast);
+      box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+    }
+
+    .description-input:focus {
+      border-color: var(--accent-violet);
+      box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+    }
+
+    .edit-hint {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .edit-hint svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    /* Color tiers */
+    .tier-0::before { background: var(--accent-rose); }
+    .tier-0 .score-badge { background: var(--accent-rose-soft); color: var(--accent-rose); }
+
+    .tier-1::before { background: var(--accent-amber); }
+    .tier-1 .score-badge { background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); }
+
+    .tier-2::before { background: var(--accent-emerald); }
+    .tier-2 .score-badge { background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); }
+
+    .tier-3::before { background: var(--accent-blue); }
+    .tier-3 .score-badge { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+
+    .tier-4::before { background: var(--accent-violet); }
+    .tier-4 .score-badge { background: var(--accent-violet-soft); color: var(--accent-violet); }
+
+    .tier-5::before { background: #ec4899; }
+    .tier-5 .score-badge { background: rgba(236, 72, 153, 0.15); color: #ec4899; }
+
+    /* Add Score Button */
+    .add-score-btn {
+      width: 100%;
+      padding: 16px;
+      border: 2px dashed var(--border-subtle);
+      border-radius: var(--radius-lg);
+      background: transparent;
+      color: var(--text-muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-smooth);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .add-score-btn:hover {
+      border-color: var(--accent-violet);
+      color: var(--accent-violet);
+      background: var(--accent-violet-soft);
+    }
+
+    .add-score-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* Summary bar */
+    .summary-bar {
+      margin-top: 32px;
+      padding: 20px 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .summary-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .summary-stat-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+    }
+
+    .summary-stat-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .summary-stat-value .range {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .summary-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-secondary {
+      padding: 10px 18px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-secondary);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.15);
+      color: var(--text-primary);
+    }
+
+    .btn-secondary svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    /* Toast notification */
+    .toast {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      padding: 12px 20px;
+      background: rgba(16, 185, 129, 0.95);
+      color: #fff;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 500;
+      pointer-events: none;
+      opacity: 0;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 999;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .toast.visible {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .app-container {
+        padding: 32px 16px 64px;
+      }
+
+      .header h1 {
+        font-size: 28px;
+      }
+
+      .score-card {
+        padding: 16px 18px;
+      }
+
+      .score-card-top {
+        gap: 12px;
+      }
+
+      .score-badge {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+      }
+
+      .score-actions {
+        opacity: 1;
+      }
+
+      .summary-bar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <header class="header">
+      <div class="header-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        Rubric Editor
+      </div>
+      <h1>Grading Rubric</h1>
+      <p>Click any description to edit. Add or remove score levels as needed.</p>
+    </header>
+
+    <div id="scores-container" class="scores-container"></div>
+
+    <button id="add-score-btn" class="add-score-btn" onclick="addScore()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Score Level
+    </button>
+
+    <div class="summary-bar">
+      <div class="summary-stat">
+        <span class="summary-stat-label">Score Levels</span>
+        <span id="summary-levels" class="summary-stat-value">3</span>
+      </div>
+      <div class="summary-stat">
+        <span class="summary-stat-label">Score Range</span>
+        <span id="summary-range" class="summary-stat-value">0 <span class="range">→</span> 2</span>
+      </div>
+      <div class="summary-actions">
+        <button class="btn-secondary" onclick="resetToDefault()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          Reset
+        </button>
+        <button class="btn-secondary" onclick="exportRubric()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    // ─── State ──────────────────────────────────────────────
+    const DEFAULT_SCORES = [
+      { score: 0, description: 'Unsatisfactory — Does not meet the minimum requirements. No understanding of the topic is demonstrated.' },
+      { score: 1, description: 'Developing — Partially meets requirements. Shows basic understanding but with significant gaps or errors.' },
+      { score: 2, description: 'Proficient — Fully meets all requirements. Demonstrates solid understanding with clear and accurate work.' },
+    ];
+
+    let scores = JSON.parse(JSON.stringify(DEFAULT_SCORES));
+    let editingIndex = null;
+
+    // ─── Tier colors ────────────────────────────────────────
+    const TIER_COLORS = ['tier-0', 'tier-1', 'tier-2', 'tier-3', 'tier-4', 'tier-5'];
+
+    function getTierClass(index, total) {
+      if (total <= 1) return TIER_COLORS[2];
+      const ratio = index / (total - 1);
+      const tierIndex = Math.round(ratio * (TIER_COLORS.length - 1));
+      return TIER_COLORS[tierIndex];
+    }
+
+    // ─── Score labels ───────────────────────────────────────
+    function getScoreLabel(index, total) {
+      if (total <= 1) return 'Score Level';
+      if (index === 0) return 'Lowest';
+      if (index === total - 1) return 'Highest';
+      return 'Intermediate';
+    }
+
+    // ─── Render ─────────────────────────────────────────────
+    function render() {
+      const container = document.getElementById('scores-container');
+      container.innerHTML = '';
+
+      scores.forEach((item, index) => {
+        const tierClass = getTierClass(index, scores.length);
+        const card = document.createElement('div');
+        card.className = `score-card ${tierClass}`;
+        card.style.animationDelay = `${index * 60}ms`;
+        card.dataset.index = index;
+
+        const isEditing = editingIndex === index;
+        const descriptionHTML = isEditing
+          ? `<textarea class="description-input" id="desc-input-${index}"
+               onblur="saveDescription(${index})"
+               onkeydown="handleDescKeydown(event, ${index})"
+             >${escapeHTML(item.description)}</textarea>
+             <div class="edit-hint">
+               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 10l-5 5v3h3l5-5"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+               Press Enter to save · Esc to cancel
+             </div>`
+          : `<div class="description-display" onclick="startEditing(${index})">
+               ${item.description
+                 ? escapeHTML(item.description)
+                 : '<span class="placeholder">Click to add a description…</span>'}
+             </div>`;
+
+        card.innerHTML = `
+          <div class="score-card-top">
+            <div class="score-badge">${item.score}</div>
+            <div class="score-label">
+              <div class="score-label-text">${getScoreLabel(index, scores.length)}</div>
+              <div class="score-label-value">Score ${item.score}</div>
+            </div>
+            <div class="score-actions">
+              <button class="btn-icon" onclick="startEditing(${index})" title="Edit description" aria-label="Edit description for score ${item.score}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <button class="btn-icon danger" onclick="removeScore(${index})" title="Remove score" aria-label="Remove score ${item.score}" ${scores.length <= 1 ? 'disabled style="opacity:0.3;cursor:not-allowed"' : ''}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="description-area">${descriptionHTML}</div>
+        `;
+
+        container.appendChild(card);
+      });
+
+      // Focus the textarea if editing
+      if (editingIndex !== null) {
+        const textarea = document.getElementById(`desc-input-${editingIndex}`);
+        if (textarea) {
+          textarea.focus();
+          textarea.selectionStart = textarea.value.length;
+        }
+      }
+
+      updateSummary();
+    }
+
+    // ─── Summary ────────────────────────────────────────────
+    function updateSummary() {
+      document.getElementById('summary-levels').textContent = scores.length;
+      if (scores.length === 0) {
+        document.getElementById('summary-range').innerHTML = '—';
+      } else {
+        const min = scores[0].score;
+        const max = scores[scores.length - 1].score;
+        document.getElementById('summary-range').innerHTML =
+          `${min} <span class="range">→</span> ${max}`;
+      }
+    }
+
+    // ─── Editing ────────────────────────────────────────────
+    function startEditing(index) {
+      editingIndex = index;
+      render();
+    }
+
+    function saveDescription(index) {
+      const textarea = document.getElementById(`desc-input-${index}`);
+      if (textarea) {
+        scores[index].description = textarea.value.trim();
+      }
+      editingIndex = null;
+      render();
+      showToast('Description updated');
+    }
+
+    function handleDescKeydown(event, index) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        saveDescription(index);
+      } else if (event.key === 'Escape') {
+        editingIndex = null;
+        render();
+      }
+    }
+
+    // ─── Add Score ──────────────────────────────────────────
+    function addScore() {
+      const nextScore = scores.length > 0
+        ? scores[scores.length - 1].score + 1
+        : 0;
+      scores.push({
+        score: nextScore,
+        description: '',
+      });
+      render();
+      showToast(`Score ${nextScore} added`);
+
+      // Scroll to the new card
+      requestAnimationFrame(() => {
+        const container = document.getElementById('scores-container');
+        const lastCard = container.lastElementChild;
+        if (lastCard) {
+          lastCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    }
+
+    // ─── Remove Score ───────────────────────────────────────
+    function removeScore(index) {
+      if (scores.length <= 1) return;
+
+      const removedScore = scores[index].score;
+      const card = document.querySelector(`[data-index="${index}"]`);
+
+      if (card) {
+        card.classList.add('exiting');
+        setTimeout(() => {
+          scores.splice(index, 1);
+          // Re-number scores sequentially
+          scores.forEach((item, i) => { item.score = i; });
+          if (editingIndex === index) editingIndex = null;
+          else if (editingIndex !== null && editingIndex > index) editingIndex--;
+          render();
+          showToast(`Score level removed`);
+        }, 320);
+      } else {
+        scores.splice(index, 1);
+        scores.forEach((item, i) => { item.score = i; });
+        if (editingIndex === index) editingIndex = null;
+        render();
+        showToast(`Score level removed`);
+      }
+    }
+
+    // ─── Reset ──────────────────────────────────────────────
+    function resetToDefault() {
+      scores = JSON.parse(JSON.stringify(DEFAULT_SCORES));
+      editingIndex = null;
+      render();
+      showToast('Reset to default');
+    }
+
+    // ─── Export ──────────────────────────────────────────────
+    function exportRubric() {
+      const data = JSON.stringify(scores, null, 2);
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'grading-rubric.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Rubric exported');
+    }
+
+    // ─── Toast ──────────────────────────────────────────────
+    let toastTimeout = null;
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('visible');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('visible');
+      }, 2200);
+    }
+
+    // ─── Utilities ──────────────────────────────────────────
+    function escapeHTML(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // ─── Init ───────────────────────────────────────────────
+    render();
+  </script>
+</body>
+</html>

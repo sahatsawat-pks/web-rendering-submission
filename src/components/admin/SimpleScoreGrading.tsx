@@ -7,6 +7,7 @@ import GradeSubmissionDialog from "./GradeSubmissionDialog"
 import SuccessNotification from "./SuccessNotification"
 import RichTextEditor from "../RichTextEditor"
 import QuickFeedbackSection from "./QuickFeedbackSection"
+import RubricEditorModal, { type RubricLevel } from "./RubricEditorModal"
 
 interface SimpleScoreGradingProps {
   subjectCode: string
@@ -79,6 +80,14 @@ export default function SimpleScoreGrading({
   })
   const [creatingLab, setCreatingLab] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Rubric Editor state
+  const [showRubricEditor, setShowRubricEditor] = useState(false)
+  const [rubricLevels, setRubricLevels] = useState<RubricLevel[]>([
+    { score: 0, description: 'Not Submitted' },
+    { score: 1, description: 'Partial' },
+    { score: 2, description: 'Complete' },
+  ])
 
   // Announcement state
   const [showAnnouncementDialog, setShowAnnouncementDialog] = useState(false)
@@ -765,18 +774,31 @@ export default function SimpleScoreGrading({
               </div>
 
               <div className="order-1 md:order-2">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Score</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Score</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowRubricEditor(true)}
+                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/20 hover:bg-violet-100 dark:hover:bg-violet-900/40 rounded-lg transition-colors border border-violet-200 dark:border-violet-800"
+                    title="Edit scoring rubric"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                    Edit Rubric
+                  </button>
+                </div>
                 {useUniformLabScore ? (
-                  // Uniform scoring: Always 0, 1, 2
+                  // Uniform scoring: uses rubric levels
                   <select
                     value={score}
                     onChange={(e) => setScore(e.target.value)}
                     required
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 shadow-sm"
                   >
-                    <option value="0">0 - Not Submitted</option>
-                    <option value="1">1 - Partial</option>
-                    <option value="2">2 - Complete</option>
+                    {rubricLevels.map((level) => (
+                      <option key={level.score} value={level.score}>
+                        {level.score}{level.description ? ` - ${level.description}` : ''}
+                      </option>
+                    ))}
                   </select>
                 ) : (
                   // Variable scoring: 0 to lab's total_score
@@ -790,11 +812,17 @@ export default function SimpleScoreGrading({
                         required
                         className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 shadow-sm"
                       >
-                        {Array.from({ length: maxScore + 1 }, (_, i) => (
-                          <option key={i} value={i}>
-                            {i === 0 ? `${i} - Not Submitted` : i === maxScore ? `${i} - Complete` : `${i} - Partial`}
-                          </option>
-                        ))}
+                        {Array.from({ length: maxScore + 1 }, (_, i) => {
+                          const rubricMatch = rubricLevels.find(l => l.score === i)
+                          const label = rubricMatch?.description
+                            ? rubricMatch.description
+                            : (i === 0 ? 'Not Submitted' : i === maxScore ? 'Complete' : 'Partial')
+                          return (
+                            <option key={i} value={i}>
+                              {i} - {label}
+                            </option>
+                          )
+                        })}
                       </select>
                     )
                   })()
@@ -1583,6 +1611,22 @@ export default function SimpleScoreGrading({
           </div>
         </div>
       )}
+
+      {/* Rubric Editor Modal */}
+      <RubricEditorModal
+        isOpen={showRubricEditor}
+        onClose={() => setShowRubricEditor(false)}
+        onSave={(levels) => {
+          setRubricLevels(levels)
+          // Ensure selected score is still valid
+          const maxScore = levels.length > 0 ? levels[levels.length - 1].score : 2
+          if (parseInt(score) > maxScore) {
+            setScore(String(maxScore))
+          }
+        }}
+        initialLevels={rubricLevels}
+        color={color}
+      />
     </div>
   )
 }
