@@ -635,7 +635,7 @@ async function ensureTables() {
         // console.log('🔄 Running legacy subject migration...');
         
         await client.query(`
-            UPDATE subjects SET has_grading_interface=true, grading_type='lab_challenge', has_quiz_management=true, has_test_cases=true WHERE code='ITCS123' AND grading_type IS NULL;
+            UPDATE subjects SET has_grading_interface=true, grading_type='simple_score', has_quiz_management=true, has_test_cases=true WHERE code='ITCS123';
             UPDATE subjects SET has_grading_interface=true, grading_type='lab_challenge', has_quiz_management=true, has_test_cases=true WHERE code='ITCS223' AND grading_type IS NULL;
             UPDATE subjects SET has_grading_interface=true, grading_type='python', has_quiz_management=true, has_test_cases=true WHERE code='ITCS251' AND grading_type IS NULL;
             UPDATE subjects SET has_grading_interface=true, grading_type='sql', has_quiz_management=true, has_test_cases=true WHERE code='ITCS255' AND grading_type IS NULL;
