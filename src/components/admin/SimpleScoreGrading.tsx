@@ -1137,7 +1137,8 @@ export default function SimpleScoreGrading({
         )}
       </div>
 
-      {/* Announcements Section */}\n      {['Lecturer', 'Main Admin'].includes(role) && (
+      {/* Announcements Section */}      
+      {['Lecturer', 'Main Admin'].includes(role) && (
         <div className="glass-card p-8 animate-scale-in transition-all duration-300 border-white/40">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2">
