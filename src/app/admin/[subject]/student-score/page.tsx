@@ -465,6 +465,18 @@ export default function StudentScorePage() {
       }
     }
 
+  // Determine the default max score based on subject rubric
+  const defaultMaxScore = useMemo(() => {
+    // 1. Check if subject has custom rubric levels
+    if (subjectConfig?.rubricLevels && Array.isArray(subjectConfig.rubricLevels) && subjectConfig.rubricLevels.length > 0) {
+      const rubricMax = Math.max(...subjectConfig.rubricLevels.map((l: any) => l.score || 0))
+      if (rubricMax > 0) return rubricMax
+    }
+    
+    // 2. Fallback to 2 (standard uniform score)
+    return 2
+  }, [subjectConfig])
+
   // Calculate score totals for a student
   const calculateStudentTotals = (student: StudentScore, columns: string[]) => {
     let labTotal = 0
@@ -480,11 +492,11 @@ export default function StudentScorePage() {
         // Determine if it's a lab or challenge column
         if (col.toLowerCase().includes('challenge') || col.toLowerCase().startsWith('ch ')) {
           challengeTotal += numValue
-          const maxScore = getLabTotalScore(col) || 2
+          const maxScore = getLabTotalScore(col) || defaultMaxScore
           challengeMax += maxScore
         } else if ((col.toLowerCase().includes('lab') || col.toLowerCase().startsWith('w ')) && !isLabQuestionColumn(col)) {
           labTotal += numValue
-          const maxScore = getLabTotalScore(col) || 2
+          const maxScore = getLabTotalScore(col) || defaultMaxScore
           labMax += maxScore
         }
       }
@@ -631,8 +643,8 @@ export default function StudentScorePage() {
       return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' // Zero
     }
 
-    // Fallback: assume max score is 2
-    if (numValue >= 2) return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-semibold'
+    // Fallback: assume default max score
+    if (numValue >= defaultMaxScore) return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-semibold'
     if (numValue > 0) return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
     return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
   }

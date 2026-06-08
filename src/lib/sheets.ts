@@ -1298,8 +1298,14 @@ export async function updateStudentLabScore(
   // Legacy ITCS123 handling
   if (sheetName === 'ITCS123' && scoreType) {
     const labNumPadded = labNumber.padStart(2, '0');
-    actualLabNumber = scoreType === 'lab' ? `Lab${labNumPadded} (2)` : `Ch${labNumPadded} (2)`;
-  } else if (sheetName === 'ITDS283' && scoreType === 'challenge') {
+    // Get max score from rubric if available, fallback to 2
+    let maxScore = 2;
+    if (config?.rubricLevels && Array.isArray(config.rubricLevels) && config.rubricLevels.length > 0) {
+        maxScore = Math.max(...config.rubricLevels.map((l: any) => l.score || 0));
+    }
+    actualLabNumber = scoreType === 'lab' ? `Lab${labNumPadded} (${maxScore})` : `Ch${labNumPadded} (${maxScore})`;
+  }
+ else if (sheetName === 'ITDS283' && scoreType === 'challenge') {
     const labInt = (parseRequestedLabNumber(labNumber) ?? parseInt(labNumber, 10)).toString();
     actualLabNumber = `Ch${labInt}`;
   }

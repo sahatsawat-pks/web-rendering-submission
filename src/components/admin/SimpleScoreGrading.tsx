@@ -89,6 +89,11 @@ export default function SimpleScoreGrading({
     { score: 2, description: 'Complete' },
   ])
 
+  // Determine the maximum score from rubric levels
+  const maxRubricScore = useMemo(() => {
+    return rubricLevels.length > 0 ? rubricLevels[rubricLevels.length - 1].score : 2
+  }, [rubricLevels])
+
   // Announcement state
   const [showAnnouncementDialog, setShowAnnouncementDialog] = useState(false)
   const [announcementTitle, setAnnouncementTitle] = useState("")
@@ -643,12 +648,12 @@ export default function SimpleScoreGrading({
                     ? "bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:hover:bg-orange-900/50"
                     : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                 }`}
-                title={useUniformLabScore ? "All labs use uniform max score of 2" : "Labs use individual total_score values"}
+                title={useUniformLabScore ? `All labs use uniform max score of ${maxRubricScore}` : "Labs use individual total_score values"}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                 </svg>
-                Uniform /2: {useUniformLabScore ? "ON" : "OFF"}
+                Uniform /{maxRubricScore}: {useUniformLabScore ? "ON" : "OFF"}
               </button>
             )}
             {['Lecturer', 'Main Admin'].includes(role) && hasQuizManagement && (
