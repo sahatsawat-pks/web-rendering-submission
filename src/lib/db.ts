@@ -1736,7 +1736,7 @@ export async function getQuizScores(
     let paramIndex = 1;
 
     if (subject) {
-      query += ` AND subject = $${paramIndex}`;
+      query += ` AND subject ILIKE $${paramIndex}`;
       params.push(subject);
       paramIndex++;
     }
