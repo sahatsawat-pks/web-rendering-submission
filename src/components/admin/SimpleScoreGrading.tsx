@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { getGradientStyleProps, getShadowColorClass } from "@/lib/colors"
 import GradeSubmissionDialog from "./GradeSubmissionDialog"
 import SuccessNotification from "./SuccessNotification"

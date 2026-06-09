@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useMemo } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { ModeToggle } from "@/components/mode-toggle"
