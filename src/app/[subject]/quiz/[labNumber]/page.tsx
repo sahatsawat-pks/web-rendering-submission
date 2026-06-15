@@ -1025,7 +1025,7 @@ export default function QuizTakingPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Main Question Area */}
-          <div className="flex-1 animate-slide-up">
+          <div className="flex-1 min-w-0 animate-slide-up">
             <div className="glass-card p-8 mb-6 transition-all hover:shadow-2xl">
               <div className="mb-6 flex items-center justify-between">
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gradient-to-r from-cyan-500 to-cyan-500 text-white shadow-lg shadow-cyan-500/30 animate-fade-in">

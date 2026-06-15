@@ -448,20 +448,24 @@ nav {
   backface-visibility: hidden;
 }
 
-/* Rich Text Editor Styles */
-.ProseMirror {
+/* Rich Text Editor and Renderer Styles */
+.ProseMirror,
+.prose {
   outline: none;
 }
 
-.ProseMirror p {
+.ProseMirror p,
+.prose p {
   margin: 0.5em 0;
 }
 
-.ProseMirror p:first-child {
+.ProseMirror p:first-child,
+.prose p:first-child {
   margin-top: 0;
 }
 
-.ProseMirror p:last-child {
+.ProseMirror p:last-child,
+.prose p:last-child {
   margin-bottom: 0;
 }
 
@@ -470,56 +474,87 @@ nav {
 .ProseMirror h3,
 .ProseMirror h4,
 .ProseMirror h5,
-.ProseMirror h6 {
+.ProseMirror h6,
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
   margin-top: 1em;
   margin-bottom: 0.5em;
   font-weight: bold;
 }
 
-.ProseMirror h1 { font-size: 2em; }
-.ProseMirror h2 { font-size: 1.5em; }
-.ProseMirror h3 { font-size: 1.25em; }
+.ProseMirror h1,
+.prose h1 { font-size: 2em; }
+.ProseMirror h2,
+.prose h2 { font-size: 1.5em; }
+.ProseMirror h3,
+.prose h3 { font-size: 1.25em; }
 
 .ProseMirror ul,
-.ProseMirror ol {
+.prose ul {
+  list-style-type: disc;
   padding-left: 1.5em;
   margin: 0.5em 0;
 }
 
-.ProseMirror code {
+.ProseMirror ol,
+.prose ol {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.ProseMirror code,
+.prose code {
   background-color: rgba(0, 0, 0, 0.1);
   padding: 0.2em 0.4em;
   border-radius: 3px;
   font-family: 'Courier New', Courier, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
-.dark .ProseMirror code {
+.dark .ProseMirror code,
+.dark .prose code {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
-.ProseMirror pre {
+.ProseMirror pre,
+.prose pre {
   background-color: #f6f8fa;
   border: 1px solid #e1e4e8;
   border-radius: 6px;
   padding: 16px;
   overflow-x: auto;
   margin: 1em 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 100%;
+  width: 100%;
 }
 
-.dark .ProseMirror pre {
+.dark .ProseMirror pre,
+.dark .prose pre {
   background-color: #161b22;
   border-color: #30363d;
 }
 
-.ProseMirror pre code {
+.ProseMirror pre code,
+.prose pre code {
   background: none;
   padding: 0;
   font-size: 0.9em;
   line-height: 1.6;
   color: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
-.ProseMirror .code-block {
+.ProseMirror .code-block,
+.prose .code-block {
   position: relative;
 }
 
@@ -578,20 +613,24 @@ nav {
   color: #d2a8ff;
 }
 
-.ProseMirror a {
+.ProseMirror a,
+.prose a {
   color: #3b82f6;
   text-decoration: underline;
 }
 
-.dark .ProseMirror a {
+.dark .ProseMirror a,
+.dark .prose a {
   color: #60a5fa;
 }
 
-.ProseMirror strong {
+.ProseMirror strong,
+.prose strong {
   font-weight: bold;
 }
 
-.ProseMirror em {
+.ProseMirror em,
+.prose em {
   font-style: italic;
 }
 
