@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
+import { getCanonicalSubjectCodeOrDefault } from '@/lib/subjectConfig';
 
 export const dynamic = 'force-dynamic';
 import {

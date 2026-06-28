@@ -23,8 +23,10 @@ export async function GET(request: NextRequest) {
         if (canonicalCode && subjectCode === canonicalCode) return true
         return false
       })
-    // Map title to name for frontend compatibility
-    const mappedSubjects = filteredSubjects.map(s => ({
+    : subjects
+
+  // Map title to name for frontend compatibility
+  const mappedSubjects = filteredSubjects.map(s => ({
       ...s,
       name: s.title,
       is_visible: s.isVisible,

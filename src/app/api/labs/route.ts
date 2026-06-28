@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
+import { getCanonicalSubjectCodeOrDefault } from '@/lib/subjectConfig';
 
 // Performance optimization: Cache lab listings
 export const dynamic = 'force-dynamic';
@@ -15,19 +16,21 @@ import {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const activeOnly = searchParams.get("activeOnly") === "true";
-  const subject = getCanonicalSubjectCodeOrDefault(searchParams.get("subject")) || undefined;
+      const activeOnly = searchParams.get("activeOnly") === "true";
+      const subject = getCanonicalSubjectCodeOrDefault(searchParams.get("subject")) || undefined;
 
-    return NextResponse.json({
-      success: true,
-      labs,
-    }, {
-      headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-      }
-    });
+      const labs = await getAllLabs(activeOnly, subject);
+
+      return NextResponse.json({
+        success: true,
+        labs,
+      }, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      });
   } catch (error: any) {
     console.error("Get labs error:", error);
     return NextResponse.json(
