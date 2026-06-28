@@ -1,4 +1,4 @@
-import { SubjectConfig } from "./subjectConfig"
+import { SubjectConfig, normalizeSubjectCode, getSubjectConfig } from "./subjectConfig"
 import { adaptSubjectConfig } from "./subjectConfigAdapter"
 import { Subject } from "./db"
 
@@ -13,7 +13,7 @@ const pendingRequests: Record<string, Promise<SubjectConfig | null>> = {}
  * If data is cached, returns it immediately.
  */
 export async function fetchSubjectConfig(code: string): Promise<SubjectConfig | null> {
-  const upperCode = code.toUpperCase()
+  const upperCode = normalizeSubjectCode(code)
 
   // Return cached value if available
   if (configCache[upperCode]) {
@@ -35,10 +35,37 @@ export async function fetchSubjectConfig(code: string): Promise<SubjectConfig | 
         const subject: Subject = data.subjects[0]
         const config = adaptSubjectConfig(subject)
         
-        // Cache the result
+        // Cache the result for both the requested input and the canonical subject code
+        const canonicalCode = normalizeSubjectCode(config.code)
         configCache[upperCode] = config
+        if (canonicalCode) {
+          configCache[canonicalCode] = config
+        }
+        config.aliases?.forEach(alias => {
+          const aliasKey = normalizeSubjectCode(alias)
+          if (aliasKey) {
+            configCache[aliasKey] = config
+          }
+        })
         return config
       }
+
+      const staticConfig = getSubjectConfig(upperCode)
+      if (staticConfig) {
+        configCache[upperCode] = staticConfig
+        const canonicalCode = normalizeSubjectCode(staticConfig.code)
+        if (canonicalCode) {
+          configCache[canonicalCode] = staticConfig
+        }
+        staticConfig.aliases?.forEach(alias => {
+          const aliasKey = normalizeSubjectCode(alias)
+          if (aliasKey) {
+            configCache[aliasKey] = staticConfig
+          }
+        })
+        return staticConfig
+      }
+
       return null
     })
     .catch((err) => {
@@ -59,11 +86,29 @@ export async function fetchSubjectConfig(code: string): Promise<SubjectConfig | 
  * Useful when admin updates a subject
  */
 export function invalidateSubjectConfigCache(code?: string) {
-  if (code) {
-    const upperCode = code.toUpperCase()
-    delete configCache[upperCode]
-  } else {
-    // Clear all
+  if (!code) {
     Object.keys(configCache).forEach(key => delete configCache[key])
+    Object.keys(pendingRequests).forEach(key => delete pendingRequests[key])
+    return
+  }
+
+  const upperCode = normalizeSubjectCode(code)
+
+  Object.keys(configCache).forEach((key) => {
+    const config = configCache[key]
+    if (!config) return
+
+    const aliases = config.aliases?.map(normalizeSubjectCode) || []
+    if (
+      key === upperCode ||
+      normalizeSubjectCode(config.code) === upperCode ||
+      aliases.includes(upperCode)
+    ) {
+      delete configCache[key]
+    }
+  })
+
+  if (upperCode in pendingRequests) {
+    delete pendingRequests[upperCode]
   }
 }

@@ -5,7 +5,7 @@ import { useRouter, useParams, notFound } from "next/navigation"
 import { ModeToggle } from "@/components/mode-toggle"
 import { QuizNavigation } from "@/components/QuizNavigation"
 import RichTextDisplay from "@/components/RichTextDisplay"
-import { getSubjectConfig, isValidSubject, SubjectConfig } from "@/lib/subjectConfig"
+import { getCanonicalSubjectCodeOrDefault, getSubjectConfig, isValidSubject, SubjectConfig } from "@/lib/subjectConfig"
 import { fetchSubjectConfig } from "@/lib/subjectConfigCache"
 
 interface QuizQuestion {
@@ -28,7 +28,8 @@ interface QuizCategory {
 export default function QuizTakingPage() {
   const router = useRouter()
   const params = useParams()
-  const subject = typeof params?.subject === 'string' ? params.subject.toUpperCase() : 'ITCS223'
+  const rawSubject = typeof params?.subject === 'string' ? params.subject : 'ITCS223'
+  const subject = getCanonicalSubjectCodeOrDefault(rawSubject) || rawSubject
   const labNumber = typeof params?.labNumber === 'string' ? params.labNumber : ''
 
   // if (!isValidSubject(subject)) { ... } // Dynamic check handles this
@@ -153,7 +154,7 @@ export default function QuizTakingPage() {
 
     } else {
       // Redirect to verification page
-      router.push(`/${subject.toLowerCase()}/quiz/${labNumber}/verify`)
+      router.push(`/${subject}/quiz/${labNumber}/verify`)
     }
   }, [labNumber, router, subject, staticConfig])
 
@@ -221,7 +222,7 @@ export default function QuizTakingPage() {
 
   const loadQuizData = async () => {
     try {
-      const res = await fetch(`/api/quiz?labNumber=${labNumber}&subject=${subject}`)
+      const res = await fetch(`/api/quiz?labNumber=${labNumber}&subject=${subject}`, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
         setQuestions(data.questions || [])
@@ -292,7 +293,7 @@ export default function QuizTakingPage() {
     localStorage.removeItem(`quiz_auth_${labNumber}`)
     
     // Redirect to verify page
-    router.push(`/${subject.toLowerCase()}/quiz/${labNumber}/verify`)
+    router.push(`/${subject}/quiz/${labNumber}/verify`)
   }
 
   const submitQuiz = async () => {
@@ -407,7 +408,7 @@ export default function QuizTakingPage() {
         <div className="text-center">
           <p className="text-slate-600 dark:text-slate-400">No questions available for this lab</p>
           <button
-            onClick={() => router.push(`/${subject.toLowerCase()}/quiz`)}
+            onClick={() => router.push(`/${subject}/quiz`)}
             className={`mt-4 px-4 py-2 bg-gradient-to-r ${config.gradientFrom} ${config.gradientTo} text-white rounded-lg hover:shadow-lg transition-all`}
           >
             Back to Quiz List
@@ -746,7 +747,7 @@ export default function QuizTakingPage() {
 
           <div className="mt-8 flex gap-4 animate-slide-up sticky bottom-4">
             <button
-              onClick={() => router.push(`/${subject.toLowerCase()}/quiz`)}
+              onClick={() => router.push(`/${subject}/quiz`)}
               className="flex-1 flex items-center justify-center gap-2 px-8 py-4 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl font-semibold transition-all hover:shadow-xl border-2 border-slate-200 dark:border-slate-700 hover:border-cyan-500 dark:hover:border-cyan-400 transform hover:scale-105 hover:-translate-y-1"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -782,7 +783,7 @@ export default function QuizTakingPage() {
                 localStorage.removeItem(`quiz_auth_${labNumber}`)
                 
                 // Redirect to verification page
-                router.push(`/${subject.toLowerCase()}/quiz/${labNumber}/verify`)
+                router.push(`/${subject}/quiz/${labNumber}/verify`)
               }}
               className="flex-1 flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-cyan-500 to-cyan-500 text-white rounded-xl font-bold transition-all hover:shadow-2xl hover:from-cyan-600 hover:to-cyan-600 transform hover:scale-105 hover:-translate-y-1 shadow-lg shadow-cyan-500/30"
             >

@@ -3,14 +3,15 @@
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { ModeToggle } from "@/components/mode-toggle"
-import { getSubjectConfig, isValidSubject, SubjectConfig } from "@/lib/subjectConfig"
+import { getCanonicalSubjectCodeOrDefault, getSubjectConfig, isValidSubject, SubjectConfig } from "@/lib/subjectConfig"
 import { fetchSubjectConfig } from "@/lib/subjectConfigCache"
 import { ArrowLeft, Shield, AlertCircle } from "lucide-react"
 
 export default function QuizVerifyPage() {
   const router = useRouter()
   const params = useParams()
-  const subject = typeof params?.subject === 'string' ? params.subject.toUpperCase() : ''
+  const rawSubject = typeof params?.subject === 'string' ? params.subject : ''
+  const subject = getCanonicalSubjectCodeOrDefault(rawSubject) || rawSubject
   const labNumber = typeof params?.labNumber === 'string' ? params.labNumber : ''
   
   // if (!isValidSubject(subject)) { ... } // Dynamic check handles this
@@ -73,7 +74,7 @@ export default function QuizVerifyPage() {
         }))
         
         // Redirect to quiz page
-        router.push(`/${subject.toLowerCase()}/quiz/${labNumber}`)
+        router.push(`/${subject}/quiz/${labNumber}`)
       } else {
         setVerificationError("Invalid Student ID or Credential. Please check and try again.")
       }
@@ -91,7 +92,7 @@ export default function QuizVerifyPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <button
-              onClick={() => router.push(`/${subject.toLowerCase()}/quiz`)}
+              onClick={() => router.push(`/${subject}/quiz`)}
               className="flex items-center gap-2 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />

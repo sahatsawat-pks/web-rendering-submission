@@ -188,8 +188,8 @@ export default function GradeSubmissionDialog({
                       Existing Score Warning
                     </p>
                     <p className="text-xs sm:text-sm text-orange-800 dark:text-orange-200 mt-1">
-                      This student already has a score of <span className="font-bold">{existingScore}</span> for this lab. 
-                      Submitting will overwrite the existing score.
+                      This student already has a recorded score of <span className="font-bold">{existingScore}</span> for this lab.
+                      The score shown below will replace the existing score when you confirm.
                     </p>
                   </div>
                 </div>

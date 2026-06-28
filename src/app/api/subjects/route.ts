@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
+import { getCanonicalSubjectCode, normalizeSubjectCode } from "@/lib/subjectConfig";
 
 // Performance optimization: Cache this API route
 export const revalidate = 3600; // Revalidate every hour
@@ -9,14 +10,19 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
-    
-    const subjects = await getSubjects();
-    
-    // Filter by code if provided
-    const filteredSubjects = code 
-      ? subjects.filter(s => s.code === code)
-      : subjects;
-    
+  const normalizedCode = code ? normalizeSubjectCode(code) : null
+  const canonicalCode = normalizedCode ? getCanonicalSubjectCode(normalizedCode) : null
+  
+  const subjects = await getSubjects();
+  
+  // Filter by code if provided (alias-aware)
+  const filteredSubjects = code
+    ? subjects.filter(s => {
+        const subjectCode = s.code.toUpperCase()
+        if (normalizedCode === subjectCode) return true
+        if (canonicalCode && subjectCode === canonicalCode) return true
+        return false
+      })
     // Map title to name for frontend compatibility
     const mappedSubjects = filteredSubjects.map(s => ({
       ...s,

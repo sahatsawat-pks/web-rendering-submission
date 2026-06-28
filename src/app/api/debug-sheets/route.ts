@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { debugSheetTabs } from '@/lib/sheets';
+import { getCanonicalSubjectCodeOrDefault } from '@/lib/subjectConfig';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const subject = searchParams.get('subject');
+    const subject = getCanonicalSubjectCodeOrDefault(searchParams.get('subject')) || undefined;
 
     if (!subject) {
       return NextResponse.json({ error: 'Subject is required' }, { status: 400 });

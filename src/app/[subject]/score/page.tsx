@@ -1091,7 +1091,8 @@ export default function SubjectScorePage() {
   const router = useRouter()
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(true)
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
-  const subject = typeof params?.subject === 'string' ? params.subject : ""
+  const rawSubject = typeof params?.subject === 'string' ? params.subject : ""
+  const subject = getCanonicalSubjectCodeOrDefault(rawSubject) || rawSubject
 
   // Fetch announcements on mount
   useEffect(() => {

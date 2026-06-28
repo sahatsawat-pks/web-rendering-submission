@@ -1,16 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAllLabs, updateLab, getLabByNumber } from '@/lib/db'
+import { getAllLabs, updateLab, getLabByNumber, Lab } from '@/lib/db'
+import { getCanonicalSubjectCodeOrDefault } from '@/lib/subjectConfig'
 
 export const dynamic = 'force-dynamic'
 
+const noCacheHeaders = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+  'Pragma': 'no-cache',
+  'Expires': '0'
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
-  const subject = searchParams.get('subject')?.toUpperCase()
+  const subject = getCanonicalSubjectCodeOrDefault(searchParams.get('subject')) || undefined
   const labNumber = searchParams.get('labNumber')
   const action = searchParams.get('action')
 
   if (!subject) {
-    return NextResponse.json({ error: 'Subject is required' }, { status: 400 })
+    return NextResponse.json({ error: 'Subject is required' }, { status: 400, headers: noCacheHeaders })
   }
 
   try {
@@ -26,7 +33,7 @@ export async function GET(request: NextRequest) {
           timeLimit: firstLab?.quizTimeLimit ?? 0,
           timeLimitEnabled: firstLab?.quizTimeLimitEnabled ?? false
         }
-      })
+      }, { headers: noCacheHeaders })
     }
 
     if (labNumber) {
@@ -34,7 +41,7 @@ export async function GET(request: NextRequest) {
       const lab = await getLabByNumber(labNumber, subject)
       
       if (!lab) {
-        return NextResponse.json({ error: 'Lab not found' }, { status: 404 })
+        return NextResponse.json({ error: 'Lab not found' }, { status: 404, headers: noCacheHeaders })
       }
 
       let questions = []
@@ -56,14 +63,14 @@ export async function GET(request: NextRequest) {
         quizTimeLimit: lab.quizTimeLimit ?? 0,
         quizTimeLimitEnabled: lab.quizTimeLimitEnabled ?? false,
         labTitle: lab.title
-      })
+      }, { headers: noCacheHeaders })
     }
 
-    // Get all labs with quiz for subject
-    const labs = await getAllLabs(true, subject)
-    const subjectLabs = labs.filter((lab: any) => lab.quizEnabled === true && lab.labType !== 'Challenge')
+    // Get all labs with quiz for subject, regardless of active status
+    const labs = await getAllLabs(false, subject)
+    const subjectLabs = labs.filter((lab: Lab) => lab.quizEnabled === true && lab.labType !== 'Challenge')
 
-    const labsWithQuiz = subjectLabs.map((lab: any) => {
+    const labsWithQuiz = subjectLabs.map((lab: Lab) => {
       let questionCount = 0
       try {
         const questions = lab.quizQuestions ? JSON.parse(lab.quizQuestions) : []
@@ -84,17 +91,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       labs: labsWithQuiz
-    })
-  } catch (error: any) {
-    return NextResponse.json({ error: 'Failed to fetch quiz data' }, { status: 500 })
+    }, { headers: noCacheHeaders })
+  } catch {
+    return NextResponse.json({ error: 'Failed to fetch quiz data' }, { status: 500, headers: noCacheHeaders })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    let { action, subject, labNumber, questions, categories, quizEnabled, quizTimeLimit, quizTimeLimitEnabled } = body
-    subject = subject?.toUpperCase()
+    const { action, subject: rawSubject, labNumber, questions, categories, quizEnabled, quizTimeLimit, quizTimeLimitEnabled } = body
+    const subject = getCanonicalSubjectCodeOrDefault(rawSubject)
 
     if (!subject || !labNumber) {
       return NextResponse.json({ error: 'Subject and lab number are required' }, { status: 400 })
@@ -103,7 +110,7 @@ export async function POST(request: NextRequest) {
     const lab = await getLabByNumber(labNumber, subject)
 
     if (!lab) {
-      return NextResponse.json({ error: 'Lab not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Lab not found' }, { status: 404, headers: noCacheHeaders })
     }
 
     if (action === 'update_questions') {
@@ -134,7 +141,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
-  } catch (error: any) {
-    return NextResponse.json({ error: 'Failed to update quiz data' }, { status: 500 })
+  } catch {
+    return NextResponse.json({ error: 'Failed to update quiz data' }, { status: 500, headers: noCacheHeaders })
   }
 }

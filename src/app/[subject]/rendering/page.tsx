@@ -5,7 +5,7 @@ import { useState, useEffect } from "react"
 import { useParams, useRouter, notFound } from "next/navigation"
 import { Zap, Eye, FileCode, Menu, CheckCircle2, XCircle, Play, ArrowLeft } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
-import { getSubjectConfig, isValidSubject, SubjectConfig } from "@/lib/subjectConfig"
+import { getSubjectConfig, isValidSubject, getCanonicalSubjectCodeOrDefault, SubjectConfig } from "@/lib/subjectConfig"
 import { fetchSubjectConfig } from "@/lib/subjectConfigCache"
 
 interface FetchResult {
@@ -40,7 +40,8 @@ const FILE_ICONS: Record<string, string> = {
 export default function SubjectRenderingPage() {
   const params = useParams()
   const router = useRouter()
-  const subject = typeof params?.subject === 'string' ? params.subject : ""
+  const rawSubject = typeof params?.subject === 'string' ? params.subject : ""
+  const subject = getCanonicalSubjectCodeOrDefault(rawSubject) || rawSubject
   
   if (!isValidSubject(subject)) {
     notFound()

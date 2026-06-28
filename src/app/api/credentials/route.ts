@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCredentials, saveCredentials, getUserPermissions, deleteAllCredentialsEverywhere } from '@/lib/db';
 import { getAuthUser } from '@/lib/auth';
+import { getCanonicalSubjectCodeOrDefault } from '@/lib/subjectConfig';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,26 +40,22 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const canonicalSubject = getCanonicalSubjectCodeOrDefault(subject) || undefined;
+
     // Check permissions if subject is specified
     if (subject && user.username !== 'kanzaki_aito') {
         const userPerms = await getUserPermissions(user.userId);
-        // Assuming 'Lecturer' implies canEdit, or we check role directly.
-        // Usually canEdit is enough proxy for higher privilege.
-        const hasPermission = userPerms.some(p => p.subjectCode === subject.toLowerCase() && p.canEdit);
+        const hasPermission = userPerms.some(p => p.subjectCode === canonicalSubject?.toLowerCase() && p.canEdit);
         
-        // Also check if user is a 'Lecturer' globally if subject-specific permission logic is specific
-        // For now, rely on canEdit which we use for other admin tasks
         if (!hasPermission && user.role !== 'Lecturer') {
              return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
     } else if (user.username !== 'kanzaki_aito' && user.role !== 'Lecturer') {
-        // If no subject specified, only Main Admin or Lecturer can list ALL?
-        // Maybe restrict to Main Admin for global list
          return NextResponse.json({ error: "Forbidden: Access restricted to Lecturer and Main Admin" }, { status: 403 });
     }
 
     const credentials = await getCredentials(
-      subject || undefined, 
+      canonicalSubject,
       undefined,
       studentId || undefined
     );
@@ -83,16 +80,16 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { credentials: newCredentials, subject } = body;
+    const canonicalSubject = getCanonicalSubjectCodeOrDefault(subject);
 
     // Permission Check
     if (user.username !== 'kanzaki_aito') {
-        if (!subject) {
+        if (!canonicalSubject) {
              return NextResponse.json({ error: "Forbidden: Main Admin only for global operations" }, { status: 403 });
         }
         
-        // Check if user is Lecturer or has Edit permissions for this subject
         const userPerms = await getUserPermissions(user.userId);
-        const hasPermission = userPerms.some(p => p.subjectCode === subject.toLowerCase() && p.canEdit);
+        const hasPermission = userPerms.some(p => p.subjectCode === canonicalSubject.toLowerCase() && p.canEdit);
         
         if (!hasPermission && user.role !== 'Lecturer') {
              return NextResponse.json({ error: "Forbidden: Lecturer or Admin access required" }, { status: 403 });
@@ -106,14 +103,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!subject) {
+    if (!canonicalSubject) {
       return NextResponse.json(
         { success: false, message: 'Subject is required' },
         { status: 400 }
       );
     }
 
-    const count = await saveCredentials(newCredentials, subject);
+    const count = await saveCredentials(newCredentials, canonicalSubject);
 
     return NextResponse.json({ 
       success: true, 

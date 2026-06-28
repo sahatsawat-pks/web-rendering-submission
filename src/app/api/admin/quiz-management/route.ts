@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAuthUser } from "@/lib/auth"
 import { getAllLabs } from "@/lib/db"
+import { getCanonicalSubjectCodeOrDefault } from '@/lib/subjectConfig'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
     }
 
     const url = new URL(req.url)
-    const subject = url.searchParams.get("subject") || undefined
+    const subject = getCanonicalSubjectCodeOrDefault(url.searchParams.get("subject")) || undefined
 
     // Get all labs with quiz information
     const allLabs = await getAllLabs(false, subject)

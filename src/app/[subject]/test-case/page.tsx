@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams, useRouter, notFound } from "next/navigation"
 import { Play, Code2, AlertCircle, CheckCircle2, XCircle, ArrowLeft, ChevronDown, ChevronUp } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
-import { getSubjectConfig, isValidSubject, SubjectConfig } from "@/lib/subjectConfig"
+import { getCanonicalSubjectCodeOrDefault, getSubjectConfig, isValidSubject, SubjectConfig } from "@/lib/subjectConfig"
 import { fetchSubjectConfig } from "@/lib/subjectConfigCache"
 
 interface TestCase {
@@ -57,7 +57,8 @@ SELECT * FROM table_name;`
 export default function SubjectTestRunner() {
   const params = useParams()
   const router = useRouter()
-  const subject = typeof params?.subject === 'string' ? params.subject.toUpperCase() : ""
+  const rawSubject = typeof params?.subject === 'string' ? params.subject : ""
+  const subject = getCanonicalSubjectCodeOrDefault(rawSubject) || rawSubject
 
   if (!isValidSubject(subject)) {
     notFound()

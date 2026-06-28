@@ -16,9 +16,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const activeOnly = searchParams.get("activeOnly") === "true";
-    const subject = searchParams.get("subject")?.toUpperCase() || undefined;
-
-    const labs = await getAllLabs(activeOnly, subject);
+  const subject = getCanonicalSubjectCodeOrDefault(searchParams.get("subject")) || undefined;
 
     return NextResponse.json({
       success: true,
@@ -52,7 +50,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { labNumber, title, fileName, isActive, deadline, subject, testCases, labType, subQuestions, challengeEnabled } = body;
+    const { labNumber, title, fileName, isActive, deadline, subject: rawSubject, testCases, labType, subQuestions, challengeEnabled } = body;
+    const subject = getCanonicalSubjectCodeOrDefault(rawSubject) || undefined;
 
     if (!labNumber || !title) {
       return NextResponse.json(

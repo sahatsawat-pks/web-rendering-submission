@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getStudentIdPrefixes, clearSheetsCache, clearSubjectsCache } from '@/lib/sheets';
+import { getCanonicalSubjectCodeOrDefault } from '@/lib/subjectConfig';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const subject = searchParams.get('subject');
+    const subject = getCanonicalSubjectCodeOrDefault(searchParams.get('subject')) || undefined;
     const bypassCache = searchParams.get('bypassCache') === 'true';
 
     if (!subject) {

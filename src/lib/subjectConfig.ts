@@ -2,6 +2,7 @@ import { ArrowLeft, BookOpen, Presentation, Code, Terminal, BarChart3, Layers, D
 
 export interface SubjectConfig {
   code: string
+  aliases?: string[]
   title: string
   subtitle: string
   description: string
@@ -575,9 +576,48 @@ const subjectConfigs: Record<string, SubjectConfig> = {
  * @param code Subject code (e.g., 'ITCS223', 'itcs223')
  * @returns Subject configuration or null if not found
  */
+export function normalizeSubjectCode(code: string): string {
+  return code?.toUpperCase().trim() || ''
+}
+
+export function normalizeSubjectLookup(code?: string | null): string | null {
+  if (!code) return null
+  const upperCode = normalizeSubjectCode(code)
+  return upperCode || null
+}
+
+export function getCanonicalSubjectCodeOrDefault(code?: string | null): string | null {
+  const upperCode = normalizeSubjectLookup(code)
+  if (!upperCode) return null
+  return getCanonicalSubjectCode(upperCode) || upperCode
+}
+
+function subjectConfigMatchesCode(config: SubjectConfig, code: string): boolean {
+  const upperCode = normalizeSubjectCode(code)
+  if (!upperCode) return false
+
+  if (config.code.toUpperCase() === upperCode) {
+    return true
+  }
+
+  return !!config.aliases?.some(alias => normalizeSubjectCode(alias) === upperCode)
+}
+
 export function getSubjectConfig(code: string): SubjectConfig | null {
-  const upperCode = code.toUpperCase()
-  return subjectConfigs[upperCode] || null
+  const upperCode = normalizeSubjectCode(code)
+  if (!upperCode) return null
+
+  const directConfig = subjectConfigs[upperCode]
+  if (directConfig) {
+    return directConfig
+  }
+
+  return Object.values(subjectConfigs).find(config => subjectConfigMatchesCode(config, upperCode)) || null
+}
+
+export function getCanonicalSubjectCode(code: string): string | null {
+  const config = getSubjectConfig(code)
+  return config?.code || null
 }
 
 /**
@@ -587,7 +627,7 @@ export function getSubjectConfig(code: string): SubjectConfig | null {
  * @returns true if valid, false otherwise
  */
 export function isValidSubject(code: string): boolean {
-  return code.toUpperCase() in subjectConfigs
+  return !!getSubjectConfig(code)
 }
 
 /**
@@ -597,10 +637,10 @@ export function isValidSubject(code: string): boolean {
  * @returns Promise<boolean> true if valid (exists in DB or static config)
  */
 export async function isValidSubjectAsync(code: string): Promise<boolean> {
-  const upperCode = code.toUpperCase()
+  const upperCode = normalizeSubjectCode(code)
   
   // First check static config (fast path)
-  if (upperCode in subjectConfigs) {
+  if (getSubjectConfig(upperCode)) {
     return true
   }
   

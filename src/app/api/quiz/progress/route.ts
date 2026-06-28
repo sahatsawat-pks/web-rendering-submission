@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getQuizProgress, saveQuizProgress, deleteQuizProgress } from '@/lib/db';
+import { getCanonicalSubjectCodeOrDefault } from '@/lib/subjectConfig';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,7 +8,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get('studentId');
-    const subject = searchParams.get('subject');
+    const subject = getCanonicalSubjectCodeOrDefault(searchParams.get('subject')) || undefined;
     const labNumber = searchParams.get('labNumber');
 
     if (!studentId || !subject || !labNumber) {
@@ -48,7 +49,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { studentId, subject, labNumber, answers } = body;
+    const { studentId, subject: rawSubject, labNumber, answers } = body;
+    const subject = getCanonicalSubjectCodeOrDefault(rawSubject);
 
     if (!studentId || !subject || !labNumber || !answers) {
       return NextResponse.json({ 
@@ -76,7 +78,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get('studentId');
-    const subject = searchParams.get('subject');
+    const subject = getCanonicalSubjectCodeOrDefault(searchParams.get('subject')) || undefined;
     const labNumber = searchParams.get('labNumber');
 
     if (!studentId || !subject || !labNumber) {

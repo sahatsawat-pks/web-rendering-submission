@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getQuizScores, saveQuizScore } from '@/lib/db'
-
+import { getCanonicalSubjectCodeOrDefault } from '@/lib/subjectConfig'
 export const dynamic = 'force-dynamic'
 
 // GET - Get quiz scores
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const subject = searchParams.get('subject') || undefined
+    const subject = getCanonicalSubjectCodeOrDefault(searchParams.get('subject')) || undefined
     const labNumber = searchParams.get('labNumber') || undefined
     const studentId = searchParams.get('studentId') || undefined
 
@@ -29,13 +29,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const {
       studentId,
-      subject,
+      subject: rawSubject,
       labNumber,
       score,
       totalQuestions,
       correctAnswers,
       answers
     } = body
+    const subject = getCanonicalSubjectCodeOrDefault(rawSubject)
 
     // Validation
     if (!studentId || !subject || !labNumber || score === undefined) {
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const subject = searchParams.get('subject')
+    const subject = getCanonicalSubjectCodeOrDefault(searchParams.get('subject')) || undefined
     const labNumber = searchParams.get('labNumber')
 
     if (!subject || !labNumber) {

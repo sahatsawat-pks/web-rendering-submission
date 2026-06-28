@@ -7,6 +7,7 @@ import {
   toggleAnnouncementVisibility,
   deleteAnnouncement,
 } from "@/lib/db";
+import { getCanonicalSubjectCodeOrDefault } from "@/lib/subjectConfig";
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +15,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const subject = searchParams.get("subject")?.toUpperCase();
+    const subject = getCanonicalSubjectCodeOrDefault(searchParams.get("subject")) || undefined;
     const visibleOnly = searchParams.get("visibleOnly") === "true";
 
     if (!subject) {
@@ -58,7 +59,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { subject, title, message, createdBy } = body;
+    const { subject: rawSubject, title, message, createdBy } = body;
+    const subject = getCanonicalSubjectCodeOrDefault(rawSubject);
 
     if (!subject || !title || !message) {
       return NextResponse.json(

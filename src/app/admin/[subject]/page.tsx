@@ -14,7 +14,7 @@ import PythonGrading from "@/components/admin/PythonGrading"
 import CriteriaGrading from "@/components/admin/CriteriaGrading"
 import MultiQuestionGrading from "@/components/admin/MultiQuestionGrading"
 import { getGradientStyleProps } from "@/lib/colors"
-import { getSubjectConfig } from "@/lib/subjectConfig"
+import { getSubjectConfig, getCanonicalSubjectCode } from "@/lib/subjectConfig"
 
 interface Subject {
   code: string
@@ -75,7 +75,8 @@ export default function DynamicAdminDashboard() {
           setUsername(authData.username)
         }
 
-        const subjectPermissionKey = subjectCode.toLowerCase()
+        const resolvedSubjectCode = getCanonicalSubjectCode(subjectCode) || subjectCode
+        const subjectPermissionKey = resolvedSubjectCode.toLowerCase()
         if (authData.username === 'kanzaki_aito' || authData.permissions?.[subjectPermissionKey]) {
           setHasAccess(true)
         } else {

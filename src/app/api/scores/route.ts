@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     
     const searchParams = request.nextUrl.searchParams;
     let targetUsername = searchParams.get('username');
-    const subject = searchParams.get('subject') || undefined;
+    const subject = getCanonicalSubjectCodeOrDefault(searchParams.get('subject')) || undefined;
     const action = searchParams.get('action');
     const bypassCache = searchParams.get('bypassCache') === 'true';
 

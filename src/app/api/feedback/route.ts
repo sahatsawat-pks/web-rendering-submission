@@ -9,6 +9,7 @@ import {
   updateLabFeedbackVisibility,
   deleteLabFeedback,
 } from "@/lib/db";
+import { getCanonicalSubjectCodeOrDefault } from "@/lib/subjectConfig";
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const labNumber = searchParams.get("labNumber");
-    const subject = searchParams.get("subject");
+    const subject = getCanonicalSubjectCodeOrDefault(searchParams.get("subject")) || undefined;
     const studentId = searchParams.get("studentId");
     const visibleOnly = searchParams.get("visibleOnly") === "true";
 
@@ -75,7 +76,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { labNumber, subject, studentId, adminComment, isVisibleToStudent } = await request.json();
+    const { labNumber, subject: rawSubject, studentId, adminComment, isVisibleToStudent } = await request.json();
+    const subject = getCanonicalSubjectCodeOrDefault(rawSubject);
 
     if (!labNumber || !subject || !studentId) {
       return NextResponse.json(
@@ -117,7 +119,8 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const { labNumber, subject, studentId, isVisibleToStudent } = await request.json();
+    const { labNumber, subject: rawSubject, studentId, isVisibleToStudent } = await request.json();
+    const subject = getCanonicalSubjectCodeOrDefault(rawSubject);
 
     if (!labNumber || !subject || !studentId || isVisibleToStudent === undefined) {
       return NextResponse.json(
@@ -166,7 +169,7 @@ export async function DELETE(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const labNumber = searchParams.get("labNumber");
-    const subject = searchParams.get("subject");
+    const subject = getCanonicalSubjectCodeOrDefault(searchParams.get("subject")) || undefined;
     const studentId = searchParams.get("studentId");
 
     if (!labNumber || !subject || !studentId) {

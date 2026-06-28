@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter, useParams, notFound } from "next/navigation"
 import { ModeToggle } from "@/components/mode-toggle"
-import { getSubjectConfig, isValidSubject, SubjectConfig } from "@/lib/subjectConfig"
+import { getCanonicalSubjectCodeOrDefault, getSubjectConfig, isValidSubject, SubjectConfig } from "@/lib/subjectConfig"
 import { fetchSubjectConfig } from "@/lib/subjectConfigCache"
 import { ArrowLeft } from "lucide-react"
 
@@ -19,7 +19,8 @@ interface LabWithQuiz {
 export default function SubjectQuizPage() {
   const router = useRouter()
   const params = useParams()
-  const subject = typeof params?.subject === 'string' ? params.subject : ""
+  const rawSubject = typeof params?.subject === 'string' ? params.subject : ""
+  const subject = getCanonicalSubjectCodeOrDefault(rawSubject) || rawSubject
   
   // Check for static validity first, but we handle 404 in dynamic fetch too
   // if (!isValidSubject(subject)) { ... } 
@@ -63,7 +64,7 @@ export default function SubjectQuizPage() {
 
   const fetchLabsWithQuiz = async () => {
     try {
-      const res = await fetch(`/api/quiz?action=list_labs&subject=${subject.toUpperCase()}`)
+      const res = await fetch(`/api/quiz?action=list_labs&subject=${subject}`, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
         setLabs(data.labs || [])
