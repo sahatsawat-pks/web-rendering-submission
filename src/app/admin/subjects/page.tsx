@@ -28,6 +28,7 @@ interface Subject {
   headerRow?: number
   columnPattern?: string
   studentIdColumn?: string
+  aliases?: string[]
   dataSourceType?: 'single_sheet' | 'tab_per_section' | 'tab_per_lab'
   sheetTabs?: string
   singleSheetTabName?: string
@@ -75,6 +76,32 @@ const getGradingTypeDisplay = (gradingType: Subject['gradingType']) => {
   return GRADING_TYPES.find(t => t.value === gradingType)?.label || gradingType
 }
 
+interface SubjectFormData {
+  code: string
+  title: string
+  description: string
+  icon: string
+  color: string
+  isVisible: boolean
+  courseSummaryLink: string
+  hasGradingInterface: boolean
+  gradingType: Subject['gradingType']
+  hasQuizManagement: boolean
+  hasTestCases: boolean
+  feedbackSectionEnabled: boolean
+  googleSheetId: string
+  headerRow: number
+  columnPattern: string
+  studentIdColumn: string
+  dataSourceType: 'single_sheet' | 'tab_per_section' | 'tab_per_lab'
+  sheetTabs: string
+  singleSheetTabName: string
+  aliases: string[]
+  labWeight: number
+  labMaxScore: number
+  useUniformLabScore: boolean
+}
+
 export default function SubjectManagementPage() {
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [loading, setLoading] = useState(true)
@@ -90,7 +117,7 @@ export default function SubjectManagementPage() {
   const [automationRuntime, setAutomationRuntime] = useState<'python' | 'sql'>('python')
   
   // Form State
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<SubjectFormData>({
     code: '',
     title: '',
     description: '',
@@ -110,6 +137,7 @@ export default function SubjectManagementPage() {
     dataSourceType: 'single_sheet',
     sheetTabs: '',
     singleSheetTabName: '',
+    aliases: [],
     labWeight: 20,
     labMaxScore: 0,
     useUniformLabScore: false
@@ -219,6 +247,7 @@ export default function SubjectManagementPage() {
       dataSourceType: 'single_sheet',
       sheetTabs: '',
       singleSheetTabName: '',
+      aliases: [],
       labWeight: 20,
       labMaxScore: 0,
       useUniformLabScore: false
@@ -252,6 +281,7 @@ export default function SubjectManagementPage() {
       dataSourceType: (subject.dataSourceType as any) || 'single_sheet',
       sheetTabs: subject.sheetTabs || '',
       singleSheetTabName: subject.singleSheetTabName || '',
+      aliases: subject.aliases || [],
       labWeight: subject.labWeight ?? 20,
       labMaxScore: subject.labMaxScore ?? 0,
       useUniformLabScore: subject.useUniformLabScore ?? false
@@ -924,7 +954,7 @@ export default function SubjectManagementPage() {
                      </label>
                      <select
                        value={formData.dataSourceType}
-                       onChange={(e) => setFormData({ ...formData, dataSourceType: e.target.value })}
+                       onChange={(e) => setFormData({ ...formData, dataSourceType: e.target.value as SubjectFormData['dataSourceType'] })}
                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
                      >
                         <option value="single_sheet">Single Sheet (Default)</option>
@@ -967,6 +997,22 @@ export default function SubjectManagementPage() {
                       </div>
                   )}
                   
+                  <div>
+                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                       Alternate Subject IDs (Optional)
+                     </label>
+                     <input
+                       type="text"
+                       value={(formData.aliases || []).join(', ')}
+                       onChange={(e) => setFormData({ ...formData, aliases: e.target.value.split(',').map(v => v.trim()).filter(Boolean) })}
+                       placeholder="ITDS242, ITCS223B"
+                       className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
+                     />
+                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                       Enter additional subject codes that should resolve to this subject, separated by commas.
+                     </p>
+                  </div>
+
                   {/* Summary Link */}
                   <div>
                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">

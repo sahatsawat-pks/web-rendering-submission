@@ -214,6 +214,7 @@ export function adaptSubjectConfig(subject: Subject): SubjectConfig {
 
   return {
     code: subject.code,
+    aliases: subject.aliases || [],
     title: subject.title,
     subtitle: subject.title, // Map title (Name) to subtitle for display
     description: subject.description || 'Access your course materials and tools.',

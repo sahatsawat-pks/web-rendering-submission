@@ -15,12 +15,16 @@ export async function GET(request: NextRequest) {
   
   const subjects = await getSubjects();
   
-  // Filter by code if provided (alias-aware)
+  // Filter by code if provided (alias-aware, including Neon-backed subjects)
   const filteredSubjects = code
     ? subjects.filter(s => {
-        const subjectCode = s.code.toUpperCase()
-        if (normalizedCode === subjectCode) return true
+        const subjectCode = normalizeSubjectCode(s.code)
+        const subjectAliases = (s.aliases || []).map(alias => normalizeSubjectCode(alias))
+        if (!subjectCode) return false
+        if (subjectCode === normalizedCode) return true
         if (canonicalCode && subjectCode === canonicalCode) return true
+        if (subjectAliases.includes(normalizedCode || '')) return true
+        if (canonicalCode && subjectAliases.includes(canonicalCode)) return true
         return false
       })
     : subjects
@@ -67,6 +71,7 @@ export async function POST(request: NextRequest) {
       sheetTabs,
       singleSheetTabName,
       studentIdColumn,
+      aliases,
       // Grading configuration
       labWeight,
       labMaxScore
@@ -99,7 +104,9 @@ export async function POST(request: NextRequest) {
       displayOrder || 0,
       false, // createScoreCheckPlaceholder - deprecated
       false, // createLabRunnerPlaceholder - deprecated
-      courseSummaryLink || undefined
+      courseSummaryLink || undefined,
+      undefined,
+      Array.isArray(aliases) ? aliases : []
     );
 
     // Apply extended configuration
@@ -115,6 +122,7 @@ export async function POST(request: NextRequest) {
         sheetTabs: sheetTabs || '',
         singleSheetTabName: singleSheetTabName || null,
         studentIdColumn: studentIdColumn || null,
+        aliases: Array.isArray(aliases) ? aliases : [],
         labWeight: labWeight || null,
         labMaxScore: labMaxScore || null
       });

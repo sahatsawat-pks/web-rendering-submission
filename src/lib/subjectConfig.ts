@@ -60,6 +60,7 @@ export interface SubjectCard {
 const subjectConfigs: Record<string, SubjectConfig> = {
   ITCS223: {
     code: "ITCS223",
+    aliases: ["ITDS242"],
     title: "ITCS223",
     subtitle: "Introduction to Web Development",
     description: "Choose to view student rendering submissions or check your lab scores.",

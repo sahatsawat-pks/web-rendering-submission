@@ -42,6 +42,24 @@ export interface UserPermission {
   updatedAt: string;
 }
 
+function parseSubjectAliases(value?: string | null): string[] {
+  if (!value) return [];
+  return value
+    .split(',')
+    .map(alias => alias.trim())
+    .filter(Boolean)
+    .map(alias => alias.toUpperCase());
+}
+
+function serializeSubjectAliases(aliases?: string[] | null): string | null {
+  if (!aliases || aliases.length === 0) return null;
+  return aliases
+    .map(alias => alias.trim())
+    .filter(Boolean)
+    .map(alias => alias.toUpperCase())
+    .join(',');
+}
+
 export interface Subject {
   id: number;
   code: string;
@@ -51,6 +69,7 @@ export interface Subject {
   color: string;
   isVisible: boolean;
   displayOrder: number;
+  aliases?: string[];
   createScoreCheckPlaceholder?: boolean;
   createLabRunnerPlaceholder?: boolean;
   courseSummaryLink?: string;
@@ -418,16 +437,7 @@ async function ensureTables() {
             END $$;
         `);
 
-        await client.query(`
-            DO $$ 
-            BEGIN 
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subjects' AND column_name = 'rubric_levels') THEN 
-                    ALTER TABLE subjects ADD COLUMN rubric_levels TEXT; 
-                END IF; 
-            END $$;
-        `);
-
-        // Create subjects table
+        // Create subjects table first so later schema migrations can safely alter it
         await client.query(`
             CREATE TABLE IF NOT EXISTS subjects (
                 id SERIAL PRIMARY KEY,
@@ -442,6 +452,24 @@ async function ensureTables() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+        `);
+
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subjects' AND column_name = 'alternate_subject_ids') THEN 
+                    ALTER TABLE subjects ADD COLUMN alternate_subject_ids TEXT; 
+                END IF; 
+            END $$;
+        `);
+
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subjects' AND column_name = 'rubric_levels') THEN 
+                    ALTER TABLE subjects ADD COLUMN rubric_levels TEXT; 
+                END IF; 
+            END $$;
         `);
         
         // Create credentials table
@@ -1289,6 +1317,7 @@ export async function getSubjects(visibleOnly: boolean = false): Promise<Subject
         color: row.color,
         isVisible: row.is_visible,
         displayOrder: row.display_order,
+        aliases: parseSubjectAliases(row.alternate_subject_ids),
         createScoreCheckPlaceholder: row.create_score_check_placeholder,
         createLabRunnerPlaceholder: row.create_lab_runner_placeholder,
         courseSummaryLink: row.course_summary_link,
@@ -1392,7 +1421,8 @@ export async function createSubject(
   createScoreCheckPlaceholder: boolean = false,
   createLabRunnerPlaceholder: boolean = false,
   courseSummaryLink?: string,
-  googleSheetId?: string
+  googleSheetId?: string,
+  aliases?: string[]
 ): Promise<Subject> {
   await init();
   const pool = getPool();
@@ -1401,11 +1431,11 @@ export async function createSubject(
   try {
     const result = await client.query(`
       INSERT INTO subjects (code, title, description, icon, color, is_visible, display_order, 
-        create_score_check_placeholder, create_lab_runner_placeholder, course_summary_link, google_sheet_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        create_score_check_placeholder, create_lab_runner_placeholder, course_summary_link, google_sheet_id, alternate_subject_ids)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *
     `, [code, title, description, icon, color, isVisible, displayOrder, 
-        createScoreCheckPlaceholder, createLabRunnerPlaceholder, courseSummaryLink || null, googleSheetId || null]);
+        createScoreCheckPlaceholder, createLabRunnerPlaceholder, courseSummaryLink || null, googleSheetId || null, serializeSubjectAliases(aliases)]);
     
     const row = result.rows[0];
     return {
@@ -1417,6 +1447,7 @@ export async function createSubject(
       color: row.color,
       isVisible: row.is_visible,
       displayOrder: row.display_order,
+      aliases: parseSubjectAliases(row.alternate_subject_ids),
       createScoreCheckPlaceholder: row.create_score_check_placeholder,
       createLabRunnerPlaceholder: row.create_lab_runner_placeholder,
       courseSummaryLink: row.course_summary_link,
@@ -1478,6 +1509,7 @@ export async function updateSubject(
     if (updates.sheetTabs !== undefined) { fields.push(`sheet_tabs = $${idx++}`); values.push(updates.sheetTabs); }
     if (updates.singleSheetTabName !== undefined) { fields.push(`single_sheet_tab_name = $${idx++}`); values.push(updates.singleSheetTabName || null); }
     if (updates.studentIdColumn !== undefined) { fields.push(`student_id_column = $${idx++}`); values.push(updates.studentIdColumn || null); }
+    if (updates.aliases !== undefined) { fields.push(`alternate_subject_ids = $${idx++}`); values.push(serializeSubjectAliases(updates.aliases)); }
     if (updates.labWeight !== undefined) { fields.push(`lab_weight = $${idx++}`); values.push(updates.labWeight); }
     if (updates.labMaxScore !== undefined) { fields.push(`lab_max_score = $${idx++}`); values.push(updates.labMaxScore); }
     if (updates.useUniformLabScore !== undefined) { fields.push(`use_uniform_lab_score = $${idx++}`); values.push(updates.useUniformLabScore); }
@@ -1496,6 +1528,7 @@ export async function updateSubject(
         color: row.color,
         isVisible: row.is_visible,
         displayOrder: row.display_order,
+        aliases: parseSubjectAliases(row.alternate_subject_ids),
         createScoreCheckPlaceholder: row.create_score_check_placeholder,
         createLabRunnerPlaceholder: row.create_lab_runner_placeholder,
         courseSummaryLink: row.course_summary_link,
@@ -1541,6 +1574,7 @@ export async function updateSubject(
       color: row.color,
       isVisible: row.is_visible,
       displayOrder: row.display_order,
+      aliases: parseSubjectAliases(row.alternate_subject_ids),
       createScoreCheckPlaceholder: row.create_score_check_placeholder,
       createLabRunnerPlaceholder: row.create_lab_runner_placeholder,
       courseSummaryLink: row.course_summary_link,
