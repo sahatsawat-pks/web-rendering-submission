@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { Pool, PoolClient } from 'pg';
 import { hashPassword } from "./password";
 
 // Database Interface Definitions
@@ -1354,15 +1354,46 @@ export async function updateSubjectVisibility(code: string, isVisible: boolean):
     const client = await pool.connect();
     
     try {
+      // Resolve canonical code if an alias was provided
+      const resolved = await findCanonicalSubjectCode(code, client) || code.toUpperCase()
       await client.query(`
         UPDATE subjects 
         SET is_visible = $1, updated_at = CURRENT_TIMESTAMP 
         WHERE code = $2
-      `, [isVisible, code]);
+      `, [isVisible, resolved]);
     } finally {
       client.release();
     }
   });
+}
+
+/**
+ * Find the canonical subject code for a given code or alias.
+ * If provided client is present, use it; otherwise open a temporary client.
+ */
+export async function findCanonicalSubjectCode(code: string, client?: PoolClient): Promise<string | null> {
+  await init();
+  const upper = (code || '').toUpperCase().trim();
+  if (!upper) return null;
+
+  let ownClient: PoolClient | null = null;
+  try {
+    if (!client) {
+      ownClient = await getPool().connect();
+      client = ownClient;
+    }
+
+    const res = await client.query(
+      `SELECT code, alternate_subject_ids FROM subjects WHERE upper(code) = $1 OR EXISTS (
+         SELECT 1 FROM unnest(string_to_array(coalesce(alternate_subject_ids, ''), ',')) AS a(alias) WHERE upper(trim(a.alias)) = $1
+       ) LIMIT 1`, [upper]
+    );
+
+    if (res.rows.length === 0) return null;
+    return res.rows[0].code;
+  } finally {
+    if (ownClient) ownClient.release();
+  }
 }
 
 export async function updateSubjectOrder(code: string, displayOrder: number): Promise<void> {

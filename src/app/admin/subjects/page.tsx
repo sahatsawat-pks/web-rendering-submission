@@ -107,6 +107,9 @@ export default function SubjectManagementPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
   const [username, setUsername] = useState('')
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null)
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
+  const [statusType, setStatusType] = useState<'success' | 'error' | null>(null)
   
   // Modal State
   const [showSubjectDialog, setShowSubjectDialog] = useState(false)
@@ -210,6 +213,8 @@ export default function SubjectManagementPage() {
         const data = await res.json()
         if (data.success) {
           setSubjects(data.subjects)
+          // maintain selector state when subjects change
+          setSelectedSubjectId(prev => prev || data.subjects?.[0]?.code || null)
         }
       }
     } catch (e: any) {
@@ -221,6 +226,20 @@ export default function SubjectManagementPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  function findSubjectByAnyId(id: string | null) {
+    if (!id) return null
+    const upper = id.toUpperCase()
+    return subjects.find(s => s.code.toUpperCase() === upper || (s.aliases || []).map(a => a.toUpperCase()).includes(upper)) || null
+  }
+
+  async function toggleSelectedVisibility() {
+    const id = selectedSubjectId
+    if (!id) return
+    const subject = findSubjectByAnyId(id)
+    const current = subject ? subject.isVisible : true
+    await toggleVisibility(id, current)
   }
 
   function openCreateDialog() {
@@ -305,20 +324,34 @@ export default function SubjectManagementPage() {
       })
 
       clearTimeout(timeoutId)
+      const data = await res.json().catch(() => ({}))
 
       if (res.ok) {
+        const canonical = data.subject?.code || code
+        const message = canonical.toUpperCase() !== code.toUpperCase()
+          ? `Visibility updated for canonical subject ${canonical} (resolved from ${code}).`
+          : `Visibility updated for ${canonical}.`
+        setStatusMessage(message)
+        setStatusType('success')
+        setTimeout(() => setStatusMessage(null), 6000)
         await fetchSubjects()
       } else {
-        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
+        const errorData = data.error ? data : { error: 'Unknown error' }
         console.error('Toggle visibility failed:', errorData)
-        alert(`Failed to update subject visibility: ${errorData.error || 'Unknown error'}`)
+        setStatusMessage(`Failed to update subject visibility: ${errorData.error || 'Unknown error'}`)
+        setStatusType('error')
+        setTimeout(() => setStatusMessage(null), 10000)
       }
     } catch (e: any) {
       if (e.name === 'AbortError') {
-        alert('Request timed out. Please try again.')
+        setStatusMessage('Request timed out. Please try again.')
+        setStatusType('error')
+        setTimeout(() => setStatusMessage(null), 10000)
       } else {
         console.error('Toggle visibility error:', e)
-        alert(`An error occurred: ${e.message || 'Unknown error'}`)
+        setStatusMessage(`An error occurred: ${e.message || 'Unknown error'}`)
+        setStatusType('error')
+        setTimeout(() => setStatusMessage(null), 10000)
       }
     } finally {
       setSaving(null)
@@ -551,14 +584,45 @@ export default function SubjectManagementPage() {
               Manage curricula, visibility, and grading configurations.
             </p>
           </div>
+          {statusMessage && (
+            <div className={`rounded-2xl px-4 py-3 text-sm font-medium ${statusType === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'}`}>
+              {statusMessage}
+            </div>
+          )}
           
-          <button
-            onClick={openCreateDialog}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
-          >
-            <Plus className="w-5 h-5" />
-            <span className="hidden sm:inline">Create Subject</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2">
+              <select
+                value={selectedSubjectId || ''}
+                onChange={(e) => setSelectedSubjectId(e.target.value || null)}
+                className="px-3 py-2 bg-transparent text-sm text-slate-800 dark:text-slate-200 outline-none"
+              >
+                {subjects.map(s => (
+                  <option key={s.code} value={s.code}>{s.code}{s.aliases && s.aliases.length ? ` — aliases: ${s.aliases.join(', ')}` : ''}</option>
+                ))}
+                {/* also expose aliases as separate selectable options for convenience */}
+                {subjects.flatMap(s => (s.aliases || []).map(a => ({ alias: a, canonical: s.code }))).map(item => (
+                  <option key={`alias-${item.alias}`} value={item.alias}>{item.alias} (alias of {item.canonical})</option>
+                ))}
+              </select>
+              <button
+                onClick={toggleSelectedVisibility}
+                disabled={!selectedSubjectId}
+                className="px-3 py-2 bg-slate-50 dark:bg-slate-900 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-sm"
+                title="Toggle visibility for selected subject or alias"
+              >
+                Toggle Visibility
+              </button>
+            </div>
+
+            <button
+              onClick={openCreateDialog}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
+            >
+              <Plus className="w-5 h-5" />
+              <span className="hidden sm:inline">Create Subject</span>
+            </button>
+          </div>
         </div>
 
         {subjects.length === 0 ? (

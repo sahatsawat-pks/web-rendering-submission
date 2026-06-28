@@ -173,23 +173,20 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Subject code is required" }, { status: 400 });
     }
 
+    const { findCanonicalSubjectCode, getUserPermissions, updateSubject } = await import("@/lib/db");
+    const targetCode = await findCanonicalSubjectCode(code) || code.toUpperCase();
+
     // Permission Check: Only main admin (kanzaki_aito) OR a user with explicit canEdit permission for this subject can update it
     if (user.username !== 'kanzaki_aito') {
-      const { getUserPermissions } = await import("@/lib/db");
       const userPerms = await getUserPermissions(user.userId);
-      const hasPermission = userPerms.some(p => p.subjectCode === code.toLowerCase() && p.canEdit);
+      const hasPermission = userPerms.some(p => p.subjectCode === targetCode.toLowerCase() && p.canEdit);
       
       if (!hasPermission) {
         return NextResponse.json({ error: "Forbidden: You don't have permission to modify this subject" }, { status: 403 });
       }
     }
 
-    const { updateSubject } = await import("@/lib/db");
-    
-    // Use the full updateSubject function from db.ts
-    // This supports title, description, icon, color, visibility, order, AND the new flags
-    const updated = await updateSubject(code, updates);
-
+    const updated = await updateSubject(targetCode, updates);
     if (!updated) {
       return NextResponse.json({ error: "Subject not found" }, { status: 404 });
     }
@@ -201,8 +198,8 @@ export async function PATCH(request: NextRequest) {
         const { clearSubjectsCache, clearSheetsCache } = await import('@/lib/sheets');
         const { invalidateSubjectConfigCache } = await import('@/lib/subjectConfigCache');
         clearSubjectsCache();
-        clearSheetsCache(code);
-        invalidateSubjectConfigCache(code);
+        clearSheetsCache(targetCode);
+        invalidateSubjectConfigCache(targetCode);
       } catch (error) {
         console.error('Background cache clearing failed:', error);
       }
