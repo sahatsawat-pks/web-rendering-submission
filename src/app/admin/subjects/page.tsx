@@ -634,7 +634,7 @@ export default function SubjectManagementPage() {
               All Subjects
             </h1>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              Manage curricula, visibility, and grading configurations.
+              Manage curriculum, visibility, and grading configurations.
             </p>
           </div>
           {statusMessage && (
