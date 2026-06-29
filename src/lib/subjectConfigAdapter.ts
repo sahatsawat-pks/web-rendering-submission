@@ -84,6 +84,7 @@ function parseColorToComponents(color: string): {
 export function adaptSubjectConfig(subject: Subject): SubjectConfig {
   const { gradientFrom, gradientTo, baseColor, secondaryColor } = parseColorToComponents(subject.color)
   const codeLower = subject.code.toLowerCase()
+  const displayCode = subject.displaySubjectId || subject.code
   
   // Generate Cards
   const cards: SubjectCard[] = []
@@ -213,7 +214,7 @@ export function adaptSubjectConfig(subject: Subject): SubjectConfig {
   }
 
   return {
-    code: subject.code,
+    code: displayCode,
     aliases: subject.aliases || [],
     title: subject.title,
     subtitle: subject.title, // Map title (Name) to subtitle for display

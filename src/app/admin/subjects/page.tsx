@@ -10,6 +10,7 @@ import { generateQuickTemplate } from "@/lib/subjectConfigGenerator"
 interface Subject {
   id: number
   code: string
+  displaySubjectId?: string
   title: string
   description: string
   icon: string
@@ -61,17 +62,20 @@ const COLOR_OPTIONS = [
 ]
 
 const GRADING_TYPES = [
-  { value: 'lab_challenge', label: 'Lab & Challenge (Default)', desc: 'Dual scoring system with challenge toggles' },
-  { value: 'simple_score', label: 'Simple Score Tracking', desc: 'Manual score entry (0-100) per lab' },
-  { value: 'non_uniform', label: 'Non-uniform Grading', desc: 'Per-lab max scores seperation' },
-  { value: 'java', label: 'Java Automation', desc: 'Java JUnit test runner' },
-  { value: 'multi_question', label: 'Multi-Question Labs', desc: 'Score inputs for multiple questions (e.g. Q1, Q2)' },
-  { value: 'criteria', label: 'Criteria Grading', desc: 'Ethics, Understanding, Reflection (0-2 scores)' }
+  { value: 'simple_score', label: 'Simple Score', desc: 'Manual score entry (0-100) per lab' },
+  { value: 'lab_challenge', label: 'Lab & Challenge', desc: 'Dual scoring system with challenge toggles' },
+  { value: 'multi_question', label: 'Multi-Question', desc: 'Score inputs for multiple questions (e.g. Q1, Q2)' },
+  { value: 'criteria', label: 'Criteria Grading', desc: 'Ethics, Understanding, Reflection (0-2 scores)' },
+  { value: 'non_uniform', label: 'Automation (Python/SQL)', desc: 'Per-lab max scores separation' },
 ]
 
-const getGradingTypeDisplay = (gradingType: Subject['gradingType']) => {
-  if (gradingType === 'python' || gradingType === 'sql' || gradingType === 'non_uniform') {
-    return 'Non-uniform Grading'
+function getGradingTypeDisplay(gradingType: string | null) {
+  if (!gradingType) return 'None'
+  if (gradingType === 'python') {
+    return 'Python Automation'
+  }
+  if (gradingType === 'sql') {
+    return 'SQL Automation'
   }
   return GRADING_TYPES.find(t => t.value === gradingType)?.label || gradingType
 }
@@ -100,6 +104,7 @@ interface SubjectFormData {
   labWeight: number
   labMaxScore: number
   useUniformLabScore: boolean
+  displaySubjectId?: string
 }
 
 export default function SubjectManagementPage() {
@@ -143,7 +148,8 @@ export default function SubjectManagementPage() {
     aliases: [],
     labWeight: 20,
     labMaxScore: 0,
-    useUniformLabScore: false
+    useUniformLabScore: false,
+    displaySubjectId: ''
   })
   
   // Tab State for Modal
@@ -242,6 +248,50 @@ export default function SubjectManagementPage() {
     await toggleVisibility(id, current)
   }
 
+  async function updateDisplaySubjectId(code: string, displaySubjectId: string) {
+    setSaving(code)
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 25000) // 25 second timeout
+
+      const res = await fetch("/api/subjects", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, displaySubjectId }),
+        signal: controller.signal
+      })
+
+      clearTimeout(timeoutId)
+      const data = await res.json().catch(() => ({}))
+
+      if (res.ok) {
+        setStatusMessage(`Shown ID for ${code} updated to ${displaySubjectId}.`)
+        setStatusType('success')
+        setTimeout(() => setStatusMessage(null), 6000)
+        await fetchSubjects()
+      } else {
+        const errorData = data.error ? data : { error: 'Unknown error' }
+        console.error('Update display ID failed:', errorData)
+        setStatusMessage(`Failed to update display ID: ${errorData.error || 'Unknown error'}`)
+        setStatusType('error')
+        setTimeout(() => setStatusMessage(null), 10000)
+      }
+    } catch (e: any) {
+      if (e.name === 'AbortError') {
+        setStatusMessage('Request timed out. Please try again.')
+        setStatusType('error')
+        setTimeout(() => setStatusMessage(null), 10000)
+      } else {
+        console.error('Update display ID error:', e)
+        setStatusMessage(`An error occurred: ${e.message || 'Unknown error'}`)
+        setStatusType('error')
+        setTimeout(() => setStatusMessage(null), 10000)
+      }
+    } finally {
+      setSaving(null)
+    }
+  }
+
   function openCreateDialog() {
     setEditingSubject(null)
     setAutomationRuntime('python')
@@ -269,7 +319,8 @@ export default function SubjectManagementPage() {
       aliases: [],
       labWeight: 20,
       labMaxScore: 0,
-      useUniformLabScore: false
+      useUniformLabScore: false,
+      displaySubjectId: ''
     })
     setActiveTab('basic')
     setShowSubjectDialog(true)
@@ -303,7 +354,8 @@ export default function SubjectManagementPage() {
       aliases: subject.aliases || [],
       labWeight: subject.labWeight ?? 20,
       labMaxScore: subject.labMaxScore ?? 0,
-      useUniformLabScore: subject.useUniformLabScore ?? false
+      useUniformLabScore: subject.useUniformLabScore ?? false,
+      displaySubjectId: subject.displaySubjectId || subject.code
     })
     setActiveTab('basic')
     setShowSubjectDialog(true)
@@ -423,6 +475,7 @@ export default function SubjectManagementPage() {
       const resolvedGradingType = resolveGradingTypeForSave()
       const payload = {
         ...formData,
+        displaySubjectId: formData.displaySubjectId || formData.code,
         gradingType: resolvedGradingType,
         useUniformLabScore: (formData.gradingType === 'python' || formData.gradingType === 'sql' || formData.gradingType === 'non_uniform')
           ? false
@@ -592,27 +645,49 @@ export default function SubjectManagementPage() {
           
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2">
+              <span className="text-sm text-slate-500 font-medium px-2">Subject:</span>
               <select
                 value={selectedSubjectId || ''}
                 onChange={(e) => setSelectedSubjectId(e.target.value || null)}
-                className="px-3 py-2 bg-transparent text-sm text-slate-800 dark:text-slate-200 outline-none"
+                className={`px-3 py-2 bg-transparent text-sm text-slate-800 dark:text-slate-200 outline-none ${selectedSubjectId ? 'border-r border-slate-200 dark:border-slate-700' : ''}`}
               >
+                <option value="">Select Subject...</option>
                 {subjects.map(s => (
-                  <option key={s.code} value={s.code}>{s.code}{s.aliases && s.aliases.length ? ` — aliases: ${s.aliases.join(', ')}` : ''}</option>
-                ))}
-                {/* also expose aliases as separate selectable options for convenience */}
-                {subjects.flatMap(s => (s.aliases || []).map(a => ({ alias: a, canonical: s.code }))).map(item => (
-                  <option key={`alias-${item.alias}`} value={item.alias}>{item.alias} (alias of {item.canonical})</option>
+                  <option key={s.code} value={s.code}>{s.code}</option>
                 ))}
               </select>
-              <button
-                onClick={toggleSelectedVisibility}
-                disabled={!selectedSubjectId}
-                className="px-3 py-2 bg-slate-50 dark:bg-slate-900 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-sm"
-                title="Toggle visibility for selected subject or alias"
-              >
-                Toggle Visibility
-              </button>
+              {selectedSubjectId && (
+                <>
+                  <span className="text-sm text-slate-500 font-medium px-2">Shown ID:</span>
+                  <select
+                    value={(() => {
+                      const s = findSubjectByAnyId(selectedSubjectId)
+                      return s?.displaySubjectId || s?.code || ''
+                    })()}
+                    onChange={async (e) => {
+                      const s = findSubjectByAnyId(selectedSubjectId)
+                      if (s) {
+                        await updateDisplaySubjectId(s.code, e.target.value)
+                      }
+                    }}
+                    disabled={saving !== null}
+                    className="px-3 py-2 bg-transparent text-sm text-slate-800 dark:text-slate-200 outline-none font-semibold cursor-pointer"
+                  >
+                    {(() => {
+                      const s = findSubjectByAnyId(selectedSubjectId)
+                      if (!s) return null
+                      return (
+                        <>
+                          <option value={s.code}>{s.code} (Main)</option>
+                          {s.aliases?.map(alias => (
+                            <option key={alias} value={alias}>{alias}</option>
+                          ))}
+                        </>
+                      )
+                    })()}
+                  </select>
+                </>
+              )}
             </div>
 
             <button
@@ -657,16 +732,21 @@ export default function SubjectManagementPage() {
                 </div>
 
                 <div className={`flex-shrink-0 w-12 h-12 bg-gradient-to-br ${subject.color} rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-lg`}>
-                  {subject.code.substring(0, 4)}
+                  {(subject.displaySubjectId || subject.code).substring(0, 4)}
                 </div>
 
                 <div className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
                   <div>
                     <h3 
-                      className={`text-base font-bold flex items-center gap-2 ${getTextGradientStyle(subject.color).className}`}
+                      className={`text-base font-bold flex items-center gap-2 flex-wrap ${getTextGradientStyle(subject.color).className}`}
                       style={getTextGradientStyle(subject.color).style}
                     >
-                      {subject.code}
+                      {subject.displaySubjectId || subject.code}
+                      {subject.displaySubjectId && subject.displaySubjectId !== subject.code && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/50">
+                          Canonical: {subject.code}
+                        </span>
+                      )}
                       {!subject.isVisible && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300">Hidden</span>
                       )}
@@ -695,18 +775,20 @@ export default function SubjectManagementPage() {
 
 
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => toggleVisibility(subject.code, subject.isVisible)}
-                    disabled={saving === subject.code}
-                    className={`p-2 rounded-lg transition-all ${
-                        subject.isVisible
-                        ? "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
-                        : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
-                    }`}
-                    title={subject.isVisible ? "Hide Subject" : "Show Subject"}
-                  >
-                    {subject.isVisible ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
-                  </button>
+                  <div className="flex items-center gap-1.5 mr-2">
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Shown ID:</span>
+                    <select
+                      value={subject.displaySubjectId || subject.code}
+                      onChange={(e) => updateDisplaySubjectId(subject.code, e.target.value)}
+                      disabled={saving === subject.code || !subject.aliases || subject.aliases.length === 0}
+                      className="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 transition-all disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      <option value={subject.code}>{subject.code} (Main)</option>
+                      {subject.aliases?.map(alias => (
+                        <option key={alias} value={alias}>{alias}</option>
+                      ))}
+                    </select>
+                  </div>
 
                   <button
                     onClick={() => openEditDialog(subject)}
@@ -836,7 +918,7 @@ export default function SubjectManagementPage() {
                   </div>
 
                   {/* Branding: Icon & Color */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div>
                         <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                         Icon
@@ -852,17 +934,36 @@ export default function SubjectManagementPage() {
                         ))}
                         </select>
                       </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                          Display Subject ID
+                        </label>
+                        <select
+                          value={formData.displaySubjectId || formData.code || ''}
+                          onChange={(e) => setFormData({ ...formData, displaySubjectId: e.target.value })}
+                          disabled={saving === 'modal' || !formData.code}
+                          className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-60 cursor-pointer"
+                        >
+                          {formData.code && (
+                            <option value={formData.code}>{formData.code} (Main)</option>
+                          )}
+                          {formData.aliases?.map(alias => (
+                            <option key={alias} value={alias}>{alias}</option>
+                          ))}
+                        </select>
+                      </div>
                       
                       <div>
                           <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                           Visibility
                           </label>
-                          <div className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+                          <div className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 h-[42px]">
                              <input 
                                type="checkbox" 
                                checked={formData.isVisible}
                                onChange={(e) => setFormData({ ...formData, isVisible: e.target.checked })}
-                               className="w-5 h-5 ml-2"
+                               className="w-5 h-5 ml-2 cursor-pointer"
                              />
                              <span className="text-sm text-slate-700 dark:text-slate-300">Visible to Users</span>
                           </div>

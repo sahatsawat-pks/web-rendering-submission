@@ -74,7 +74,8 @@ export async function POST(request: NextRequest) {
       aliases,
       // Grading configuration
       labWeight,
-      labMaxScore
+      labMaxScore,
+      displaySubjectId
     } = body;
 
     if (!code || !title) {
@@ -124,7 +125,8 @@ export async function POST(request: NextRequest) {
         studentIdColumn: studentIdColumn || null,
         aliases: Array.isArray(aliases) ? aliases : [],
         labWeight: labWeight || null,
-        labMaxScore: labMaxScore || null
+        labMaxScore: labMaxScore || null,
+        displaySubjectId: displaySubjectId || code.toUpperCase()
       });
     }
 

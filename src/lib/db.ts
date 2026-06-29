@@ -63,6 +63,7 @@ function serializeSubjectAliases(aliases?: string[] | null): string | null {
 export interface Subject {
   id: number;
   code: string;
+  displaySubjectId?: string;
   title: string;
   description: string;
   icon: string;
@@ -448,6 +449,7 @@ async function ensureTables() {
                 color VARCHAR(100),
                 is_visible BOOLEAN DEFAULT true,
                 display_order INTEGER DEFAULT 0,
+                display_subject_id VARCHAR(20),
                 rubric_levels TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -459,6 +461,15 @@ async function ensureTables() {
             BEGIN 
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subjects' AND column_name = 'alternate_subject_ids') THEN 
                     ALTER TABLE subjects ADD COLUMN alternate_subject_ids TEXT; 
+                END IF; 
+            END $$;
+        `);
+
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subjects' AND column_name = 'display_subject_id') THEN 
+                    ALTER TABLE subjects ADD COLUMN display_subject_id VARCHAR(20); 
                 END IF; 
             END $$;
         `);
@@ -1311,6 +1322,7 @@ export async function getSubjects(visibleOnly: boolean = false): Promise<Subject
       return result.rows.map(row => ({
         id: row.id,
         code: row.code,
+        displaySubjectId: row.display_subject_id || row.code,
         title: row.title,
         description: row.description,
         icon: row.icon,
@@ -1462,16 +1474,17 @@ export async function createSubject(
   try {
     const result = await client.query(`
       INSERT INTO subjects (code, title, description, icon, color, is_visible, display_order, 
-        create_score_check_placeholder, create_lab_runner_placeholder, course_summary_link, google_sheet_id, alternate_subject_ids)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        create_score_check_placeholder, create_lab_runner_placeholder, course_summary_link, google_sheet_id, alternate_subject_ids, display_subject_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *
     `, [code, title, description, icon, color, isVisible, displayOrder, 
-        createScoreCheckPlaceholder, createLabRunnerPlaceholder, courseSummaryLink || null, googleSheetId || null, serializeSubjectAliases(aliases)]);
+        createScoreCheckPlaceholder, createLabRunnerPlaceholder, courseSummaryLink || null, googleSheetId || null, serializeSubjectAliases(aliases), code.toUpperCase()]);
     
     const row = result.rows[0];
     return {
       id: row.id,
       code: row.code,
+      displaySubjectId: row.display_subject_id || row.code,
       title: row.title,
       description: row.description,
       icon: row.icon,
@@ -1514,9 +1527,30 @@ export async function updateSubject(
     const client = await pool.connect();
     
     try {
-    const fields: string[] = [];
-    const values: any[] = [];
-    let idx = 1;
+      // Validate displaySubjectId if provided
+      if (updates.displaySubjectId) {
+        const canonicalCode = code.toUpperCase();
+        let allowedChoices = [canonicalCode];
+        
+        if (updates.aliases !== undefined) {
+          allowedChoices = allowedChoices.concat(updates.aliases.map(a => a.toUpperCase()));
+        } else {
+          const existing = await client.query('SELECT alternate_subject_ids FROM subjects WHERE code = $1', [code]);
+          if (existing.rowCount > 0) {
+            const parsed = parseSubjectAliases(existing.rows[0].alternate_subject_ids) || [];
+            allowedChoices = allowedChoices.concat(parsed.map(a => a.toUpperCase()));
+          }
+        }
+        
+        const requestedDisplayId = updates.displaySubjectId.toUpperCase();
+        if (!allowedChoices.includes(requestedDisplayId)) {
+          throw new Error(`Invalid display subject ID: ${updates.displaySubjectId}. Must be either the canonical code (${code}) or one of its alternate subject IDs.`);
+        }
+      }
+
+      const fields: string[] = [];
+      const values: any[] = [];
+      let idx = 1;
 
     if (updates.title !== undefined) { fields.push(`title = $${idx++}`); values.push(updates.title); }
     if (updates.description !== undefined) { fields.push(`description = $${idx++}`); values.push(updates.description); }
@@ -1524,6 +1558,7 @@ export async function updateSubject(
     if (updates.color !== undefined) { fields.push(`color = $${idx++}`); values.push(updates.color); }
     if (updates.isVisible !== undefined) { fields.push(`is_visible = $${idx++}`); values.push(updates.isVisible); }
     if (updates.displayOrder !== undefined) { fields.push(`display_order = $${idx++}`); values.push(updates.displayOrder); }
+    if (updates.displaySubjectId !== undefined) { fields.push(`display_subject_id = $${idx++}`); values.push(updates.displaySubjectId || null); }
     if (updates.createScoreCheckPlaceholder !== undefined) { fields.push(`create_score_check_placeholder = $${idx++}`); values.push(updates.createScoreCheckPlaceholder); }
     if (updates.createLabRunnerPlaceholder !== undefined) { fields.push(`create_lab_runner_placeholder = $${idx++}`); values.push(updates.createLabRunnerPlaceholder); }
     if (updates.courseSummaryLink !== undefined) { fields.push(`course_summary_link = $${idx++}`); values.push(updates.courseSummaryLink); }
@@ -1553,6 +1588,7 @@ export async function updateSubject(
       return {
         id: row.id,
         code: row.code,
+        displaySubjectId: row.display_subject_id || row.code,
         title: row.title,
         description: row.description,
         icon: row.icon,
@@ -1599,6 +1635,7 @@ export async function updateSubject(
     return {
       id: row.id,
       code: row.code,
+      displaySubjectId: row.display_subject_id || row.code,
       title: row.title,
       description: row.description,
       icon: row.icon,

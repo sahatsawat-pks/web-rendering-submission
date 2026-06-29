@@ -35,11 +35,16 @@ export async function fetchSubjectConfig(code: string): Promise<SubjectConfig | 
         const subject: Subject = data.subjects[0]
         const config = adaptSubjectConfig(subject)
         
-        // Cache the result for both the requested input and the canonical subject code
-        const canonicalCode = normalizeSubjectCode(config.code)
+        // Cache the result for both the requested input and the canonical subject code.
+        // DB-backed configs may display an alternate code, so use subject.code here.
+        const canonicalCode = normalizeSubjectCode(subject.code)
         configCache[upperCode] = config
         if (canonicalCode) {
           configCache[canonicalCode] = config
+        }
+        const displayCode = normalizeSubjectCode(config.code)
+        if (displayCode) {
+          configCache[displayCode] = config
         }
         config.aliases?.forEach(alias => {
           const aliasKey = normalizeSubjectCode(alias)
