@@ -1536,7 +1536,7 @@ export async function updateSubject(
           allowedChoices = allowedChoices.concat(updates.aliases.map(a => a.toUpperCase()));
         } else {
           const existing = await client.query('SELECT alternate_subject_ids FROM subjects WHERE code = $1', [code]);
-          if (existing.rowCount > 0) {
+          if (existing.rows.length > 0) {
             const parsed = parseSubjectAliases(existing.rows[0].alternate_subject_ids) || [];
             allowedChoices = allowedChoices.concat(parsed.map(a => a.toUpperCase()));
           }
