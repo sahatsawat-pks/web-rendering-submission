@@ -36,16 +36,17 @@ export default async function LandingPage() {
         shadowClass = config.shadowColor;
       }
       
+      const displayCode = config.code || s.code
       return {
         id: s.code.toLowerCase(),
-        code: s.code,
+        code: displayCode,
         title: config.title,
         description: config.description,
         icon: IconComponent ? <IconComponent className="w-6 h-6" /> : <Zap className="w-6 h-6" />,
         color: colorGradient,
         shadow: shadowClass,
         shadowStyle: shadowStyle,
-        link: `/${s.code.toLowerCase()}`
+        link: `/${displayCode.toLowerCase()}`
       };
     })
 
