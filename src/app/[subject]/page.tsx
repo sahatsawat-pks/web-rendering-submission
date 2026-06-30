@@ -37,7 +37,7 @@ export default async function SubjectLandingPage(props: { params: Promise<{ subj
       </div>
 
       <SubjectNavbar 
-        code={config.code}
+        code={subjectParam.toUpperCase()}
         subtitle={config.subtitle}
         accentColor={config.accentColor}
         shadowColor={config.shadowColor}
@@ -60,10 +60,14 @@ export default async function SubjectLandingPage(props: { params: Promise<{ subj
             const isExternal = card.isExternal || false
             const Component = isExternal ? 'a' : Link
 
+            const adjustedHref = isExternal 
+                ? card.href 
+                : card.href.replace(/^\/([^/]+)/, `/${subjectParam}`)
+
             return (
               <Component
                 key={index}
-                href={card.href}
+                href={adjustedHref}
                 {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                 className={`group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 shadow-2xl hover:${card.shadowColor} transition-all duration-500 hover:-translate-y-2`}
               >

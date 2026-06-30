@@ -43,12 +43,12 @@ export default function SubjectQuizPage() {
                  
                  // Check quiz enabled status
                  if (!adapted.hasQuiz) {
-                     router.push(`/${subject}`)
+                      router.push(`/${rawSubject}`)
                  }
             } else if (staticConfig) {
                  setConfig(staticConfig)
                  if (!staticConfig.hasQuiz) {
-                     router.push(`/${subject}`)
+                      router.push(`/${rawSubject}`)
                  }
             } else {
                  notFound()
@@ -96,16 +96,16 @@ export default function SubjectQuizPage() {
         <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-2 md:gap-3">
             <button
-              onClick={() => router.push(`/${subject}`)}
+              onClick={() => router.push(`/${rawSubject}`)}
               className="flex items-center justify-center w-10 h-10 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-              title={`Back to ${config.code}`}
+              title={`Back to ${rawSubject.toUpperCase()}`}
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <img src="/logo.png" alt="Logo" className={`h-9 w-9 md:h-11 md:w-11 rounded-xl shadow-lg ${config.shadowColor}`} />
             <div>
               <span className="text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                {config.code} Quiz
+                {rawSubject.toUpperCase()} Quiz
               </span>
 
             </div>
@@ -144,7 +144,7 @@ export default function SubjectQuizPage() {
               <div
                 key={lab.id}
                 className={`bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-6 hover:shadow-xl ${config.accentColor.replace(/text-/g, 'hover:border-')} transition-all cursor-pointer group`}
-                onClick={() => router.push(`/${subject}/quiz/${lab.labNumber}`)}
+                onClick={() => router.push(`/${rawSubject}/quiz/${lab.labNumber}`)}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">

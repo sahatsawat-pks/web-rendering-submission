@@ -1166,16 +1166,16 @@ export default function SubjectScorePage() {
         <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-2 md:gap-3">
             <a
-              href={`/${subject}`}
+              href={`/${rawSubject}`}
               className="flex items-center justify-center w-10 h-10 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-              title={`Back to ${config.code}`}
+              title={`Back to ${rawSubject.toUpperCase()}`}
             >
               <ArrowLeft className="w-5 h-5" />
             </a>
             <img src="/logo.png" alt="Logo" className={`h-9 w-9 md:h-11 md:w-11 rounded-xl shadow-lg ${config.shadowColor}`} />
             <div>
               <span className="text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                {config.code}
+                {config.title || rawSubject.toUpperCase()}
               </span>
               <p className={`text-xs ${config.accentColor} font-medium hidden sm:block`}>{config.subtitle}</p>
             </div>
@@ -1207,7 +1207,7 @@ export default function SubjectScorePage() {
       <main className="container mx-auto max-w-7xl px-6 py-16 relative z-10">
         <div className="mx-auto max-w-3xl mb-16 text-center animate-slide-up">
           <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 sm:text-5xl mb-4">
-            {config.code} <span className={`bg-clip-text text-transparent bg-gradient-to-r ${config.gradientFrom} ${config.gradientTo}`}>Score Check</span>
+            {rawSubject.toUpperCase()} <span className={`bg-clip-text text-transparent bg-gradient-to-r ${config.gradientFrom} ${config.gradientTo}`}>Score Check</span>
           </h1>
         </div>
 
@@ -1253,7 +1253,7 @@ export default function SubjectScorePage() {
                  <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Enter your credential code to view your progress</p>
              </div>
              
-             <StatusChecker subject={config.code} config={config} isAdmin={isAdmin} />
+             <StatusChecker subject={subject} config={config} isAdmin={isAdmin} />
         </div>
       </main>
 

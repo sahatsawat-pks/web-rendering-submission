@@ -111,7 +111,7 @@ export default function SubjectTestRunner() {
 
   useEffect(() => {
     if (config && !config.hasTestRunner) {
-        router.push(`/${subject}`)
+        router.push(`/${rawSubject}`)
         return
     }
 
@@ -414,7 +414,7 @@ export default function SubjectTestRunner() {
         <div className="container mx-auto max-w-7xl flex h-14 items-center justify-between px-4">
           <div className="flex items-center gap-3">
              <button
-              onClick={() => router.push(`/${subject}`)}
+              onClick={() => router.push(`/${rawSubject}`)}
               className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-800 transition-colors text-slate-400 hover:text-slate-100"
               title="Back"
             >
@@ -424,7 +424,7 @@ export default function SubjectTestRunner() {
               <span className="text-xs">{langConfig.icon}</span>
             </div>
             <span className="font-bold text-slate-100">
-              {config.code} {config.testRunnerLabel || 'Test Runner'}
+              {rawSubject.toUpperCase()} {config.testRunnerLabel || 'Test Runner'}
             </span>
           </div>
           <div className="flex items-center gap-4">

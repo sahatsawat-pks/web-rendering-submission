@@ -305,7 +305,8 @@ export default function AdminHub() {
                 const colorForText = config ? `${config.gradientFrom} ${config.gradientTo}` : mod.color
                 const textGradient = getTextGradientStyle(colorForText)
                 const icon = getIconComponent(mod.icon)
-                const href = `/admin/${mod.code.toLowerCase()}`
+                const displayCode = mod.displaySubjectId || mod.code
+                const href = `/admin/${displayCode.toLowerCase()}`
                 
                 return (
                 <Link 
@@ -328,7 +329,7 @@ export default function AdminHub() {
                                 className={`text-2xl font-bold mb-2 transition-colors ${textGradient.className}`}
                                 style={textGradient.style}
                             >
-                                {mod.code}
+                                {displayCode}
                             </h3>
                             <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">{mod.title}</h4>
                             <p className="text-slate-600 dark:text-slate-300 leading-relaxed">

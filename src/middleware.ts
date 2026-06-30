@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 // Subject paths that need visibility check
-const subjectPaths = ['itcs223', 'itcs227', 'itge162', 'itcs123', 'itcs251', 'itcs255', 'itds283']
+const subjectPaths = ['itcs223', 'itcs227', 'itge162', 'itcs123', 'itcs251', 'itcs255', 'itds283', 'itds242']
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
@@ -73,5 +73,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/itcs223/:path*', '/itcs227/:path*', '/itge162/:path*', '/itcs123/:path*', '/itcs251/:path*', '/itcs255/:path*', '/itds283/:path*'],
+  matcher: ['/admin/:path*', '/itcs223/:path*', '/itcs227/:path*', '/itge162/:path*', '/itcs123/:path*', '/itcs251/:path*', '/itcs255/:path*', '/itds283/:path*', '/itds242/:path*'],
 }

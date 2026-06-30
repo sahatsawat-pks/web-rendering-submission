@@ -104,7 +104,7 @@ export default function SubjectRenderingPage() {
   useEffect(() => {
     // Wait for config to load before redirecting
     if (!loadingConfig && config && !config.hasRendering) {
-        router.push(`/${subject}`)
+        router.push(`/${rawSubject}`)
         return
     }
     
@@ -313,7 +313,7 @@ export default function SubjectRenderingPage() {
         <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.push(`/${subject}`)}
+              onClick={() => router.push(`/${rawSubject}`)}
               className="flex items-center justify-center w-10 h-10 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
               title="Back"
             >
@@ -350,7 +350,7 @@ export default function SubjectRenderingPage() {
       <main className="container mx-auto max-w-7xl px-6 py-16 relative z-10">
         <div className="mx-auto max-w-3xl mb-16 text-center animate-slide-up">
           <h1 className="text-6xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 sm:text-7xl mb-6">
-            {config.code} <span className="gradient-text">Submissions</span>
+            {rawSubject.toUpperCase()} <span className="gradient-text">Submissions</span>
           </h1>
         </div>
 
