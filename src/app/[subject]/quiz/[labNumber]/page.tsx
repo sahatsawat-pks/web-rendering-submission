@@ -141,14 +141,22 @@ export default function QuizTakingPage() {
            .then(adapted => {
               if (adapted) {
                    setDbConfig(adapted)
-              } else if (!staticConfig) {
-                   // Only 404 if no static config either
-                   notFound()
+                   if (!adapted.hasQuiz) {
+                        router.push(`/${rawSubject}`)
+                        return
+                   }
+              } else if (staticConfig) {
+                   if (!staticConfig.hasQuiz) {
+                        router.push(`/${rawSubject}`)
+                        return
+                   }
+              } else {
+                   router.push(`/${rawSubject}`)
               }
            })
            .catch(err => {
               console.error(err)
-              if (!staticConfig) notFound()
+              router.push(`/${rawSubject}`)
            })
       }
 
@@ -156,7 +164,7 @@ export default function QuizTakingPage() {
       // Redirect to verification page
       router.push(`/${rawSubject}/quiz/${labNumber}/verify`)
     }
-  }, [labNumber, router, subject, staticConfig])
+  }, [labNumber, router, subject, staticConfig, rawSubject])
 
   useEffect(() => {
     if (isVerified) {
@@ -225,6 +233,10 @@ export default function QuizTakingPage() {
       const res = await fetch(`/api/quiz?labNumber=${labNumber}&subject=${subject}`, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
+        if (data.quizEnabled !== true) {
+          router.push(`/${rawSubject}`)
+          return
+        }
         setQuestions(data.questions || [])
         setCategories(data.categories || [])
         setLabTitle(data.labTitle || "")
@@ -232,9 +244,11 @@ export default function QuizTakingPage() {
         const limit = data.quizTimeLimit || 0
         setTimeLimit(limit)
         setTimeRemaining(limit * 60) // Convert to seconds
+      } else {
+        router.push(`/${rawSubject}`)
       }
     } catch (e) {
-      // Failed to load quiz
+      router.push(`/${rawSubject}`)
     } finally {
       setLoading(false)
     }

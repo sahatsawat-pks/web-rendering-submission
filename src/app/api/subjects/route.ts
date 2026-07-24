@@ -48,10 +48,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const user = await getAuthUser();
-    
-    // Only main admin can create subjects
-    if (!user || user.username !== 'kanzaki_aito') {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    const isMainAdmin = user?.username === 'kanzaki_aito';
+    const isInstructor = user?.role === 'Lecturer';
+
+    // Only main admin and instructors can create subjects
+    if (!user || (!isMainAdmin && !isInstructor)) {
+      return NextResponse.json({ error: "Unauthorized: Only main admin and instructors can create subjects" }, { status: 403 });
     }
 
     const body = await request.json();
@@ -88,7 +90,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Import db dynamically to avoid circular deps if any (standard pattern in this codebase)
-    const { createSubject, updateSubject } = await import("@/lib/db");
+    const { createSubject, updateSubject, upsertPermission, findUserByUsername } = await import("@/lib/db");
 
     // Create subject
     // We need to update createSubject signature in db.ts or use update after create if createSubject doesn't support all fields yet.
@@ -110,7 +112,7 @@ export async function POST(request: NextRequest) {
       Array.isArray(aliases) ? aliases : []
     );
 
-    // Apply extended configuration
+    // Apply extended configuration and grant permissions
     if (subject) {
       await updateSubject(code, {
         hasGradingInterface: hasGradingInterface || false,
@@ -128,6 +130,18 @@ export async function POST(request: NextRequest) {
         labMaxScore: labMaxScore || null,
         displaySubjectId: displaySubjectId || code.toUpperCase()
       });
+
+      // Grant permission for new subject to creator
+      const normalizedCode = code.toLowerCase();
+      await upsertPermission(user.userId, normalizedCode, true, user.userId);
+
+      // Grant permission to main admin (kanzaki_aito) as well
+      if (!isMainAdmin) {
+        const adminUser = await findUserByUsername('kanzaki_aito');
+        if (adminUser) {
+          await upsertPermission(adminUser.id, normalizedCode, true, user.userId);
+        }
+      }
     }
 
     // Clear cache so new subject is immediately available

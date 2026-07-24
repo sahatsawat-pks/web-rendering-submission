@@ -44,23 +44,30 @@ export default function SubjectQuizPage() {
                  // Check quiz enabled status
                  if (!adapted.hasQuiz) {
                       router.push(`/${rawSubject}`)
+                      return
                  }
             } else if (staticConfig) {
                  setConfig(staticConfig)
                  if (!staticConfig.hasQuiz) {
                       router.push(`/${rawSubject}`)
+                      return
                  }
             } else {
-                 notFound()
+                 router.push(`/${rawSubject}`)
+                 return
             }
        })
        .catch(err => {
             console.error(err)
-            if (staticConfig) setConfig(staticConfig)
+            if (staticConfig && staticConfig.hasQuiz) {
+                 setConfig(staticConfig)
+            } else {
+                 router.push(`/${rawSubject}`)
+            }
        })
   
     fetchLabsWithQuiz()
-  }, [subject, router, staticConfig])
+  }, [subject, router, staticConfig, rawSubject])
 
   const fetchLabsWithQuiz = async () => {
     try {
@@ -70,7 +77,7 @@ export default function SubjectQuizPage() {
         setLabs(data.labs || [])
       }
     } catch (e) {
-      // Failed to load labs with quiz
+      // Keep empty labs
     } finally {
       setLoading(false)
     }

@@ -22,22 +22,50 @@ export default function QuizVerifyPage() {
   const staticConfig = subject ? getSubjectConfig(subject) : null
   const config = dbConfig || staticConfig
 
-  // Effect to load config
+  // Effect to load config and verify quiz active status
   useEffect(() => {
     if (subject) {
-        fetchSubjectConfig(subject)
-         .then(adapted => {
-            if (adapted) {
-                 setDbConfig(adapted)
-            } else if (!staticConfig) {
-                 router.push('/404')
+      fetchSubjectConfig(subject)
+        .then(adapted => {
+          if (adapted) {
+            setDbConfig(adapted)
+            if (!adapted.hasQuiz) {
+              router.push(`/${rawSubject}`)
+              return
             }
-         })
-         .catch(() => {
-            if (!staticConfig) router.push('/404')
-         })
+          } else if (staticConfig) {
+            if (!staticConfig.hasQuiz) {
+              router.push(`/${rawSubject}`)
+              return
+            }
+          } else {
+            router.push(`/${rawSubject}`)
+            return
+          }
+        })
+        .catch(() => {
+          router.push(`/${rawSubject}`)
+        })
+
+      // Fetch lab quiz data to check if this lab's quiz is active
+      fetch(`/api/quiz?labNumber=${labNumber}&subject=${subject}`, { cache: 'no-store' })
+        .then(res => {
+          if (!res.ok) {
+            router.push(`/${rawSubject}`)
+            return null
+          }
+          return res.json()
+        })
+        .then(data => {
+          if (data && data.quizEnabled !== true) {
+            router.push(`/${rawSubject}`)
+          }
+        })
+        .catch(() => {
+          router.push(`/${rawSubject}`)
+        })
     }
-  }, [subject, router, staticConfig])
+  }, [subject, labNumber, router, staticConfig, rawSubject])
 
   // Need to handle loading state slightly better but for now let's just return null if no config
   if (!config) {
