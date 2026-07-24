@@ -358,7 +358,7 @@ export default function AdminHub() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto animate-scale-in" style={{ animationDelay: '0.3s' }}>
 
-             {username === "kanzaki_aito" && (
+             {(role === 'Lecturer' || username === "kanzaki_aito") && (
              <Link 
                 href="/admin/users"
                 className="group relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
