@@ -185,6 +185,10 @@ export default function SubjectManagementPage() {
     return (/sql/i.test(formData.title) || /sql/i.test(formData.code)) ? 'sql' : 'python'
   }
 
+  const [role, setRole] = useState('')
+  const [permissions, setPermissions] = useState<Record<string, boolean>>({})
+  const isMainAdmin = username === "kanzaki_aito"
+
   useEffect(() => {
     fetchSubjects()
     fetchUser()
@@ -197,6 +201,8 @@ export default function SubjectManagementPage() {
         const data = await res.json()
         if (data.username) {
           setUsername(data.username)
+          setRole(data.role || '')
+          setPermissions(data.permissions || {})
         }
       }
     } catch (e) {
@@ -643,732 +649,787 @@ export default function SubjectManagementPage() {
             </div>
           )}
 
-          <button
-            onClick={openCreateDialog}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
-          >
-            <Plus className="w-5 h-5" />
-            <span className="hidden sm:inline">Create Subject</span>
-          </button>
-        </div>
-    </div>
-
-        {
-    subjects.length === 0 ? (
-      <div className="text-center py-20 bg-white/50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 border-dashed">
-        <FolderPlus className="w-16 h-16 text-slate-400 mx-auto mb-4 opacity-50" />
-        <h3 className="text-xl font-bold text-slate-700 dark:text-slate-300">No Subjects Found</h3>
-        <p className="text-slate-500 dark:text-slate-400 mt-2">Create your first subject to get started.</p>
-      </div>
-    ) : (
-    <div className="space-y-3">
-      {subjects.map((subject, index) => (
-        <div
-          key={subject.code}
-          className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 hover:shadow-lg transition-all animate-scale-in"
-          style={{ animationDelay: `${index * 50}ms` }}
-        >
-          <div className="flex flex-col gap-1">
-            <button
-              onClick={() => moveSubject(subject.code, "up")}
-              disabled={index === 0 || saving === subject.code}
-              className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              <ArrowUp className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-            </button>
-            <button
-              onClick={() => moveSubject(subject.code, "down")}
-              disabled={index === subjects.length - 1 || saving === subject.code}
-              className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              <ArrowDown className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-            </button>
-          </div>
-
-          <div className={`flex-shrink-0 w-12 h-12 bg-gradient-to-br ${subject.color} rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-lg`}>
-            {(subject.displaySubjectId || subject.code).substring(0, 4)}
-          </div>
-
-          <div className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-            <div>
-              <h3
-                className={`text-base font-bold flex items-center gap-2 flex-wrap ${getTextGradientStyle(subject.color).className}`}
-                style={getTextGradientStyle(subject.color).style}
-              >
-                {subject.displaySubjectId || subject.code}
-                {subject.displaySubjectId && subject.displaySubjectId !== subject.code && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/50">
-                    Canonical: {subject.code}
-                  </span>
-                )}
-                {!subject.isVisible && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300">Hidden</span>
-                )}
-              </h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400 truncate">{subject.title}</p>
-            </div>
-
-            <div className="hidden md:flex items-center gap-2">
-              {subject.hasGradingInterface ? (
-                <span className="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium border border-blue-200 dark:border-blue-900/50">
-                  {getGradingTypeDisplay(subject.gradingType)}
-                </span>
-              ) : (
-                <span className="text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">No Grading</span>
-              )}
-              <div className="flex gap-1">
-                {subject.hasQuizManagement && (
-                  <span title="Quiz" className="w-2 h-2 rounded-full bg-purple-500"></span>
-                )}
-                {subject.hasTestCases && (
-                  <span title="Tests" className="w-2 h-2 rounded-full bg-green-500"></span>
-                )}
-              </div>
-            </div>
-          </div>
-
-
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 mr-2">
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Shown ID:</span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2">
+              <span className="text-sm text-slate-500 font-medium px-2">Subject:</span>
               <select
-                value={subject.displaySubjectId || subject.code}
-                onChange={(e) => updateDisplaySubjectId(subject.code, e.target.value)}
-                disabled={saving === subject.code || !subject.aliases || subject.aliases.length === 0}
-                className="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 transition-all disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                value={selectedSubjectId || ''}
+                onChange={(e) => setSelectedSubjectId(e.target.value || null)}
+                className={`px-3 py-2 bg-transparent text-sm text-slate-800 dark:text-slate-200 outline-none ${selectedSubjectId ? 'border-r border-slate-200 dark:border-slate-700' : ''}`}
               >
-                <option value={subject.code}>{subject.code} (Main)</option>
-                {subject.aliases?.map(alias => (
-                  <option key={alias} value={alias}>{alias}</option>
+                <option value="">Select Subject...</option>
+                {subjects.map(s => (
+                  <option key={s.code} value={s.code}>{s.code}</option>
                 ))}
               </select>
+              {selectedSubjectId && (
+                <>
+                  <span className="text-sm text-slate-500 font-medium px-2">Shown ID:</span>
+                  <select
+                    value={(() => {
+                      const s = findSubjectByAnyId(selectedSubjectId)
+                      return s?.displaySubjectId || s?.code || ''
+                    })()}
+                    onChange={async (e) => {
+                      const s = findSubjectByAnyId(selectedSubjectId)
+                      if (s) {
+                        await updateDisplaySubjectId(s.code, e.target.value)
+                      }
+                    }}
+                    disabled={saving !== null}
+                    className="px-3 py-2 bg-transparent text-sm text-slate-800 dark:text-slate-200 outline-none font-semibold cursor-pointer"
+                  >
+                    {(() => {
+                      const s = findSubjectByAnyId(selectedSubjectId)
+                      if (!s) return null
+                      return (
+                        <>
+                          <option value={s.code}>{s.code} (Main)</option>
+                          {s.aliases?.map(alias => (
+                            <option key={alias} value={alias}>{alias}</option>
+                          ))}
+                        </>
+                      )
+                    })()}
+                  </select>
+                </>
+              )}
             </div>
 
-            <button
-              onClick={() => openEditDialog(subject)}
-              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-all shadow-sm hover:shadow"
-            >
-              <Edit className="w-4 h-4" />
-              <span>Edit</span>
-            </button>
-            <button
-              onClick={() => handleDeleteSubject(subject)}
-              disabled={saving === subject.code}
-              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg transition-all shadow-sm hover:shadow"
-              title="Delete Subject"
-            >
-              <Trash className="w-4 h-4" />
-            </button>
+            {isMainAdmin && (
+              <button
+                onClick={openCreateDialog}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
+              >
+                <Plus className="w-5 h-5" />
+                <span className="hidden sm:inline">Create Subject</span>
+              </button>
+            )}
           </div>
         </div>
-      ))}
-    </div>
-  )
-  }
-      </main >
 
-    {/* Subject Dialog (Create/Edit) */ }
-  {
-    showSubjectDialog && (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto flex flex-col">
-          <div className="sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 py-4 flex items-center justify-between z-10">
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 bg-gradient-to-br ${formData.color} rounded-xl flex items-center justify-center shadow-md transition-all duration-300`}>
-                <FolderPlus className="w-5 h-5 text-white" />
+        {subjects.length === 0 ? (
+          <div className="text-center py-20 bg-white/50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 border-dashed">
+            <FolderPlus className="w-16 h-16 text-slate-400 mx-auto mb-4 opacity-50" />
+            <h3 className="text-xl font-bold text-slate-700 dark:text-slate-300">No Subjects Found</h3>
+            <p className="text-slate-500 dark:text-slate-400 mt-2">Create your first subject to get started.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {subjects.map((subject, index) => {
+              const hasSubjectPermission = isMainAdmin || Boolean(permissions[subject.code.toLowerCase()])
+              return (
+                <div
+                  key={subject.code}
+                  className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 hover:shadow-lg transition-all animate-scale-in"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <div className="flex flex-col gap-1">
+                    <button
+                      onClick={() => moveSubject(subject.code, "up")}
+                      disabled={!isMainAdmin || index === 0 || saving === subject.code}
+                      className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ArrowUp className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                    </button>
+                    <button
+                      onClick={() => moveSubject(subject.code, "down")}
+                      disabled={!isMainAdmin || index === subjects.length - 1 || saving === subject.code}
+                      className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ArrowDown className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                    </button>
+                  </div>
+
+                  <div className={`flex-shrink-0 w-12 h-12 bg-gradient-to-br ${subject.color} rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-lg`}>
+                    {(subject.displaySubjectId || subject.code).substring(0, 4)}
+                  </div>
+
+                  <div className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                    <div>
+                      <h3
+                        className={`text-base font-bold flex items-center gap-2 flex-wrap ${getTextGradientStyle(subject.color).className}`}
+                        style={getTextGradientStyle(subject.color).style}
+                      >
+                        {subject.displaySubjectId || subject.code}
+                        {subject.displaySubjectId && subject.displaySubjectId !== subject.code && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/50">
+                            Canonical: {subject.code}
+                          </span>
+                        )}
+                        {!subject.isVisible && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300">Hidden</span>
+                        )}
+                      </h3>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 truncate">{subject.title}</p>
+                    </div>
+
+                    <div className="hidden md:flex items-center gap-2">
+                      {subject.hasGradingInterface ? (
+                        <span className="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium border border-blue-200 dark:border-blue-900/50">
+                          {getGradingTypeDisplay(subject.gradingType)}
+                        </span>
+                      ) : (
+                        <span className="text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">No Grading</span>
+                      )}
+                      <div className="flex gap-1">
+                        {subject.hasQuizManagement && (
+                          <span title="Quiz" className="w-2 h-2 rounded-full bg-purple-500"></span>
+                        )}
+                        {subject.hasTestCases && (
+                          <span title="Tests" className="w-2 h-2 rounded-full bg-green-500"></span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 mr-2">
+                      <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Shown ID:</span>
+                      <select
+                        value={subject.displaySubjectId || subject.code}
+                        onChange={(e) => updateDisplaySubjectId(subject.code, e.target.value)}
+                        disabled={saving === subject.code || !hasSubjectPermission || !subject.aliases || subject.aliases.length === 0}
+                        className="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 transition-all disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                      >
+                        <option value={subject.code}>{subject.code} (Main)</option>
+                        {subject.aliases?.map(alias => (
+                          <option key={alias} value={alias}>{alias}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button
+                      onClick={() => openEditDialog(subject)}
+                      disabled={!hasSubjectPermission}
+                      className={`flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border rounded-lg transition-all shadow-sm ${
+                        hasSubjectPermission
+                          ? 'border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:shadow cursor-pointer'
+                          : 'border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed'
+                      }`}
+                      title={hasSubjectPermission ? "Edit Subject" : "You can only edit subjects you have permission for"}
+                    >
+                      <Edit className="w-4 h-4" />
+                      <span>Edit</span>
+                    </button>
+                    {isMainAdmin && (
+                      <button
+                        onClick={() => handleDeleteSubject(subject)}
+                        disabled={saving === subject.code}
+                        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg transition-all shadow-sm hover:shadow"
+                        title="Delete Subject"
+                      >
+                        <Trash className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </main>
+
+      {/* Subject Dialog (Create/Edit) */}
+      {showSubjectDialog && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto flex flex-col">
+            <div className="sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 py-4 flex items-center justify-between z-10">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 bg-gradient-to-br ${formData.color} rounded-xl flex items-center justify-center shadow-md transition-all duration-300`}>
+                  <FolderPlus className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-slate-200">
+                    {editingSubject ? 'Edit Subject' : 'Create New Subject'}
+                  </h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {editingSubject ? `Configure ${formData.code}` : 'Add a new course curriculum'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-200">
-                  {editingSubject ? 'Edit Subject' : 'Create New Subject'}
-                </h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {editingSubject ? `Configure ${formData.code}` : 'Add a new course curriculum'}
-                </p>
-              </div>
+              <button
+                onClick={() => setShowSubjectDialog(false)}
+                disabled={saving === 'modal'}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <button
-              onClick={() => setShowSubjectDialog(false)}
-              disabled={saving === 'modal'}
-              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
 
-          {/* Tabs */}
-          <div className="flex border-b border-slate-200 dark:border-slate-700 px-6">
-            <button
-              onClick={() => setActiveTab('basic')}
-              className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'basic'
-                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-                }`}
-            >
-              Basic Info
-            </button>
-            <button
-              onClick={() => setActiveTab('config')}
-              className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'config'
-                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-                }`}
-            >
-              Configuration & Grading
-            </button>
-          </div>
+            {/* Tabs */}
+            <div className="flex border-b border-slate-200 dark:border-slate-700 px-6">
+              <button
+                onClick={() => setActiveTab('basic')}
+                className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'basic'
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
+              >
+                Basic Info
+              </button>
+              <button
+                onClick={() => setActiveTab('config')}
+                className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'config'
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
+              >
+                Configuration & Grading
+              </button>
+            </div>
 
-          <div className="p-6 space-y-6 flex-1 overflow-y-auto">
+            <div className="p-6 space-y-6 flex-1 overflow-y-auto">
 
-            {activeTab === 'basic' ? (
-              <div className="space-y-6 animate-fade-in">
-                {/* Subject Code */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Subject Code <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                    placeholder="ITCS999"
-                    disabled={!!editingSubject || saving === 'modal'}
-                    className={`w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${editingSubject ? 'opacity-70 cursor-not-allowed bg-slate-100 dark:bg-slate-800' : ''}`}
-                  />
-                  {!editingSubject && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Uppercase letters and numbers only. Cannot be changed later.
-                    </p>
-                  )}
-                </div>
-
-                {/* Subject Title */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Subject Title <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    placeholder="e.g. Advanced Web Development"
-                    disabled={saving === 'modal'}
-                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                {/* Description */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Brief description of the course..."
-                    rows={3}
-                    disabled={saving === 'modal'}
-                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  />
-                </div>
-
-                {/* Branding: Icon & Color */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {activeTab === 'basic' ? (
+                <div className="space-y-6 animate-fade-in">
+                  {/* Subject Code */}
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                      Icon
+                      Subject Code <span className="text-red-500">*</span>
                     </label>
-                    <select
-                      value={formData.icon}
-                      onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
+                    <input
+                      type="text"
+                      value={formData.code}
+                      onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                      placeholder="ITCS999"
+                      disabled={!!editingSubject || saving === 'modal'}
+                      className={`w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${editingSubject ? 'opacity-70 cursor-not-allowed bg-slate-100 dark:bg-slate-800' : ''}`}
+                    />
+                    {!editingSubject && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Uppercase letters and numbers only. Cannot be changed later.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Subject Title */}
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      Subject Title <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      placeholder="e.g. Advanced Web Development"
                       disabled={saving === 'modal'}
                       className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      {ICON_OPTIONS.map(icon => (
-                        <option key={icon} value={icon}>{icon}</option>
-                      ))}
-                    </select>
+                    />
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      Description
+                    </label>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      placeholder="Brief description of the course..."
+                      rows={3}
+                      disabled={saving === 'modal'}
+                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    />
+                  </div>
+
+                  {/* Branding: Icon & Color */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Icon
+                      </label>
+                      <select
+                        value={formData.icon}
+                        onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
+                        disabled={saving === 'modal'}
+                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        {ICON_OPTIONS.map(icon => (
+                          <option key={icon} value={icon}>{icon}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Display Subject ID
+                      </label>
+                      <select
+                        value={formData.displaySubjectId || formData.code || ''}
+                        onChange={(e) => setFormData({ ...formData, displaySubjectId: e.target.value })}
+                        disabled={saving === 'modal' || !formData.code}
+                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-60 cursor-pointer"
+                      >
+                        {formData.code && (
+                          <option value={formData.code}>{formData.code} (Main)</option>
+                        )}
+                        {formData.aliases?.map(alias => (
+                          <option key={alias} value={alias}>{alias}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Visibility
+                      </label>
+                      <div className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 h-[42px]">
+                        <input
+                          type="checkbox"
+                          checked={formData.isVisible}
+                          onChange={(e) => setFormData({ ...formData, isVisible: e.target.checked })}
+                          className="w-5 h-5 ml-2 cursor-pointer"
+                        />
+                        <span className="text-sm text-slate-700 dark:text-slate-300">Visible to Users</span>
+                      </div>
+                    </div>
                   </div>
 
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                      Display Subject ID
+                      Color Theme
+                    </label>
+                    <div className="flex flex-col gap-4">
+                      {/* Custom Color Toggle */}
+                      <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="colorMode"
+                            checked={!formData.color.startsWith("#") && !formData.color.startsWith("linear-gradient")}
+                            onChange={() => setFormData({ ...formData, color: 'from-blue-500 to-indigo-500' })}
+                            className="w-4 h-4 text-blue-600"
+                          />
+                          <span className="text-sm text-slate-700 dark:text-slate-300">Preset Gradient</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="colorMode"
+                            checked={formData.color.startsWith("#") || formData.color.startsWith("linear-gradient")}
+                            onChange={() => setFormData({ ...formData, color: '#3b82f6' })} // Default Blue Hex
+                            className="w-4 h-4 text-blue-600"
+                          />
+                          <span className="text-sm text-slate-700 dark:text-slate-300">Custom Color</span>
+                        </label>
+                      </div>
+
+                      {/* Presets Grid */}
+                      {(!formData.color.startsWith("#") && !formData.color.startsWith("linear-gradient")) && (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-in">
+                          {COLOR_OPTIONS.map(color => (
+                            <button
+                              key={color.value}
+                              onClick={() => setFormData({ ...formData, color: color.value })}
+                              disabled={saving === 'modal'}
+                              className={`p-2 rounded-lg border-2 transition-all ${formData.color === color.value
+                                  ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                                  : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                                }`}
+                            >
+                              <div className={`w-full h-8 bg-gradient-to-r ${color.value} rounded mb-2`}></div>
+                              <p className="text-[10px] font-medium text-slate-600 dark:text-slate-400 text-center">{color.name}</p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Color Picker */}
+                      {(formData.color.startsWith("#") || formData.color.startsWith("linear-gradient")) && (
+                        <div className="animate-fade-in p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                          <div className="flex items-center gap-4">
+                            <input
+                              type="color"
+                              value={formData.color.startsWith("#") ? formData.color : "#3b82f6"}
+                              onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                              className="h-12 w-24 p-1 rounded cursor-pointer"
+                            />
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-slate-900 dark:text-slate-200">Custom Gradient Preview</p>
+                              <div
+                                className="h-8 w-full rounded-lg mt-2 shadow-sm"
+                                style={{ background: formData.color.startsWith("#") ? `linear-gradient(135deg, ${formData.color} 0%, ${formData.color} 100%)` : formData.color }} // Simple preview, helper handles real gradient logic
+                              ></div>
+                              <p className="text-xs text-slate-500 mt-2">
+                                Smart Gradient will be automatically generated from this color.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Google Sheet ID */}
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      Google Sheet ID
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.googleSheetId}
+                      onChange={(e) => setFormData({ ...formData, googleSheetId: e.target.value })}
+                      placeholder="1BxiMVs0XRA5nFMdKvBdBZjGWZW-u_7QYs..."
+                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 font-mono text-sm"
+                    />
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      The document ID from the Google Sheet URL. Required for fetching scores.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Header Row
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formData.headerRow}
+                        onChange={(e) => setFormData({ ...formData, headerRow: parseInt(e.target.value) || 1 })}
+                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
+                      />
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Row number where column headers are located (Default: 1).
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Student ID Column
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.studentIdColumn}
+                        onChange={(e) => setFormData({ ...formData, studentIdColumn: e.target.value })}
+                        placeholder="A, B, 1, or ID"
+                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 font-mono text-sm"
+                      />
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Column letter (e.g. A), 1-based number, or header name. Leave empty to auto-detect.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Column Pattern (Regex)
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.columnPattern}
+                        onChange={(e) => setFormData({ ...formData, columnPattern: e.target.value })}
+                        placeholder="e.g. ^Lab\s*{labId}"
+                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 font-mono text-sm"
+                      />
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Custom regex to match lab columns. Use <code>{'{labId}'}</code> placeholder.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      Data Source Strategy
                     </label>
                     <select
-                      value={formData.displaySubjectId || formData.code || ''}
-                      onChange={(e) => setFormData({ ...formData, displaySubjectId: e.target.value })}
-                      disabled={saving === 'modal' || !formData.code}
-                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-60 cursor-pointer"
+                      value={formData.dataSourceType}
+                      onChange={(e) => setFormData({ ...formData, dataSourceType: e.target.value as SubjectFormData['dataSourceType'] })}
+                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
                     >
-                      {formData.code && (
-                        <option value={formData.code}>{formData.code} (Main)</option>
-                      )}
-                      {formData.aliases?.map(alias => (
-                        <option key={alias} value={alias}>{alias}</option>
-                      ))}
+                      <option value="single_sheet">Single Sheet (Default)</option>
+                      <option value="tab_per_section">Tab per Section (e.g. Sec1, Sec2)</option>
+                      <option value="tab_per_lab">Tab per Lab (e.g. Lab 1, Lab 2)</option>
                     </select>
                   </div>
 
+                  {formData.dataSourceType === 'single_sheet' ? (
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Sheet Tab Name
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.singleSheetTabName}
+                        onChange={(e) => setFormData({ ...formData, singleSheetTabName: e.target.value })}
+                        placeholder={formData.code || "e.g. Grades, Sheet1"}
+                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
+                      />
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Google Sheet tab to read/write. Leave empty to use the subject code ({formData.code || "ITCS362"}).
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Sheet Tabs (Comma Separated)
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.sheetTabs}
+                        onChange={(e) => setFormData({ ...formData, sheetTabs: e.target.value })}
+                        placeholder={formData.dataSourceType === 'tab_per_section' ? "Sec1, Sec2, Sec3" : "Lab 1, Lab 2, Lab 3"}
+                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
+                      />
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Explicitly list the tab names to fetch data from.
+                      </p>
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                      Visibility
+                      Alternate Subject IDs (Optional)
                     </label>
-                    <div className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 h-[42px]">
-                      <input
-                        type="checkbox"
-                        checked={formData.isVisible}
-                        onChange={(e) => setFormData({ ...formData, isVisible: e.target.checked })}
-                        className="w-5 h-5 ml-2 cursor-pointer"
-                      />
-                      <span className="text-sm text-slate-700 dark:text-slate-300">Visible to Users</span>
-                    </div>
+                    <input
+                      type="text"
+                      value={(formData.aliases || []).join(', ')}
+                      onChange={(e) => setFormData({ ...formData, aliases: e.target.value.split(',').map(v => v.trim()).filter(Boolean) })}
+                      placeholder="ITDS242, ITCS223B"
+                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
+                    />
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      Enter additional subject codes that should resolve to this subject, separated by commas.
+                    </p>
+                  </div>
+
+                  {/* Summary Link */}
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      Course Summary Link (Optional)
+                    </label>
+                    <input
+                      type="url"
+                      value={formData.courseSummaryLink}
+                      onChange={(e) => setFormData({ ...formData, courseSummaryLink: e.target.value })}
+                      placeholder="https://..."
+                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
+                    />
                   </div>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Color Theme
-                  </label>
-                  <div className="flex flex-col gap-4">
-                    {/* Custom Color Toggle */}
-                    <div className="flex items-center gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="colorMode"
-                          checked={!formData.color.startsWith("#") && !formData.color.startsWith("linear-gradient")}
-                          onChange={() => setFormData({ ...formData, color: 'from-blue-500 to-indigo-500' })}
-                          className="w-4 h-4 text-blue-600"
-                        />
-                        <span className="text-sm text-slate-700 dark:text-slate-300">Preset Gradient</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="colorMode"
-                          checked={formData.color.startsWith("#") || formData.color.startsWith("linear-gradient")}
-                          onChange={() => setFormData({ ...formData, color: '#3b82f6' })} // Default Blue Hex
-                          className="w-4 h-4 text-blue-600"
-                        />
-                        <span className="text-sm text-slate-700 dark:text-slate-300">Custom Color</span>
-                      </label>
+              ) : (
+                <div className="space-y-6 animate-fade-in">
+                  {/* Grading Interface Toggle */}
+                  <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
+                        <Beaker className="w-6 h-6" />
+                      </div>
+                      <div className="flex-1">
+                        <label className="flex items-center gap-2 cursor-pointer mb-1">
+                          <input
+                            type="checkbox"
+                            checked={formData.hasGradingInterface}
+                            onChange={(e) => setFormData({ ...formData, hasGradingInterface: e.target.checked })}
+                            className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="font-bold text-slate-900 dark:text-slate-200">Enable Grading Interface</span>
+                        </label>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                          Enables the grading dashboard for this subject. If disabled, the admin page will be empty.
+                        </p>
+                      </div>
                     </div>
 
-                    {/* Presets Grid */}
-                    {(!formData.color.startsWith("#") && !formData.color.startsWith("linear-gradient")) && (
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-in">
-                        {COLOR_OPTIONS.map(color => (
-                          <button
-                            key={color.value}
-                            onClick={() => setFormData({ ...formData, color: color.value })}
-                            disabled={saving === 'modal'}
-                            className={`p-2 rounded-lg border-2 transition-all ${formData.color === color.value
-                                ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                                : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                              }`}
-                          >
-                            <div className={`w-full h-8 bg-gradient-to-r ${color.value} rounded mb-2`}></div>
-                            <p className="text-[10px] font-medium text-slate-600 dark:text-slate-400 text-center">{color.name}</p>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Color Picker */}
-                    {(formData.color.startsWith("#") || formData.color.startsWith("linear-gradient")) && (
-                      <div className="animate-fade-in p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
-                        <div className="flex items-center gap-4">
-                          <input
-                            type="color"
-                            value={formData.color.startsWith("#") ? formData.color : "#3b82f6"}
-                            onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                            className="h-12 w-24 p-1 rounded cursor-pointer"
-                          />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-slate-900 dark:text-slate-200">Custom Gradient Preview</p>
-                            <div
-                              className="h-8 w-full rounded-lg mt-2 shadow-sm"
-                              style={{ background: formData.color.startsWith("#") ? `linear-gradient(135deg, ${formData.color} 0%, ${formData.color} 100%)` : formData.color }} // Simple preview, helper handles real gradient logic
-                            ></div>
-                            <p className="text-xs text-slate-500 mt-2">
-                              Smart Gradient will be automatically generated from this color.
-                            </p>
+                    {formData.hasGradingInterface && (
+                      <div className="mt-4 pl-12 space-y-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                            Grading Strategy
+                          </label>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                            Python and SQL automation are both managed as non-uniform grading (per-lab max score).
+                          </p>
+                          <div className="grid gap-2">
+                            {GRADING_TYPES.map(type => (
+                              <label
+                                key={type.value}
+                                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${formData.gradingType === type.value
+                                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-sm'
+                                    : 'border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800'
+                                  }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="gradingType"
+                                  value={type.value}
+                                  checked={formData.gradingType === type.value}
+                                  onChange={(e) => applyGradingTypeDefaults(e.target.value as Exclude<Subject['gradingType'], null>)}
+                                  className="w-4 h-4 text-blue-600"
+                                />
+                                <div>
+                                  <p className="font-medium text-slate-900 dark:text-slate-200 text-sm">{type.label}</p>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400">{type.desc}</p>
+                                </div>
+                              </label>
+                            ))}
                           </div>
                         </div>
                       </div>
                     )}
                   </div>
-                </div>
 
-                {/* Google Sheet ID */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Google Sheet ID
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.googleSheetId}
-                    onChange={(e) => setFormData({ ...formData, googleSheetId: e.target.value })}
-                    placeholder="1BxiMVs0XRA5nFMdKvBdBZjGWZW-u_7QYs..."
-                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 font-mono text-sm"
-                  />
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    The document ID from the Google Sheet URL. Required for fetching scores.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-slate-200 dark:border-slate-700">
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                      Header Row
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={formData.headerRow}
-                      onChange={(e) => setFormData({ ...formData, headerRow: parseInt(e.target.value) || 1 })}
-                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
-                    />
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Row number where column headers are located (Default: 1).
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                      Student ID Column
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.studentIdColumn}
-                      onChange={(e) => setFormData({ ...formData, studentIdColumn: e.target.value })}
-                      placeholder="A, B, 1, or ID"
-                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 font-mono text-sm"
-                    />
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Column letter (e.g. A), 1-based number, or header name. Leave empty to auto-detect.
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                      Column Pattern (Regex)
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.columnPattern}
-                      onChange={(e) => setFormData({ ...formData, columnPattern: e.target.value })}
-                      placeholder="e.g. ^Lab\s*{labId}"
-                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 font-mono text-sm"
-                    />
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Custom regex to match lab columns. Use <code>{'{labId}'}</code> placeholder.
-                    </p>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Data Source Strategy
-                  </label>
-                  <select
-                    value={formData.dataSourceType}
-                    onChange={(e) => setFormData({ ...formData, dataSourceType: e.target.value as SubjectFormData['dataSourceType'] })}
-                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
-                  >
-                    <option value="single_sheet">Single Sheet (Default)</option>
-                    <option value="tab_per_section">Tab per Section (e.g. Sec1, Sec2)</option>
-                    <option value="tab_per_lab">Tab per Lab (e.g. Lab 1, Lab 2)</option>
-                  </select>
-                </div>
-
-                {formData.dataSourceType === 'single_sheet' ? (
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                      Sheet Tab Name
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.singleSheetTabName}
-                      onChange={(e) => setFormData({ ...formData, singleSheetTabName: e.target.value })}
-                      placeholder={formData.code || "e.g. Grades, Sheet1"}
-                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
-                    />
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Google Sheet tab to read/write. Leave empty to use the subject code ({formData.code || "ITCS362"}).
-                    </p>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                      Sheet Tabs (Comma Separated)
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.sheetTabs}
-                      onChange={(e) => setFormData({ ...formData, sheetTabs: e.target.value })}
-                      placeholder={formData.dataSourceType === 'tab_per_section' ? "Sec1, Sec2, Sec3" : "Lab 1, Lab 2, Lab 3"}
-                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
-                    />
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Explicitly list the tab names to fetch data from.
-                    </p>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Alternate Subject IDs (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={(formData.aliases || []).join(', ')}
-                    onChange={(e) => setFormData({ ...formData, aliases: e.target.value.split(',').map(v => v.trim()).filter(Boolean) })}
-                    placeholder="ITDS242, ITCS223B"
-                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
-                  />
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Enter additional subject codes that should resolve to this subject, separated by commas.
-                  </p>
-                </div>
-
-                {/* Summary Link */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Course Summary Link (Optional)
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.courseSummaryLink}
-                    onChange={(e) => setFormData({ ...formData, courseSummaryLink: e.target.value })}
-                    placeholder="https://..."
-                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-6 animate-fade-in">
-                {/* Grading Interface Toggle */}
-                <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
-                      <Beaker className="w-6 h-6" />
+                  {/* Grading Configuration */}
+                  <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg text-orange-600 dark:text-orange-400">
+                        <BarChart3 className="w-6 h-6" />
+                      </div>
+                      <h3 className="font-bold text-slate-900 dark:text-slate-200">Score Calculation Settings</h3>
                     </div>
-                    <div className="flex-1">
-                      <label className="flex items-center gap-2 cursor-pointer mb-1">
-                        <input
-                          type="checkbox"
-                          checked={formData.hasGradingInterface}
-                          onChange={(e) => setFormData({ ...formData, hasGradingInterface: e.target.checked })}
-                          className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="font-bold text-slate-900 dark:text-slate-200">Enable Grading Interface</span>
-                      </label>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
-                        Enables the grading dashboard for this subject. If disabled, the admin page will be empty.
-                      </p>
-                    </div>
-                  </div>
 
-                  {formData.hasGradingInterface && (
-                    <div className="mt-4 pl-12 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-2">
                       <div>
                         <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                          Grading Strategy
+                          Lab Weight (%)
                         </label>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                          Python and SQL automation are both managed as non-uniform grading (per-lab max score).
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={formData.labWeight}
+                          onChange={(e) => setFormData({ ...formData, labWeight: parseInt(e.target.value) || 0 })}
+                          className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
+                        />
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          Weight of lab scores in final grade calculation (e.g., 20 for 20%).
                         </p>
-                        <div className="grid gap-2">
-                          {GRADING_TYPES.map(type => (
-                            <label
-                              key={type.value}
-                              className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${formData.gradingType === type.value
-                                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-sm'
-                                  : 'border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800'
-                                }`}
-                            >
-                              <input
-                                type="radio"
-                                name="gradingType"
-                                value={type.value}
-                                checked={formData.gradingType === type.value}
-                                onChange={(e) => applyGradingTypeDefaults(e.target.value as Exclude<Subject['gradingType'], null>)}
-                                className="w-4 h-4 text-blue-600"
-                              />
-                              <div>
-                                <p className="font-medium text-slate-900 dark:text-slate-200 text-sm">{type.label}</p>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">{type.desc}</p>
-                              </div>
-                            </label>
-                          ))}
-                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                          Lab Max Score
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={formData.labMaxScore}
+                          onChange={(e) => setFormData({ ...formData, labMaxScore: parseInt(e.target.value) || 0 })}
+                          className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
+                        />
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          Maximum possible total lab score (0 = auto-calculate from labs).
+                        </p>
                       </div>
                     </div>
-                  )}
-                </div>
 
-                {/* Grading Configuration */}
-                <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg text-orange-600 dark:text-orange-400">
-                      <BarChart3 className="w-6 h-6" />
-                    </div>
-                    <h3 className="font-bold text-slate-900 dark:text-slate-200">Score Calculation Settings</h3>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-2">
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                        Lab Weight (%)
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={formData.labWeight}
-                        onChange={(e) => setFormData({ ...formData, labWeight: parseInt(e.target.value) || 0 })}
-                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
-                      />
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        Weight of lab scores in final grade calculation (e.g., 20 for 20%).
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                        Lab Max Score
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={formData.labMaxScore}
-                        onChange={(e) => setFormData({ ...formData, labMaxScore: parseInt(e.target.value) || 0 })}
-                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200"
-                      />
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        Maximum possible total lab score (0 = auto-calculate from labs).
-                      </p>
-                    </div>
-                  </div>
-
-                  {formData.gradingType === 'python' || formData.gradingType === 'sql' || formData.gradingType === 'non_uniform' ? (
-                    <div className="mt-4 pl-2">
-                      <div className="flex items-center gap-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                        <div className="w-5 h-5 rounded-full bg-emerald-600 flex items-center justify-center text-white text-[10px] font-bold">ON</div>
-                        <div>
-                          <p className="font-medium text-emerald-800 dark:text-emerald-300 text-sm">Non-uniform scoring is active</p>
-                          <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80">
-                            Python/SQL automation always uses per-lab maximum scores and cannot switch to uniform /2.
-                          </p>
+                    {formData.gradingType === 'python' || formData.gradingType === 'sql' || formData.gradingType === 'non_uniform' ? (
+                      <div className="mt-4 pl-2">
+                        <div className="flex items-center gap-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                          <div className="w-5 h-5 rounded-full bg-emerald-600 flex items-center justify-center text-white text-[10px] font-bold">ON</div>
+                          <div>
+                            <p className="font-medium text-emerald-800 dark:text-emerald-300 text-sm">Non-uniform scoring is active</p>
+                            <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80">
+                              Python/SQL automation always uses per-lab maximum scores and cannot switch to uniform /2.
+                            </p>
+                          </div>
                         </div>
                       </div>
+                    ) : (
+                      <div className="mt-4 pl-2">
+                        <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={formData.useUniformLabScore}
+                            onChange={(e) => setFormData({ ...formData, useUniformLabScore: e.target.checked })}
+                            className="w-5 h-5 rounded text-orange-600 focus:ring-orange-500"
+                          />
+                          <div>
+                            <p className="font-medium text-slate-900 dark:text-slate-200 text-sm">Use Uniform Lab Score (Always /2)</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              When enabled, all labs will be displayed and calculated with a maximum score of 2, regardless of individual lab total_score settings.
+                            </p>
+                          </div>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Modules */}
+                  <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400">
+                        <Settings className="w-6 h-6" />
+                      </div>
+                      <h3 className="font-bold text-slate-900 dark:text-slate-200">Additional Modules</h3>
                     </div>
-                  ) : (
-                    <div className="mt-4 pl-2">
+
+                    <div className="space-y-3 pl-2">
                       <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={formData.useUniformLabScore}
-                          onChange={(e) => setFormData({ ...formData, useUniformLabScore: e.target.checked })}
-                          className="w-5 h-5 rounded text-orange-600 focus:ring-orange-500"
+                          checked={formData.hasQuizManagement}
+                          onChange={(e) => setFormData({ ...formData, hasQuizManagement: e.target.checked })}
+                          className="w-5 h-5 rounded text-purple-600 focus:ring-purple-500"
                         />
                         <div>
-                          <p className="font-medium text-slate-900 dark:text-slate-200 text-sm">Use Uniform Lab Score (Always /2)</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">
-                            When enabled, all labs will be displayed and calculated with a maximum score of 2, regardless of individual lab total_score settings.
-                          </p>
+                          <p className="font-medium text-slate-900 dark:text-slate-200 text-sm">Quiz Management</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Enable quiz creation, question banking, and student attempts.</p>
                         </div>
                       </label>
-                    </div>
-                  )}
-                </div>
 
-                {/* Modules */}
-                <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400">
-                      <Settings className="w-6 h-6" />
-                    </div>
-                    <h3 className="font-bold text-slate-900 dark:text-slate-200">Additional Modules</h3>
-                  </div>
-
-                  <div className="space-y-3 pl-2">
-                    <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.hasQuizManagement}
-                        onChange={(e) => setFormData({ ...formData, hasQuizManagement: e.target.checked })}
-                        className="w-5 h-5 rounded text-purple-600 focus:ring-purple-500"
-                      />
-                      <div>
-                        <p className="font-medium text-slate-900 dark:text-slate-200 text-sm">Quiz Management</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Enable quiz creation, question banking, and student attempts.</p>
-                      </div>
-                    </label>
-
-                    <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.hasTestCases}
-                        onChange={(e) => setFormData({ ...formData, hasTestCases: e.target.checked })}
-                        className="w-5 h-5 rounded text-green-600 focus:ring-green-500"
-                      />
-                      <div>
-                        <p className="font-medium text-slate-900 dark:text-slate-200 text-sm">Test Case Management</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Enable input/output test case definition (Required for Python/Java auto-grading).</p>
-                      </div>
-                    </label>
-
-                    <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                      <input
-                        id="feedback-section-enabled"
-                        type="checkbox"
-                        checked={formData.feedbackSectionEnabled}
-                        onChange={(e) => setFormData({ ...formData, feedbackSectionEnabled: e.target.checked })}
-                        className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500"
-                      />
-                      <label htmlFor="feedback-section-enabled" className="cursor-pointer">
-                        <p className="font-medium text-slate-900 dark:text-slate-200 text-sm">Student Feedback View</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Allow students to see feedback/comment section on their score page.</p>
+                      <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.hasTestCases}
+                          onChange={(e) => setFormData({ ...formData, hasTestCases: e.target.checked })}
+                          className="w-5 h-5 rounded text-green-600 focus:ring-green-500"
+                        />
+                        <div>
+                          <p className="font-medium text-slate-900 dark:text-slate-200 text-sm">Test Case Management</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Enable input/output test case definition (Required for Python/Java auto-grading).</p>
+                        </div>
                       </label>
+
+                      <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                        <input
+                          id="feedback-section-enabled"
+                          type="checkbox"
+                          checked={formData.feedbackSectionEnabled}
+                          onChange={(e) => setFormData({ ...formData, feedbackSectionEnabled: e.target.checked })}
+                          className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500"
+                        />
+                        <label htmlFor="feedback-section-enabled" className="cursor-pointer">
+                          <p className="font-medium text-slate-900 dark:text-slate-200 text-sm">Student Feedback View</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Allow students to see feedback/comment section on their score page.</p>
+                        </label>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-
-          </div>
-
-          <div className="p-6 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3 bg-slate-50/50 dark:bg-slate-900/50">
-            <button
-              onClick={() => setShowSubjectDialog(false)}
-              disabled={saving === 'modal'}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSaveSubject}
-              disabled={saving === 'modal'}
-              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
-            >
-              {saving === 'modal' ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4" />
-                  {editingSubject ? 'Update Subject' : 'Create Subject'}
-                </>
               )}
-            </button>
+
+            </div>
+
+            <div className="p-6 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3 bg-slate-50/50 dark:bg-slate-900/50">
+              <button
+                onClick={() => setShowSubjectDialog(false)}
+                disabled={saving === 'modal'}
+                className="px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveSubject}
+                disabled={saving === 'modal'}
+                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
+              >
+                {saving === 'modal' ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    {editingSubject ? 'Update Subject' : 'Create Subject'}
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    )
-  }
-    </div >
+      )}
+    </div>
   )
 }

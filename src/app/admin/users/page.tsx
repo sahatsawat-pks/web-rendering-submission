@@ -81,12 +81,17 @@ export default function UserManagement() {
     }
   }
 
+  const [currentUserRole, setCurrentUserRole] = useState<string>("")
+  const [currentUserPermissions, setCurrentUserPermissions] = useState<{[key: string]: boolean}>({})
+
   async function fetchCurrentUser() {
     try {
       const response = await fetch("/api/auth/me")
       if (response.ok) {
         const data = await response.json()
         setCurrentUser(data.username || "")
+        setCurrentUserRole(data.role || "")
+        setCurrentUserPermissions(data.permissions || {})
       }
     } catch (err) {
       console.error("Failed to fetch current user", err)
@@ -325,6 +330,15 @@ export default function UserManagement() {
   }
 
   const isMainAdmin = currentUser === "kanzaki_aito"
+  const isInstructor = currentUserRole === "Lecturer"
+
+  const canManageSubjectPermission = (subjectCode: string) => {
+    if (isMainAdmin) return true
+    if (isInstructor) {
+      return Boolean(currentUserPermissions[subjectCode.toLowerCase()])
+    }
+    return false
+  }
 
   if (loading) {
     return (
@@ -395,7 +409,7 @@ export default function UserManagement() {
           </div>
           {!isMainAdmin && (
             <div className="mt-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 px-4 py-3 rounded-xl text-sm">
-              <strong>Note:</strong> Only the main admin (kanzaki_aito) can modify user permissions.
+              <strong>Note:</strong> Instructors can grant or revoke permissions for target accounts for subjects they have taught. {isInstructor ? "Use the dropdown or matrix controls below to manage subject access." : "Only admins and instructors can manage subject permissions."}
             </div>
           )}
         </div>
@@ -454,6 +468,7 @@ export default function UserManagement() {
                     <tr>
                       <th className="px-8 py-5 text-left text-sm font-semibold tracking-wide">User</th>
                       <th className="px-4 py-5 text-center text-sm font-semibold tracking-wide">Role</th>
+                      <th className="px-4 py-5 text-center text-sm font-semibold tracking-wide min-w-[200px]">Grant Permission</th>
                       {subjects.map(subject => (
                         <th key={subject.code} className="px-4 py-5 text-center text-sm font-semibold tracking-wide">
                           {subject.code.toUpperCase()}
@@ -491,18 +506,46 @@ export default function UserManagement() {
                             <option value="Lecturer">Lecturer</option>
                           </select>
                         </td>
+                        <td className="px-4 py-5 text-center">
+                          <select
+                            value=""
+                            onChange={(e) => {
+                              const subjCode = e.target.value
+                              if (subjCode) {
+                                const currentPerm = Boolean(user.permissions?.[subjCode])
+                                handlePermissionToggle(user.id, subjCode, currentPerm)
+                              }
+                            }}
+                            disabled={user.username === "kanzaki_aito" || (!isMainAdmin && !isInstructor)}
+                            className="px-3 py-2 rounded-lg text-xs font-medium border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <option value="">-- Grant Permission --</option>
+                            {subjects
+                              .filter(s => canManageSubjectPermission(s.code))
+                              .map(s => {
+                                const hasAccess = Boolean(user.permissions?.[s.code])
+                                return (
+                                  <option key={s.code} value={s.code}>
+                                    {s.code.toUpperCase()} {hasAccess ? "✓ (Granted)" : "+ (Grant)"}
+                                  </option>
+                                )
+                              })}
+                          </select>
+                        </td>
                         {subjects.map(subject => {
-                          const hasPermission = user.permissions?.[subject.code] || user.username === "kanzaki_aito"
+                          const hasPermission = Boolean(user.permissions?.[subject.code]) || user.username === "kanzaki_aito"
+                          const canManage = canManageSubjectPermission(subject.code) && user.username !== "kanzaki_aito"
                           return (
                             <td key={subject.code} className="px-4 py-5 text-center">
                               <button
                                 onClick={() => handlePermissionToggle(user.id, subject.code, hasPermission)}
-                                disabled={!isMainAdmin || user.username === "kanzaki_aito"}
+                                disabled={!canManage}
                                 className={`p-2 rounded-lg transition-all ${
                                   hasPermission 
                                     ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' 
                                     : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600'
-                                } ${!isMainAdmin || user.username === "kanzaki_aito" ? 'cursor-not-allowed opacity-50' : 'hover:scale-110'}`}
+                                } ${!canManage ? 'cursor-not-allowed opacity-50' : 'hover:scale-110 cursor-pointer'}`}
+                                title={canManage ? `Toggle permission for ${subject.code.toUpperCase()}` : "You cannot modify this permission"}
                               >
                                 {hasPermission ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
                               </button>

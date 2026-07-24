@@ -34,13 +34,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Only kanzaki_aito can modify permissions
-  if (authUser.username !== "kanzaki_aito") {
-    return NextResponse.json({ 
-      error: "Only the main admin can modify permissions" 
-    }, { status: 403 });
-  }
-
   try {
     const { userId, subjectCode, canEdit } = await request.json();
 
@@ -51,7 +44,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await upsertPermission(userId, subjectCode, canEdit, authUser.userId);
+    const normalizedSubjectCode = subjectCode.toLowerCase();
+    const isMainAdmin = authUser.username === "kanzaki_aito";
+    const isInstructor = authUser.role === "Lecturer";
+
+    if (!isMainAdmin && !isInstructor) {
+      return NextResponse.json({ 
+        error: "Forbidden: Only admins and instructors can modify user permissions" 
+      }, { status: 403 });
+    }
+
+    if (!isMainAdmin) {
+      // Check if instructor has edit permission for this subject
+      const callerPerms = await getUserPermissions(authUser.userId);
+      const hasSubjectPermission = callerPerms.some(
+        p => p.subjectCode.toLowerCase() === normalizedSubjectCode && p.canEdit
+      );
+
+      if (!hasSubjectPermission) {
+        return NextResponse.json({ 
+          error: "Forbidden: You can only modify permissions for subjects you have taught" 
+        }, { status: 403 });
+      }
+    }
+
+    await upsertPermission(userId, normalizedSubjectCode, canEdit, authUser.userId);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
