@@ -3,9 +3,40 @@
 import { useState, useEffect } from "react"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
-import { Eye, EyeOff, ArrowUp, ArrowDown, Plus, X, FolderPlus, Edit, Check, Settings, Beaker, Trash, Copy, FileCode, AlertTriangle, Blocks, Workflow, Network, Laptop, Component, Layout, Box, AppWindow, Braces, BarChart3 } from "lucide-react"
+import { Eye, EyeOff, ArrowUp, ArrowDown, Plus, X, FolderPlus, Edit, Check, Settings, Beaker, Trash, Copy, FileCode, AlertTriangle, Blocks, Workflow, Network, Laptop, Component, Layout, Box, AppWindow, Braces, BarChart3, Code, Code2, Database, Terminal, Smartphone, Layers, Server, Globe, BookOpen, Cpu, Binary, FileJson, Monitor } from "lucide-react"
 import { getTextGradientStyle } from "@/lib/colors"
 import { generateQuickTemplate } from "@/lib/subjectConfigGenerator"
+
+const subjectIconMap: Record<string, any> = {
+  'Code': Code,
+  'Code2': Code2,
+  'Database': Database,
+  'Terminal': Terminal,
+  'Smartphone': Smartphone,
+  'Layers': Layers,
+  'BarChart3': BarChart3,
+  'Server': Server,
+  'Globe': Globe,
+  'BookOpen': BookOpen,
+  'Cpu': Cpu,
+  'Binary': Binary,
+  'FileJson': FileJson,
+  'Monitor': Monitor,
+  'Blocks': Blocks,
+  'Workflow': Workflow,
+  'Network': Network,
+  'Laptop': Laptop,
+  'Component': Component,
+  'Layout': Layout,
+  'Box': Box,
+  'AppWindow': AppWindow,
+  'Braces': Braces,
+}
+
+function renderSubjectIcon(iconName?: string, className = "w-6 h-6 text-white") {
+  const IconComponent = (iconName && subjectIconMap[iconName]) || subjectIconMap[iconName?.replace(/\s+/g, '') || ''] || Code
+  return <IconComponent className={className} />
+}
 
 interface Subject {
   id: number
@@ -742,8 +773,8 @@ export default function SubjectManagementPage() {
                     </button>
                   </div>
 
-                  <div className={`flex-shrink-0 w-12 h-12 bg-gradient-to-br ${subject.color} rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-lg`}>
-                    {(subject.displaySubjectId || subject.code).substring(0, 4)}
+                  <div className={`flex-shrink-0 w-12 h-12 bg-gradient-to-br ${subject.color} rounded-xl flex items-center justify-center text-white shadow-lg`}>
+                    {renderSubjectIcon(subject.icon, "w-6 h-6 text-white")}
                   </div>
 
                   <div className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-4 items-center">

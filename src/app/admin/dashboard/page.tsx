@@ -1,6 +1,6 @@
 "use client"
 
-import { Code2, BarChart3, Layers, Terminal, ArrowRight, Shield, Key, Home, BookOpen, Database, Smartphone, ClipboardList, Blocks, Workflow, Network, Laptop, Component, Layout, Box, AppWindow, Braces } from "lucide-react"
+import { Code, Code2, BarChart3, Layers, Terminal, ArrowRight, Shield, Key, Home, BookOpen, Database, Smartphone, ClipboardList, Blocks, Workflow, Network, Laptop, Component, Layout, Box, AppWindow, Braces, Server, Globe, Cpu, Binary, FileJson, Monitor } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
 import Link from "next/link"
@@ -89,16 +89,10 @@ export default function AdminHub() {
 
   // Dynamically resolve icon component
   const getIconComponent = (iconName: string) => {
-    // We need to map string to component. 
-    // Since we can't easily dynamic import specific lucide icons in clientside map without bulk import,
-    // we'll rely on the imported ones or standard fallback. 
-    // Ideally we'd import * as Icons, but let's stick to the ones we have imported + a few common ones.
-    // Or we can just import the specific ones we know we use from the top.
-    
-    // Quick map for common ones used in seed
     const iconMap: any = {
-      'Terminal': Terminal,
+      'Code': Code,
       'Code2': Code2,
+      'Terminal': Terminal,
       'BarChart3': BarChart3,
       'Layers': Layers,
       'Database': Database,
@@ -114,10 +108,16 @@ export default function AdminHub() {
       'Layout': Layout,
       'Box': Box,
       'AppWindow': AppWindow,
-      'Braces': Braces
+      'Braces': Braces,
+      'Server': Server,
+      'Globe': Globe,
+      'Cpu': Cpu,
+      'Binary': Binary,
+      'FileJson': FileJson,
+      'Monitor': Monitor
     }
     
-    const Icon = iconMap[iconName] || Code2 // Default to Code2 if not found
+    const Icon = iconMap[iconName] || iconMap[iconName?.replace(/\s+/g, '')] || Code
     return <Icon className="w-8 h-8" />
   }
 
