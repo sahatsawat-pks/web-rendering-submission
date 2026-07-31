@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { username, password, role } = await request.json();
+    const { username, password, role, realName } = await request.json();
 
     if (!username || !password) {
       return NextResponse.json(
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Creating user automatically hashes password in createUser
-    const newUser = await createUser(username, password, role || 'LA');
+    const newUser = await createUser(username, password, role || 'LA', realName || '');
     const { password: _, ...safeUser } = newUser;
 
     return NextResponse.json({ success: true, user: safeUser });
@@ -116,7 +116,17 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { id, role, password, username, newUsername } = body;
+    const { id, role, password, username, newUsername, realName } = body;
+
+    // Handle real name update
+    if (id && realName !== undefined) {
+      const { updateUserRealName } = await import("@/lib/db");
+      const updated = await updateUserRealName(id, realName.trim());
+      if (updated) {
+        return NextResponse.json({ success: true, message: "Real name updated successfully" });
+      }
+      return NextResponse.json({ error: "Failed to update real name" }, { status: 500 });
+    }
 
     // Handle username change by ID (main admin can change any user's username)
     if (id && newUsername) {

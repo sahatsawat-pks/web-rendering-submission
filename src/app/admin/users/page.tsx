@@ -6,11 +6,12 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
-import { Shield, CheckCircle2, XCircle, Key, Edit } from "lucide-react"
+import { Shield, CheckCircle2, XCircle, Key, Edit, Search, UserCheck } from "lucide-react"
 
 interface User {
   id: string
   username: string
+  realName?: string
   createdAt: string
   role: 'LA' | 'Lecturer'
   permissions?: {
@@ -30,6 +31,7 @@ export default function UserManagement() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentUser, setCurrentUser] = useState<string>("")
+  const [searchQuery, setSearchQuery] = useState("")
   const router = useRouter()
 
   // Form state
@@ -37,6 +39,7 @@ export default function UserManagement() {
     username: "",
     password: "",
     role: "LA" as 'LA' | 'Lecturer',
+    realName: "",
   })
 
   // Password change state
@@ -52,6 +55,13 @@ export default function UserManagement() {
   const [usernameChangeLoading, setUsernameChangeLoading] = useState(false)
   const [usernameChangeMessage, setUsernameChangeMessage] = useState<{type: 'success' | 'error', text: string} | null>(null)
   const [selectedUserForUsernameChange, setSelectedUserForUsernameChange] = useState<{id: string, username: string} | null>(null)
+  
+  // Real Name change state
+  const [showRealNameChangeDialog, setShowRealNameChangeDialog] = useState(false)
+  const [newRealName, setNewRealName] = useState("")
+  const [realNameChangeLoading, setRealNameChangeLoading] = useState(false)
+  const [realNameChangeMessage, setRealNameChangeMessage] = useState<{type: 'success' | 'error', text: string} | null>(null)
+  const [selectedUserForRealNameChange, setSelectedUserForRealNameChange] = useState<{id: string, username: string, realName?: string} | null>(null)
   
   // Add user dialog state
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false)
@@ -131,7 +141,7 @@ export default function UserManagement() {
         throw new Error(data.error || "Failed to create user")
       }
 
-      setFormData({ username: "", password: "", role: "LA" })
+      setFormData({ username: "", password: "", role: "LA", realName: "" })
       setIsAddUserDialogOpen(false)
       fetchUsers()
     } catch (err: any) {
@@ -329,8 +339,57 @@ export default function UserManagement() {
     }
   }
 
+  async function handleRealNameChange(e: React.FormEvent) {
+    e.preventDefault()
+    setRealNameChangeMessage(null)
+    
+    if (!selectedUserForRealNameChange) {
+      setRealNameChangeMessage({ type: 'error', text: 'No user selected' })
+      return
+    }
+    
+    setRealNameChangeLoading(true)
+    
+    try {
+      const response = await fetch("/api/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedUserForRealNameChange.id,
+          realName: newRealName.trim(),
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to update real name")
+      }
+
+      setRealNameChangeMessage({ type: 'success', text: `Real name updated successfully!` })
+      setTimeout(() => {
+        fetchUsers()
+        setShowRealNameChangeDialog(false)
+        setSelectedUserForRealNameChange(null)
+        setRealNameChangeMessage(null)
+      }, 1200)
+    } catch (err: any) {
+      setRealNameChangeMessage({ type: 'error', text: err.message })
+    } finally {
+      setRealNameChangeLoading(false)
+    }
+  }
+
   const isMainAdmin = currentUser === "kanzaki_aito"
   const isInstructor = currentUserRole === "Lecturer"
+
+  const filteredUsers = users.filter((user) => {
+    const q = searchQuery.toLowerCase().trim()
+    if (!q) return true
+    const matchUsername = user.username.toLowerCase().includes(q)
+    const matchRealName = (user.realName || '').toLowerCase().includes(q)
+    return matchUsername || matchRealName
+  })
 
   const canManageSubjectPermission = (subjectCode: string) => {
     if (isMainAdmin) return true
@@ -409,7 +468,7 @@ export default function UserManagement() {
           </div>
           {!isMainAdmin && (
             <div className="mt-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 px-4 py-3 rounded-xl text-sm">
-              <strong>Note:</strong> Instructors can grant or revoke permissions for target accounts for subjects they have taught. {isInstructor ? "Use the dropdown or matrix controls below to manage subject access." : "Only admins and instructors can manage subject permissions."}
+              <strong>Note:</strong> Instructors can grant or revoke permissions for target accounts for subjects they have taught. {isInstructor ? "Click the subject icons in the matrix below to toggle access for your assigned subjects." : "Only admins and instructors can manage subject permissions."}
             </div>
           )}
         </div>
@@ -446,7 +505,7 @@ export default function UserManagement() {
         ) : (
         <div className="animate-fade-in">
             <div className="glass-card overflow-hidden hover:shadow-2xl hover:shadow-purple-500/5 transition-all duration-300 border-white/40 dark:border-slate-700/40">
-              <div className="px-8 py-6 border-b border-white/20 dark:border-slate-700/50 bg-gradient-to-r from-purple-50/50 to-pink-50/50 dark:from-purple-950/20 dark:to-pink-950/20">
+              <div className="px-8 py-6 border-b border-white/20 dark:border-slate-700/50 bg-gradient-to-r from-purple-50/50 to-pink-50/50 dark:from-purple-950/20 dark:to-pink-950/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2">
                   <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
@@ -457,10 +516,31 @@ export default function UserManagement() {
                     />
                   </svg>
                   Administrators & Permissions
-                  <span className="ml-auto px-2.5 py-1 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-bold">
-                    {users.length}
+                  <span className="px-2.5 py-1 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-bold">
+                    {filteredUsers.length}{filteredUsers.length !== users.length ? ` / ${users.length}` : ''}
                   </span>
                 </h3>
+
+                {/* Top Right Search Bar */}
+                <div className="relative w-full sm:w-72">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by username or real name..."
+                    className="w-full pl-10 pr-8 py-2 text-xs rounded-xl border border-purple-200 dark:border-slate-700 bg-white/90 dark:bg-slate-800/90 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-purple-500/50 outline-none transition-all shadow-sm font-medium"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold"
+                      title="Clear search"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -468,7 +548,6 @@ export default function UserManagement() {
                     <tr>
                       <th className="px-8 py-5 text-left text-sm font-semibold tracking-wide">User</th>
                       <th className="px-4 py-5 text-center text-sm font-semibold tracking-wide">Role</th>
-                      <th className="px-4 py-5 text-center text-sm font-semibold tracking-wide min-w-[200px]">Grant Permission</th>
                       {subjects.map(subject => (
                         <th key={subject.code} className="px-4 py-5 text-center text-sm font-semibold tracking-wide">
                           {subject.code.toUpperCase()}
@@ -478,16 +557,27 @@ export default function UserManagement() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {users.map((user) => (
+                    {filteredUsers.map((user) => (
                       <tr key={user.id} className="hover:bg-purple-50/40 dark:hover:bg-purple-950/20 transition-colors group">
                         <td className="px-8 py-5 text-sm font-medium text-slate-900 dark:text-slate-200 flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold shadow-md shadow-purple-500/20">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold shadow-md shadow-purple-500/20 flex-shrink-0">
                             {user.username.substring(0, 2).toUpperCase()}
                           </div>
                           <div>
-                            <div className="font-bold">{user.username}</div>
-                            {user.username === "kanzaki_aito" && (
-                              <div className="text-xs text-purple-600 dark:text-purple-400 font-bold">Main Admin</div>
+                            <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                              {user.username}
+                              {user.username === "kanzaki_aito" && (
+                                <span className="text-[10px] text-purple-600 dark:text-purple-400 font-bold bg-purple-100 dark:bg-purple-900/40 px-1.5 py-0.5 rounded">Main Admin</span>
+                              )}
+                            </div>
+                            {user.realName ? (
+                              <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                                {user.realName}
+                              </div>
+                            ) : (
+                              <div className="text-xs text-slate-400 dark:text-slate-500 italic">
+                                No real name set
+                              </div>
                             )}
                           </div>
                         </td>
@@ -504,32 +594,6 @@ export default function UserManagement() {
                           >
                             <option value="LA">LA</option>
                             <option value="Lecturer">Lecturer</option>
-                          </select>
-                        </td>
-                        <td className="px-4 py-5 text-center">
-                          <select
-                            value=""
-                            onChange={(e) => {
-                              const subjCode = e.target.value
-                              if (subjCode) {
-                                const currentPerm = Boolean(user.permissions?.[subjCode])
-                                handlePermissionToggle(user.id, subjCode, currentPerm)
-                              }
-                            }}
-                            disabled={user.username === "kanzaki_aito" || (!isMainAdmin && !isInstructor)}
-                            className="px-3 py-2 rounded-lg text-xs font-medium border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <option value="">-- Grant Permission --</option>
-                            {subjects
-                              .filter(s => canManageSubjectPermission(s.code))
-                              .map(s => {
-                                const hasAccess = Boolean(user.permissions?.[s.code])
-                                return (
-                                  <option key={s.code} value={s.code}>
-                                    {s.code.toUpperCase()} {hasAccess ? "✓ (Granted)" : "+ (Grant)"}
-                                  </option>
-                                )
-                              })}
                           </select>
                         </td>
                         {subjects.map(subject => {
@@ -557,12 +621,26 @@ export default function UserManagement() {
                             {isMainAdmin && (
                               <button
                                 onClick={() => {
+                                  setSelectedUserForRealNameChange({ id: user.id, username: user.username, realName: user.realName })
+                                  setNewRealName(user.realName || "")
+                                  setRealNameChangeMessage(null)
+                                  setShowRealNameChangeDialog(true)
+                                }}
+                                className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 font-medium text-sm px-2.5 py-1.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all"
+                                title="Edit Real Name - Surname"
+                              >
+                                <UserCheck className="w-4 h-4" />
+                              </button>
+                            )}
+                            {isMainAdmin && (
+                              <button
+                                onClick={() => {
                                   setSelectedUserForUsernameChange({ id: user.id, username: user.username })
                                   setNewUsername("")
                                   setUsernameChangeMessage(null)
                                   setShowUsernameChangeDialog(true)
                                 }}
-                                className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-medium text-sm px-3 py-1.5 rounded-lg hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-all"
+                                className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-medium text-sm px-2.5 py-1.5 rounded-lg hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-all"
                                 title="Change Username"
                               >
                                 <Edit className="w-4 h-4" />
@@ -571,7 +649,8 @@ export default function UserManagement() {
                             {isMainAdmin && (
                               <button
                                 onClick={() => setSelectedUserForPasswordChange({id: user.id, username: user.username})}
-                                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm px-3 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
+                                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm px-2.5 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
+                                title="Change Password"
                               >
                                 <Key className="w-4 h-4" />
                               </button>
@@ -579,9 +658,10 @@ export default function UserManagement() {
                             <button
                               onClick={() => handleDelete(user.id)}
                               disabled={user.username === "kanzaki_aito"}
-                              className={`text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium text-sm px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all ${
+                              className={`text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium text-sm px-2.5 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all ${
                                 user.username === "kanzaki_aito" ? 'opacity-30 cursor-not-allowed' : ''
                               }`}
+                              title="Delete Account"
                             >
                               Delete
                             </button>
@@ -589,22 +669,15 @@ export default function UserManagement() {
                         </td>
                       </tr>
                     ))}
-                    {users.length === 0 && (
+                    {filteredUsers.length === 0 && (
                       <tr>
                         <td colSpan={10} className="px-6 py-12 text-center">
                           <div className="flex flex-col items-center text-slate-400 dark:text-slate-600">
                             <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
-                              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-                                />
-                              </svg>
+                              <Search className="w-8 h-8" />
                             </div>
-                            <p className="text-base font-medium">No users found</p>
-                            <p className="text-sm mt-1">Create your first admin to get started</p>
+                            <p className="text-base font-medium">No matching users found</p>
+                            <p className="text-sm mt-1">Try adjusting your search query</p>
                           </div>
                         </td>
                       </tr>
@@ -787,6 +860,89 @@ export default function UserManagement() {
         </div>
       )}
 
+      {/* Real Name Change Modal */}
+      {showRealNameChangeDialog && isMainAdmin && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="glass-card p-8 max-w-md w-full animate-scale-in">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-200">
+                Edit Real Name {selectedUserForRealNameChange ? `for ${selectedUserForRealNameChange.username}` : ''}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowRealNameChangeDialog(false)
+                  setNewRealName("")
+                  setRealNameChangeMessage(null)
+                  setSelectedUserForRealNameChange(null)
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {realNameChangeMessage && (
+              <div className={`mb-4 px-4 py-3 rounded-xl text-sm ${
+                realNameChangeMessage?.type === 'success' 
+                  ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-300' 
+                  : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
+              }`}>
+                {realNameChangeMessage?.text}
+              </div>
+            )}
+
+            <form onSubmit={handleRealNameChange} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={selectedUserForRealNameChange?.username || ""}
+                  disabled
+                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed font-medium"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Real Name - Surname
+                </label>
+                <input
+                  type="text"
+                  value={newRealName}
+                  onChange={(e) => setNewRealName(e.target.value)}
+                  placeholder="e.g. Dr. John Doe, Thanakrit Tae"
+                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 outline-none shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all font-medium"
+                />
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRealNameChangeDialog(false)
+                    setNewRealName("")
+                    setRealNameChangeMessage(null)
+                    setSelectedUserForRealNameChange(null)
+                  }}
+                  className="flex-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-200 font-bold py-3 px-6 rounded-2xl transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={realNameChangeLoading}
+                  className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-xl shadow-purple-500/20 hover:shadow-purple-500/40 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {realNameChangeLoading ? 'Saving...' : 'Save Real Name'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Add User Dialog */}
       {isAddUserDialogOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
@@ -803,7 +959,7 @@ export default function UserManagement() {
               <button
                 onClick={() => {
                   setIsAddUserDialogOpen(false)
-                  setFormData({ username: "", password: "", role: "LA" })
+                  setFormData({ username: "", password: "", role: "LA", realName: "" })
                   setError(null)
                 }}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
@@ -833,6 +989,19 @@ export default function UserManagement() {
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                   required
                   placeholder="Enter username"
+                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 outline-none shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all font-medium"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                  <UserCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  Real Name - Surname
+                </label>
+                <input
+                  type="text"
+                  value={formData.realName}
+                  onChange={(e) => setFormData({ ...formData, realName: e.target.value })}
+                  placeholder="e.g. Dr. John Doe, Thanakrit Tae"
                   className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 outline-none shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-all font-medium"
                 />
               </div>
@@ -884,7 +1053,7 @@ export default function UserManagement() {
                   type="button"
                   onClick={() => {
                     setIsAddUserDialogOpen(false)
-                    setFormData({ username: "", password: "", role: "LA" })
+                    setFormData({ username: "", password: "", role: "LA", realName: "" })
                     setError(null)
                   }}
                   className="flex-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-200 font-bold py-3 px-6 rounded-2xl transition-all"

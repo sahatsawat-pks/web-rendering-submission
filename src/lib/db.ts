@@ -7,6 +7,7 @@ export interface User {
   username: string;
   password: string;
   role: 'LA' | 'Lecturer';
+  realName?: string;
   createdAt: string;
 }
 
@@ -249,6 +250,16 @@ async function ensureTables() {
             BEGIN 
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'role') THEN 
                     ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'LA'; 
+                END IF; 
+            END $$;
+        `);
+
+        // Add real_name column to users table if not exists
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'real_name') THEN 
+                    ALTER TABLE users ADD COLUMN real_name TEXT DEFAULT ''; 
                 END IF; 
             END $$;
         `);
@@ -857,6 +868,7 @@ export async function findUserByUsername(username: string): Promise<User | undef
             username: r.username,
             password: r.password,
             role: r.role || 'LA',
+            realName: r.real_name || '',
             createdAt: r.created_at.toString()
         };
     } finally {
@@ -864,22 +876,23 @@ export async function findUserByUsername(username: string): Promise<User | undef
     }
 }
 
-export async function createUser(username: string, password: string, role: 'LA' | 'Lecturer' = 'LA'): Promise<User> {
+export async function createUser(username: string, password: string, role: 'LA' | 'Lecturer' = 'LA', realName: string = ''): Promise<User> {
     await init();
     const client = await getPool().connect();
     try {
         const hashed = await hashPassword(password);
         const res = await client.query(`
-            INSERT INTO users (username, password, role)
-            VALUES ($1, $2, $3)
+            INSERT INTO users (username, password, role, real_name)
+            VALUES ($1, $2, $3, $4)
             RETURNING *
-        `, [username, hashed, role]);
+        `, [username, hashed, role, realName || '']);
         const r = res.rows[0];
         return {
             id: r.id,
             username: r.username,
             password: r.password,
             role: r.role || 'LA',
+            realName: r.real_name || '',
             createdAt: r.created_at.toString()
         };
     } finally {
@@ -898,6 +911,7 @@ export async function getAllUsers(): Promise<User[]> {
                 username: r.username,
                 password: r.password,
                 role: r.role || 'LA',
+                realName: r.real_name || '',
                 createdAt: r.created_at.toString()
             }));
         } finally {
@@ -962,6 +976,17 @@ export async function updateUsernameById(userId: string, newUsername: string): P
     const client = await getPool().connect();
     try {
         const res = await client.query('UPDATE users SET username = $1 WHERE id = $2', [newUsername, userId]);
+        return (res.rowCount || 0) > 0;
+    } finally {
+        client.release();
+    }
+}
+
+export async function updateUserRealName(userId: string, realName: string): Promise<boolean> {
+    await init();
+    const client = await getPool().connect();
+    try {
+        const res = await client.query('UPDATE users SET real_name = $1 WHERE id = $2', [realName, userId]);
         return (res.rowCount || 0) > 0;
     } finally {
         client.release();
