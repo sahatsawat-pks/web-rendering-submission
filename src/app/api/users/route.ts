@@ -183,8 +183,8 @@ export async function PATCH(request: NextRequest) {
 
     // Handle role change
     if (role) {
-      if (role !== 'LA' && role !== 'Lecturer') {
-        return NextResponse.json({ error: "Invalid role. Must be 'LA' or 'Lecturer'" }, { status: 400 });
+      if (role !== 'LA' && role !== 'Lecturer' && role !== 'Main Admin') {
+        return NextResponse.json({ error: "Invalid role. Must be 'LA', 'Lecturer', or 'Main Admin'" }, { status: 400 });
       }
 
       const updated = await updateUserRole(id, role);

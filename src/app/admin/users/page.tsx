@@ -13,7 +13,7 @@ interface User {
   username: string
   realName?: string
   createdAt: string
-  role: 'LA' | 'Lecturer'
+  role: 'LA' | 'Lecturer' | 'Main Admin'
   permissions?: {
     [key: string]: boolean
   }
@@ -198,7 +198,7 @@ export default function UserManagement() {
     }
   }
 
-  async function handleRoleChange(userId: string, newRole: 'LA' | 'Lecturer') {
+  async function handleRoleChange(userId: string, newRole: 'LA' | 'Lecturer' | 'Main Admin') {
     try {
       const response = await fetch("/api/users", {
         method: "PATCH",
@@ -584,14 +584,19 @@ export default function UserManagement() {
                         <td className="px-4 py-5 text-center">
                           <select
                             value={user.role}
-                            onChange={(e) => handleRoleChange(user.id, e.target.value as 'LA' | 'Lecturer')}
+                            onChange={(e) => handleRoleChange(user.id, e.target.value as 'LA' | 'Lecturer' | 'Main Admin')}
                             disabled={!isMainAdmin || user.username === "kanzaki_aito"}
                             className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all ${
-                              user.role === 'Lecturer'
+                              user.role === 'Main Admin'
+                                ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 font-bold'
+                                : user.role === 'Lecturer'
                                 ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
                                 : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
                             } ${!isMainAdmin || user.username === "kanzaki_aito" ? 'cursor-not-allowed opacity-50' : 'hover:shadow-md cursor-pointer'}`}
                           >
+                            {user.username === "kanzaki_aito" && (
+                              <option value="Main Admin">Main Admin</option>
+                            )}
                             <option value="LA">LA</option>
                             <option value="Lecturer">Lecturer</option>
                           </select>

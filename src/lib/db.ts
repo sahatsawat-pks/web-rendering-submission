@@ -6,7 +6,7 @@ export interface User {
   id: string;
   username: string;
   password: string;
-  role: 'LA' | 'Lecturer';
+  role: 'LA' | 'Lecturer' | 'Main Admin';
   realName?: string;
   createdAt: string;
 }
@@ -264,9 +264,9 @@ async function ensureTables() {
             END $$;
         `);
         
-        // Set kanzaki_aito as Lecturer if exists
+        // Set kanzaki_aito as Main Admin if exists
         await client.query(`
-            UPDATE users SET role = 'Lecturer' WHERE username = 'kanzaki_aito' AND role != 'Lecturer';
+            UPDATE users SET role = 'Main Admin' WHERE username = 'kanzaki_aito';
         `);
         
         // Add quiz columns to labs table
@@ -876,7 +876,7 @@ export async function findUserByUsername(username: string): Promise<User | undef
     }
 }
 
-export async function createUser(username: string, password: string, role: 'LA' | 'Lecturer' = 'LA', realName: string = ''): Promise<User> {
+export async function createUser(username: string, password: string, role: 'LA' | 'Lecturer' | 'Main Admin' = 'LA', realName: string = ''): Promise<User> {
     await init();
     const client = await getPool().connect();
     try {
@@ -931,7 +931,7 @@ export async function deleteUser(id: string): Promise<boolean> {
     }
 }
 
-export async function updateUserRole(id: string, role: 'LA' | 'Lecturer'): Promise<boolean> {
+export async function updateUserRole(id: string, role: 'LA' | 'Lecturer' | 'Main Admin'): Promise<boolean> {
     await init();
     const client = await getPool().connect();
     try {
