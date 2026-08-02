@@ -92,7 +92,7 @@ export default function UniversalCredentialsPage() {
       // console.log('📡 Fetching credentials and student list...')
       
       // 1. Fetch ALL credentials (to match existing students from other subjects)
-      const credRes = await fetch('/api/credentials')
+      const credRes = await fetch('/api/credentials', { cache: 'no-store', headers: { 'Pragma': 'no-cache' } })
       let dbCredentials: any[] = []
       if (credRes.ok) {
         const credData = await credRes.json()
@@ -100,7 +100,7 @@ export default function UniversalCredentialsPage() {
       }
 
       // 2. Fetch student list from Google Sheets
-      const sheetRes = await fetch(`/api/scores?subject=${selectedSubject}&action=list_all`)
+      const sheetRes = await fetch(`/api/scores?subject=${selectedSubject}&action=list_all`, { cache: 'no-store', headers: { 'Pragma': 'no-cache' } })
       let sheetStudents: any[] = []
       if (sheetRes.ok) {
          const sheetData = await sheetRes.json()
@@ -222,7 +222,7 @@ export default function UniversalCredentialsPage() {
       // Let's implement "Sync" logic: Fetch existing, if exists, use it. Else generate.
       
       // 1. Get current credentials from DB
-      const credRes = await fetch('/api/credentials')
+      const credRes = await fetch('/api/credentials', { cache: 'no-store', headers: { 'Pragma': 'no-cache' } })
       const credData = await credRes.json()
       const existingMap = new Map(credData.credentials.map((c: any) => [c.studentId, c.credential]))
 
@@ -242,7 +242,8 @@ export default function UniversalCredentialsPage() {
       // Save credentials to database
       const saveResponse = await fetch('/api/credentials', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', 'Pragma': 'no-cache' },
         body: JSON.stringify({
           credentials: generatedCredentials,
           subject: selectedSubject // Just for reference, DB ignores for uniqueness
@@ -311,7 +312,8 @@ export default function UniversalCredentialsPage() {
     try {
       const response = await fetch('/api/credentials', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', 'Pragma': 'no-cache' },
         body: JSON.stringify({
           credentials: [{
             studentId: credToUpdate.studentId,
@@ -381,7 +383,8 @@ export default function UniversalCredentialsPage() {
       console.log('Sending DELETE request with removeAll: true')
       const response = await fetch('/api/credentials', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', 'Pragma': 'no-cache' },
         body: JSON.stringify({
           removeAll: true
         })
@@ -415,7 +418,7 @@ export default function UniversalCredentialsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0f1115] text-slate-200 p-8 font-['Inter']">
+    <div className="min-h-screen bg-[#0f1115] text-slate-200 p-8 font-sans">
       {authLoading ? (
         <div className="max-w-7xl mx-auto flex items-center justify-center min-h-[60vh]">
           <div className="text-center">

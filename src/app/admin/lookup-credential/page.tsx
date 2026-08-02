@@ -46,7 +46,7 @@ export default function CredentialLookupPage() {
     setCopied(false)
 
     try {
-      const res = await fetch(`/api/credentials?studentId=${studentId.trim()}`)
+      const res = await fetch(`/api/credentials?studentId=${studentId.trim()}`, { cache: 'no-store', headers: { 'Pragma': 'no-cache' } })
       const data = await res.json()
 
       if (data.success && data.credentials && data.credentials.length > 0) {
@@ -111,7 +111,7 @@ export default function CredentialLookupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0f1115] text-slate-200 p-4 sm:p-8 font-['Inter']">
+    <div className="min-h-screen bg-[#0f1115] text-slate-200 p-4 sm:p-8 font-sans">
       <div className="max-w-2xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex items-center gap-4">
