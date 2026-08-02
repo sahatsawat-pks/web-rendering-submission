@@ -92,12 +92,6 @@ export default function GradeSubmissionDialog({
                 <p className="text-sm font-bold text-amber-600 dark:text-amber-400">{value}/2</p>
               </div>
             ))}
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-2 rounded-lg border border-amber-300 dark:border-amber-700">
-              <p className="text-xs text-slate-600 dark:text-slate-400">Total Score</p>
-              <p className="text-lg font-bold text-amber-600 dark:text-amber-400">
-                {criteriaScores ? Object.values(criteriaScores).reduce((acc: number, val) => acc + Number(val), 0) : 0}/6
-              </p>
-            </div>
           </div>
         )
       
