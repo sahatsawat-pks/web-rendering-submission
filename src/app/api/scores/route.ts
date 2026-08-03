@@ -180,8 +180,17 @@ export async function POST(request: NextRequest) {
     // Check if user has permission to update scores for this subject (or is main admin)
     if (subject && user.username !== 'kanzaki_aito') {
       const { getUserPermissions } = await import("@/lib/db");
+      const { getCanonicalSubjectCode } = await import("@/lib/subjectConfig");
       const userPerms = await getUserPermissions(user.userId);
-      const hasPermission = userPerms.some(p => p.subjectCode === subject.toLowerCase() && p.canEdit);
+      const targetLower = subject.toLowerCase();
+      const targetCanonicalLower = (getCanonicalSubjectCode(subject) || subject).toLowerCase();
+
+      const hasPermission = userPerms.some(p => {
+        if (!p.canEdit) return false;
+        const pLower = p.subjectCode.toLowerCase();
+        const pCanonicalLower = (getCanonicalSubjectCode(pLower) || pLower).toLowerCase();
+        return pLower === targetLower || pLower === targetCanonicalLower || pCanonicalLower === targetCanonicalLower;
+      });
       
       if (!hasPermission) {
         return NextResponse.json({ error: "Forbidden: You don't have permission to update scores for this subject" }, { status: 403 });

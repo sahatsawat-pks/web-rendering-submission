@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
+import { getCanonicalSubjectCode } from "@/lib/subjectConfig";
 
 export const dynamic = 'force-dynamic';
 
@@ -14,10 +15,25 @@ export async function GET() {
   const userPerms = await getUserPermissions(user.userId);
   const allSubjects = await getSubjects(); // Get all subjects from database
   
-  // Dynamically build permissions object for all subjects
+  // Dynamically build permissions object for all subjects and their aliases
   const permissions: { [key: string]: boolean } = {};
   allSubjects.forEach(subject => {
-    permissions[subject.code.toLowerCase()] = userPerms.some(p => p.subjectCode === subject.code.toLowerCase() && p.canEdit);
+    const mainCodeLower = subject.code.toLowerCase();
+    const canonicalCodeLower = (getCanonicalSubjectCode(subject.code) || subject.code).toLowerCase();
+
+    const hasPerm = userPerms.some(p => {
+      if (!p.canEdit) return false;
+      const pCodeLower = p.subjectCode.toLowerCase();
+      const pCanonicalLower = (getCanonicalSubjectCode(pCodeLower) || pCodeLower).toLowerCase();
+      return pCodeLower === mainCodeLower || pCodeLower === canonicalCodeLower || pCanonicalLower === canonicalCodeLower;
+    });
+
+    permissions[mainCodeLower] = hasPerm;
+
+    // Grant permission for aliases too
+    (subject.aliases || []).forEach((alias: string) => {
+      permissions[alias.toLowerCase()] = hasPerm;
+    });
   });
 
   // Return current user info with no caching headers

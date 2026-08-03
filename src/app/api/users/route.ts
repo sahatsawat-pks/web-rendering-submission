@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 
 export const dynamic = 'force-dynamic';
+import { getCanonicalSubjectCode } from "@/lib/subjectConfig";
 import { createUser, findUserByUsername, getAllUsers, deleteUser, getUserPermissions, updateUserRole, updateUserPassword, getSubjects } from "@/lib/db";
 
 export async function GET() {
@@ -19,10 +20,24 @@ export async function GET() {
       // Get permissions for this user
       const userPerms = await getUserPermissions(u.id);
       
-      // Dynamically build permissions object for all subjects
+      // Dynamically build permissions object for all subjects and aliases
       const permissions: { [key: string]: boolean } = {};
       allSubjects.forEach(subject => {
-        permissions[subject.code.toLowerCase()] = userPerms.some(p => p.subjectCode === subject.code.toLowerCase() && p.canEdit);
+        const mainCodeLower = subject.code.toLowerCase();
+        const canonicalCodeLower = (getCanonicalSubjectCode(subject.code) || subject.code).toLowerCase();
+
+        const hasPerm = userPerms.some(p => {
+          if (!p.canEdit) return false;
+          const pCodeLower = p.subjectCode.toLowerCase();
+          const pCanonicalLower = (getCanonicalSubjectCode(pCodeLower) || pCodeLower).toLowerCase();
+          return pCodeLower === mainCodeLower || pCodeLower === canonicalCodeLower || pCanonicalLower === canonicalCodeLower;
+        });
+
+        permissions[mainCodeLower] = hasPerm;
+
+        (subject.aliases || []).forEach((alias: string) => {
+          permissions[alias.toLowerCase()] = hasPerm;
+        });
       });
 
       return { ...u, permissions };
