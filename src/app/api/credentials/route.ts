@@ -52,7 +52,13 @@ export async function GET(request: NextRequest) {
     // Check permissions if subject is specified
     if (subject && user.username !== 'kanzaki_aito') {
         const userPerms = await getUserPermissions(user.userId);
-        const hasPermission = userPerms.some(p => p.subjectCode === canonicalSubject?.toLowerCase() && p.canEdit);
+        const targetCanonicalLower = canonicalSubject?.toLowerCase();
+        const hasPermission = userPerms.some(p => {
+          if (!p.canEdit) return false;
+          const pLower = p.subjectCode.toLowerCase();
+          const pCanonicalLower = (getCanonicalSubjectCodeOrDefault(pLower) || pLower).toLowerCase();
+          return pLower === targetCanonicalLower || pCanonicalLower === targetCanonicalLower;
+        });
         
         if (!hasPermission && user.role !== 'Lecturer') {
              return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: NO_CACHE_HEADERS });
@@ -96,7 +102,13 @@ export async function POST(request: NextRequest) {
         }
         
         const userPerms = await getUserPermissions(user.userId);
-        const hasPermission = userPerms.some(p => p.subjectCode === canonicalSubject.toLowerCase() && p.canEdit);
+        const targetCanonicalLower = canonicalSubject.toLowerCase();
+        const hasPermission = userPerms.some(p => {
+          if (!p.canEdit) return false;
+          const pLower = p.subjectCode.toLowerCase();
+          const pCanonicalLower = (getCanonicalSubjectCodeOrDefault(pLower) || pLower).toLowerCase();
+          return pLower === targetCanonicalLower || pCanonicalLower === targetCanonicalLower;
+        });
         
         if (!hasPermission && user.role !== 'Lecturer') {
              return NextResponse.json({ error: "Forbidden: Lecturer or Admin access required" }, { status: 403, headers: NO_CACHE_HEADERS });
