@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { getUserPermissions, getAllPermissions, upsertPermission } from "@/lib/db";
+import { getCanonicalSubjectCode } from "@/lib/subjectConfig";
 
 export const dynamic = 'force-dynamic';
 
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const canonicalCode = (getCanonicalSubjectCode(subjectCode) || subjectCode).toLowerCase();
     const normalizedSubjectCode = subjectCode.toLowerCase();
     const isMainAdmin = authUser.username === "kanzaki_aito";
     const isInstructor = authUser.role === "Lecturer";
@@ -55,10 +57,15 @@ export async function POST(request: NextRequest) {
     }
 
     if (!isMainAdmin) {
-      // Check if instructor has edit permission for this subject
+      // Check if instructor has edit permission for this subject or its canonical parent
       const callerPerms = await getUserPermissions(authUser.userId);
       const hasSubjectPermission = callerPerms.some(
-        p => p.subjectCode.toLowerCase() === normalizedSubjectCode && p.canEdit
+        p => {
+          if (!p.canEdit) return false;
+          const pLower = p.subjectCode.toLowerCase();
+          const pCanonical = (getCanonicalSubjectCode(pLower) || pLower).toLowerCase();
+          return pLower === normalizedSubjectCode || pLower === canonicalCode || pCanonical === canonicalCode;
+        }
       );
 
       if (!hasSubjectPermission) {
@@ -68,7 +75,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    await upsertPermission(userId, normalizedSubjectCode, canEdit, authUser.userId);
+    await upsertPermission(userId, canonicalCode, canEdit, authUser.userId);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

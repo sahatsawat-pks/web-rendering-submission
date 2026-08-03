@@ -1117,6 +1117,7 @@ export default function SubjectScorePage() {
   /* REMOVED: const config = subject ? getSubjectConfig(subject) : null */
   const [config, setConfig] = useState<SubjectConfig | null>(null)
   const [loadingConfig, setLoadingConfig] = useState(true)
+  const [googleSheetId, setGoogleSheetId] = useState<string | null>(null)
 
   // Static fallback
   const staticConfig = subject ? getSubjectConfig(subject) : null
@@ -1145,12 +1146,24 @@ export default function SubjectScorePage() {
   }, [subject, staticConfig])
   
   useEffect(() => {
-    fetch('/api/auth/check')
-      .then(res => res.json())
-      .then(data => {
-        if (data.isAuthenticated) setIsAdmin(true)
-      })
-      .catch(err => console.error(err))
+    if (subject) {
+      fetch(`/api/subjects?code=${subject}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.subjects && data.subjects.length > 0) {
+            const sid = data.subjects[0].google_sheet_id || data.subjects[0].googleSheetId
+            if (sid) setGoogleSheetId(sid)
+          }
+        })
+        .catch(err => console.error("Failed to fetch subject sheet ID", err))
+
+      fetch('/api/auth/check')
+        .then(res => res.json())
+        .then(data => {
+          if (data.isAuthenticated) setIsAdmin(true)
+        })
+        .catch(err => console.error(err))
+    }
   }, [subject, router])
 
   if (loadingConfig || !config || isValidSubject === null) return null
@@ -1197,7 +1210,23 @@ export default function SubjectScorePage() {
                 <span className="hidden sm:inline">Admin</span>
               </a>
             ) : (
-              <LogoutButton />
+              <>
+                {googleSheetId && (
+                  <a
+                    href={`https://docs.google.com/spreadsheets/d/${googleSheetId}/edit`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 md:px-4 py-2 text-xs md:text-sm font-semibold text-white bg-green-600 hover:bg-green-500 transition-colors rounded-xl flex items-center gap-1.5 shadow-md"
+                    title="Open Google Sheet for this subject"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span className="hidden sm:inline">Open Scores Sheet</span>
+                  </a>
+                )}
+                <LogoutButton />
+              </>
             )}
             <ModeToggle />
           </div>
