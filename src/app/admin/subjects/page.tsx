@@ -6,6 +6,7 @@ import LogoutButton from "@/components/LogoutButton"
 import { Eye, EyeOff, ArrowUp, ArrowDown, Plus, X, FolderPlus, Edit, Check, Settings, Beaker, Trash, Copy, FileCode, AlertTriangle, Blocks, Workflow, Network, Laptop, Component, Layout, Box, AppWindow, Braces, BarChart3, Code, Code2, Database, Terminal, Smartphone, Layers, Server, Globe, BookOpen, Cpu, Binary, FileJson, Monitor } from "lucide-react"
 import { getTextGradientStyle } from "@/lib/colors"
 import { generateQuickTemplate } from "@/lib/subjectConfigGenerator"
+import { invalidateSubjectConfigCache } from "@/lib/subjectConfigCache"
 
 const subjectIconMap: Record<string, any> = {
   'Code': Code,
@@ -302,6 +303,7 @@ export default function SubjectManagementPage() {
       const data = await res.json().catch(() => ({}))
 
       if (res.ok) {
+        invalidateSubjectConfigCache(code)
         setStatusMessage(`Shown ID for ${code} updated to ${displaySubjectId}.`)
         setStatusType('success')
         setTimeout(() => setStatusMessage(null), 6000)
@@ -416,6 +418,7 @@ export default function SubjectManagementPage() {
       const data = await res.json().catch(() => ({}))
 
       if (res.ok) {
+        invalidateSubjectConfigCache(code)
         const canonical = data.subject?.code || code
         const message = canonical.toUpperCase() !== code.toUpperCase()
           ? `Visibility updated for canonical subject ${canonical} (resolved from ${code}).`
@@ -529,6 +532,7 @@ export default function SubjectManagementPage() {
       const data = await res.json()
 
       if (res.ok && data.success) {
+        invalidateSubjectConfigCache(formData.code)
         setShowSubjectDialog(false)
         await fetchSubjects()
         await fetchUser()
@@ -572,6 +576,7 @@ export default function SubjectManagementPage() {
       })
 
       if (res.ok) {
+        invalidateSubjectConfigCache(subject.code)
         await fetchSubjects()
       } else {
         const data = await res.json()

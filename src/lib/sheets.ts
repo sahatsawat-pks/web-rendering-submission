@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import { getCanonicalSubjectCode, normalizeSubjectCode } from '@/lib/subjectConfig';
 
 // Google Sheets API authentication (credentials still from environment)
 
@@ -57,51 +58,59 @@ export function clearSheetsCache(subject?: string) {
     }
 }
 
+// Helper to find target subject resolving case, canonical codes, and aliases
+function findTargetSubject(subjects: any[], subjectInput: string) {
+    if (!subjectInput || !subjects || subjects.length === 0) return null;
+    const upperInput = normalizeSubjectCode(subjectInput) || subjectInput.toUpperCase().trim();
+    const canonical = getCanonicalSubjectCode(upperInput) || upperInput;
+    const canonicalUpper = normalizeSubjectCode(canonical) || canonical;
+
+    // 1. Direct code match (case-insensitive)
+    let found = subjects.find(s => {
+        const sCode = normalizeSubjectCode(s.code);
+        return sCode === upperInput || sCode === canonicalUpper;
+    });
+    if (found) return found;
+
+    // 2. Alias match
+    found = subjects.find(s => {
+        const aliases = (s.aliases || []).map((a: string) => normalizeSubjectCode(a));
+        return aliases.includes(upperInput) || aliases.includes(canonicalUpper);
+    });
+    return found || null;
+}
+
 // Helper to get Google Sheets ID from database
 async function getSubjectSheetId(subject: string): Promise<string> {
     let subjects = await getCachedSubjects(); 
-    // console.log(`[getSubjectSheetId] Looking for subject: "${subject}"`);
-    // console.log(`[getSubjectSheetId] Available subjects:`, subjects.map(s => ({ 
-    //     code: s.code, 
-    //     hasGoogleSheetId: !!s.googleSheetId, 
-    //     googleSheetId: s.googleSheetId ? s.googleSheetId.substring(0, 20) + '...' : 'null' 
-    // })));
     
-    let target = subjects.find(s => s.code === subject);
+    let target = findTargetSubject(subjects, subject);
     
     if (target && target.googleSheetId) {
-        // console.log(`[getSubjectSheetId] Found sheet ID for ${subject}: ${target.googleSheetId}`);
         return target.googleSheetId;
     }
 
     if (target && !target.googleSheetId) {
-        // console.log(`[getSubjectSheetId] Subject ${subject} found but no googleSheetId set, clearing cache and retrying...`);
         // Clear cache and try one more time
         clearSubjectsCache();
         subjects = await getCachedSubjects();
-        target = subjects.find(s => s.code === subject);
+        target = findTargetSubject(subjects, subject);
         
         if (target && target.googleSheetId) {
-            // console.log(`[getSubjectSheetId] After cache clear, found sheet ID for ${subject}: ${target.googleSheetId}`);
             return target.googleSheetId;
         }
     } else {
-        // console.log(`[getSubjectSheetId] Subject ${subject} not found in database, clearing cache and retrying...`);
         // Clear cache and try one more time
         clearSubjectsCache();
         subjects = await getCachedSubjects();
-        target = subjects.find(s => s.code === subject);
+        target = findTargetSubject(subjects, subject);
         
         if (target && target.googleSheetId) {
-            // console.log(`[getSubjectSheetId] After cache clear, found sheet ID for ${subject}: ${target.googleSheetId}`);
             return target.googleSheetId;
         }
     }
 
     // Final detailed error
-    // console.log(`[getSubjectSheetId] Final error - Subject: ${subject}, Found: ${!!target}, HasSheetId: ${target ? !!target.googleSheetId : 'N/A'}`);
-    
-    // No fallback - Sheet ID must be configured in database via Admin UI
     throw new Error(
         `Google Sheets ID not configured for subject: ${subject}. ` +
         `Please configure it in the Admin UI at /admin/subjects`
@@ -686,10 +695,9 @@ function fixMashedName(name: string): string {
 async function getSubjectConfig(subjectCode: string) {
     try {
         const subjects = await getCachedSubjects();
-        const target = subjects.find(s => s.code === subjectCode);
+        const target = findTargetSubject(subjects, subjectCode);
         return target;
     } catch (e) {
-        // console.error(`[getSubjectConfig] Failed to fetch config for ${subjectCode}`, e);
         return undefined;
     }
 }

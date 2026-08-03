@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { getCanonicalSubjectCode, normalizeSubjectCode } from "@/lib/subjectConfig";
 
-// Performance optimization: Cache this API route
-export const revalidate = 3600; // Revalidate every hour
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const NO_CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+  'Pragma': 'no-cache',
+  'Expires': '0',
+};
 import { getSubjects, updateSubjectVisibility, updateSubjectOrder, createSubject } from "@/lib/db";
 
 export async function GET(request: NextRequest) {
