@@ -104,12 +104,16 @@ export default function QuizManagement() {
     }
   }
 
-  async function removeQuiz(labId: string) {
-    if (!confirm("Are you sure you want to remove questions and disable quiz for this lab?")) return
+  async function removeQuiz(labId: string, deleteRecord: boolean = true) {
+    const message = deleteRecord
+      ? "Are you sure you want to PERMANENTLY DELETE this Quiz Lab? This will delete the lab assignment and all student scores."
+      : "Are you sure you want to disable quiz and clear questions for this lab?"
+
+    if (!confirm(message)) return
 
     setUpdating(labId)
     try {
-      const res = await fetch(`/api/admin/quiz-management?labId=${labId}`, {
+      const res = await fetch(`/api/admin/quiz-management?labId=${labId}&deleteLab=${deleteRecord}`, {
         method: "DELETE",
       })
 

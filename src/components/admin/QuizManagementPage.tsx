@@ -271,6 +271,31 @@ export default function QuizManagementPage({
     }
   }
 
+  const handleDeleteSelectedLab = async () => {
+    const targetLabObj = labs.find(l => l.labNumber === selectedLab)
+    if (!targetLabObj) return
+
+    if (!confirm(`Are you sure you want to permanently delete "${targetLabObj.labNumber} - ${targetLabObj.title}"? This will delete the quiz lab and all recorded student scores.`)) {
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/labs?id=${targetLabObj.id}`, {
+        method: "DELETE"
+      })
+      if (res.ok) {
+        await fetchLabsList()
+        setSelectedLab("")
+        alert("Quiz lab deleted successfully.")
+      } else {
+        alert("Failed to delete quiz lab.")
+      }
+    } catch (err: any) {
+      console.error("Failed to delete lab:", err)
+      alert(err.message || "Error deleting quiz lab")
+    }
+  }
+
   // Create Lab Assignment Handler
   const handleCreateNewLab = async () => {
     if (!newLabNumber.trim() || !newLabTitle.trim()) {
@@ -591,6 +616,16 @@ export default function QuizManagementPage({
                 >
                   <Plus className="w-4 h-4" /> New Quiz
                 </button>
+
+                {selectedLab && (
+                  <button
+                    onClick={handleDeleteSelectedLab}
+                    className="px-3.5 py-3 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 font-bold rounded-xl hover:bg-red-200 dark:hover:bg-red-900/60 transition-all shadow-sm flex items-center gap-1.5 text-sm flex-shrink-0"
+                    title="Permanently Delete Selected Quiz Lab"
+                  >
+                    <Trash2 className="w-4 h-4" /> Delete Quiz
+                  </button>
+                )}
               </div>
             </div>
 

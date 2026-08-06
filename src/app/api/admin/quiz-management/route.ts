@@ -94,17 +94,28 @@ export async function DELETE(req: NextRequest) {
 
     const url = new URL(req.url)
     const labId = url.searchParams.get("labId")
+    const deleteLabRecord = url.searchParams.get("deleteLab") === 'true'
 
     if (!labId) {
       return NextResponse.json({ error: "Lab ID is required" }, { status: 400 })
     }
 
-    const { updateLab } = await import("@/lib/db")
-    await updateLab(labId, {
-      quizEnabled: false,
-      quizQuestions: undefined,
-      quizCategories: undefined
-    })
+    const { getLabById, deleteLab, deleteQuizScores, updateLab } = await import("@/lib/db")
+    const targetLab = await getLabById(labId)
+
+    if (targetLab && targetLab.labNumber && targetLab.subject) {
+      await deleteQuizScores(targetLab.subject, targetLab.labNumber)
+    }
+
+    if (deleteLabRecord) {
+      await deleteLab(labId)
+    } else {
+      await updateLab(labId, {
+        quizEnabled: false,
+        quizQuestions: undefined,
+        quizCategories: undefined
+      })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

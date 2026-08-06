@@ -196,10 +196,19 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // Delete recorded quiz scores for this lab
+    if (lab.subject && lab.labNumber) {
+      try {
+        const { deleteQuizScores } = await import('@/lib/db');
+        await deleteQuizScores(lab.subject, lab.labNumber);
+      } catch (scoreErr) {
+        console.error('Failed to delete quiz scores for lab:', scoreErr);
+      }
+    }
+
     // If it's a Lab type, also delete the corresponding Challenge entry if exists
     if (!lab.labType || lab.labType === 'Lab') {
       try {
-        // Find and delete the corresponding Challenge
         const allLabs = await getAllLabs(false, lab.subject);
         const challenge = allLabs.find(
           l => l.labNumber === lab.labNumber && l.labType === 'Challenge'
@@ -209,7 +218,6 @@ export async function DELETE(request: NextRequest) {
         }
       } catch (challengeError) {
         console.error('Failed to delete corresponding challenge:', challengeError);
-        // Don't fail the whole request if challenge deletion fails
       }
     }
 
