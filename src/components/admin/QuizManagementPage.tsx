@@ -92,7 +92,7 @@ export default function QuizManagementPage({
   const [questionFormData, setQuestionFormData] = useState({
     question: "",
     type: "multiple-choice" as 'multiple-choice' | 'short-answer' | 'true-false' | 'multiple-answer',
-    options: ["", "", "", ""],
+    options: ["", "", "", "", ""],
     correctAnswer: "" as string | string[],
     category: "",
     explanation: "",
@@ -440,7 +440,7 @@ export default function QuizManagementPage({
     setQuestionFormData({
       question: "",
       type: "multiple-choice",
-      options: ["", "", "", ""],
+      options: ["", "", "", "", ""],
       correctAnswer: "",
       category: activeCategories[0].id,
       explanation: "",
@@ -454,7 +454,7 @@ export default function QuizManagementPage({
     setQuestionFormData({
       question: question.question,
       type: question.type,
-      options: question.options ? [...question.options] : ["", "", "", ""],
+      options: question.options && question.options.length >= 2 ? [...question.options] : ["", "", "", "", ""],
       correctAnswer: question.correctAnswer,
       category: question.category,
       explanation: question.explanation || "",
@@ -515,21 +515,51 @@ export default function QuizManagementPage({
   }
 
   const handleGiftImport = (importedQuestions: QuizQuestion[]) => {
-    let activeCategories = categories
-    if (activeCategories.length === 0) {
-      activeCategories = [{ id: 'cat_default', name: 'General' }]
-      setCategories(activeCategories)
-    }
-    const updatedImported = importedQuestions.map(q => ({
-      ...q,
-      category: q.category || activeCategories[0].id
-    }))
+    let updatedCategories = [...categories]
+
+    const updatedImported = importedQuestions.map(q => {
+      let catId = q.category
+
+      if (catId) {
+        // Check if a category with this name or id already exists
+        const existing = updatedCategories.find(
+          c => c.id.toLowerCase() === catId.toLowerCase() || c.name.toLowerCase() === catId.toLowerCase()
+        )
+
+        if (existing) {
+          catId = existing.id
+        } else {
+          // Create new category dynamically for the imported GIFT category!
+          const newCat: QuizCategory = {
+            id: `cat_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+            name: catId
+          }
+          updatedCategories.push(newCat)
+          catId = newCat.id
+        }
+      } else {
+        if (updatedCategories.length === 0) {
+          const defaultCat: QuizCategory = { id: 'cat_default', name: 'General' }
+          updatedCategories.push(defaultCat)
+          catId = defaultCat.id
+        } else {
+          catId = updatedCategories[0].id
+        }
+      }
+
+      return {
+        ...q,
+        category: catId
+      }
+    })
+
+    setCategories(updatedCategories)
 
     const updated = [...questions, ...updatedImported]
     setQuestions(updated)
     setSets(prev => prev.map(s => s.id === selectedSetId ? { ...s, questions: updated } : s))
     setShowGiftImport(false)
-    setSaveStatus(`Imported ${importedQuestions.length} questions! Click "Save All Questions" to keep.`)
+    setSaveStatus(`Imported ${importedQuestions.length} questions into categories! Click "Save All Questions" to keep.`)
   }
 
   if (loading || !hasAccess) {
@@ -1022,6 +1052,78 @@ export default function QuizManagementPage({
                       </div>
                     )
                   })}
+
+                  {/* Render any uncategorized questions whose category ID doesn't match existing categories */}
+                  {(() => {
+                    const knownCatIds = new Set(categories.map(c => c.id))
+                    const uncategorizedQuestions = questions.filter(q => !q.category || !knownCatIds.has(q.category))
+                    if (uncategorizedQuestions.length === 0) return null
+
+                    return (
+                      <div className="border border-slate-200 dark:border-slate-700 rounded-xl p-5 bg-slate-50/30 dark:bg-slate-800/30">
+                        <h3 className="font-bold text-lg mb-3 text-amber-700 dark:text-amber-300 border-b border-slate-200 dark:border-slate-700 pb-2">
+                          Uncategorized / Other ({uncategorizedQuestions.length})
+                        </h3>
+                        <div className="space-y-4">
+                          {uncategorizedQuestions.map((question, idx) => (
+                            <div
+                              key={question.id}
+                              className="p-5 bg-white dark:bg-slate-700/60 rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm"
+                            >
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="font-bold text-slate-700 dark:text-slate-300">Q{categories.map(c => questions.filter(q => q.category === c.id).length).reduce((a, b) => a + b, 0) + idx + 1}.</span>
+                                    <span className="text-xs font-semibold px-2.5 py-1 bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 rounded-lg">
+                                      {question.type === 'multiple-choice' ? 'Multiple Choice' : 
+                                       question.type === 'multiple-answer' ? 'Multiple Answer' :
+                                       question.type === 'true-false' ? 'True/False' : 'Short Answer'}
+                                    </span>
+                                  </div>
+                                  <RichTextDisplay content={question.question} className="mb-2" />
+                                  
+                                  {(question.type === 'multiple-choice' || question.type === 'true-false' || question.type === 'multiple-answer') && question.options && (
+                                    <div className="ml-4 space-y-1 mb-2">
+                                      {question.options.map((opt, i) => {
+                                        const isCorrect = question.type === 'multiple-answer' 
+                                          ? Array.isArray(question.correctAnswer) && question.correctAnswer.includes(opt)
+                                          : opt === question.correctAnswer
+                                        return (
+                                          <div key={i} className="flex items-center gap-2">
+                                            <span className="text-sm font-semibold text-slate-500 dark:text-slate-400 font-mono">
+                                              {String.fromCharCode(65 + i)}.
+                                            </span>
+                                            <span className={`text-sm ${isCorrect ? 'text-green-600 dark:text-green-400 font-bold' : 'text-slate-600 dark:text-slate-300'}`}>
+                                              {opt} {isCorrect && '✓'}
+                                            </span>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="flex gap-2 ml-4">
+                                  <button
+                                    onClick={() => openEditQuestion(question)}
+                                    className="px-3 py-1.5 text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded-lg hover:bg-blue-200 transition-colors"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => deleteQuestion(question.id)}
+                                    className="px-3 py-1.5 text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 rounded-lg hover:bg-red-200 transition-colors"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
               )}
             </div>
@@ -1334,7 +1436,7 @@ export default function QuizManagementPage({
                   onChange={(e) => setQuestionFormData({
                     ...questionFormData,
                     type: e.target.value as any,
-                    options: e.target.value === 'true-false' ? ["True", "False"] : ["", "", "", ""],
+                    options: e.target.value === 'true-false' ? ["True", "False"] : (questionFormData.options.length >= 2 ? questionFormData.options : ["", "", "", "", ""]),
                     correctAnswer: e.target.value === 'multiple-answer' ? [] : ""
                   })}
                   className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-xl dark:bg-gray-700 dark:text-slate-200 font-medium"
@@ -1371,11 +1473,19 @@ export default function QuizManagementPage({
               {/* Options for Multiple Choice & Multiple Answer */}
               {(questionFormData.type === 'multiple-choice' || questionFormData.type === 'multiple-answer') && (
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Options</label>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      Options ({questionFormData.options.length} Choices)
+                    </label>
+                    <span className="text-xs text-slate-500 font-medium">
+                      Select radio / checkbox for correct answer
+                    </span>
+                  </div>
+
                   <div className="space-y-2">
                     {questionFormData.options.map((opt, idx) => (
                       <div key={idx} className="flex items-center gap-2">
-                        <span className="w-6 font-bold text-slate-500 font-mono">{String.fromCharCode(65 + idx)}.</span>
+                        <span className="w-6 font-bold text-slate-500 font-mono text-center">{String.fromCharCode(65 + idx)}.</span>
                         <input
                           type="text"
                           value={opt}
@@ -1391,15 +1501,15 @@ export default function QuizManagementPage({
                           <input
                             type="radio"
                             name="correctAnswer"
-                            checked={questionFormData.correctAnswer === opt}
+                            checked={questionFormData.correctAnswer === opt && opt !== ""}
                             onChange={() => setQuestionFormData({ ...questionFormData, correctAnswer: opt })}
-                            className="w-5 h-5 accent-purple-600"
+                            className="w-5 h-5 accent-purple-600 cursor-pointer"
                             title="Select as correct answer"
                           />
                         ) : (
                           <input
                             type="checkbox"
-                            checked={Array.isArray(questionFormData.correctAnswer) && questionFormData.correctAnswer.includes(opt)}
+                            checked={Array.isArray(questionFormData.correctAnswer) && questionFormData.correctAnswer.includes(opt) && opt !== ""}
                             onChange={(e) => {
                               const currentArr = Array.isArray(questionFormData.correctAnswer) ? questionFormData.correctAnswer : []
                               let updatedArr: string[]
@@ -1410,12 +1520,60 @@ export default function QuizManagementPage({
                               }
                               setQuestionFormData({ ...questionFormData, correctAnswer: updatedArr })
                             }}
-                            className="w-5 h-5 accent-purple-600 rounded"
+                            className="w-5 h-5 accent-purple-600 rounded cursor-pointer"
                             title="Check as correct answer"
                           />
                         )}
+
+                        {/* Trash bin to delete choice */}
+                        {questionFormData.options.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newOpts = questionFormData.options.filter((_, i) => i !== idx)
+                              let newCorrect = questionFormData.correctAnswer
+                              if (typeof newCorrect === 'string' && newCorrect === opt) {
+                                newCorrect = ''
+                              } else if (Array.isArray(newCorrect)) {
+                                newCorrect = newCorrect.filter(c => c !== opt)
+                              }
+                              setQuestionFormData({
+                                ...questionFormData,
+                                options: newOpts,
+                                correctAnswer: newCorrect
+                              })
+                            }}
+                            className="p-2 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                            title="Delete choice"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     ))}
+                  </div>
+
+                  {/* Add Choice Button */}
+                  <div className="flex justify-between items-center mt-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (questionFormData.options.length >= 10) {
+                          alert("Maximum 10 choices allowed per question.")
+                          return
+                        }
+                        setQuestionFormData({
+                          ...questionFormData,
+                          options: [...questionFormData.options, ""]
+                        })
+                      }}
+                      className="px-3.5 py-1.5 bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 font-bold rounded-lg hover:bg-purple-200 dark:hover:bg-purple-900/60 transition-colors text-xs flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Choice ({String.fromCharCode(65 + questionFormData.options.length)})
+                    </button>
+                    <span className="text-xs text-slate-500 font-medium">
+                      Supports 2 to 10 choices per question
+                    </span>
                   </div>
                 </div>
               )}

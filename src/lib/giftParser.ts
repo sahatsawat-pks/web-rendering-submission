@@ -19,7 +19,7 @@ export interface ParsedGiftQuestion {
 export function parseGiftFormat(giftText: string): ParsedGiftQuestion[] {
   const questions: ParsedGiftQuestion[] = []
   
-  // Remove comments (lines starting with //)
+  // Remove comment lines (starting with //)
   const lines = giftText.split('\n')
   const cleanedLines: string[] = []
   for (const line of lines) {
@@ -29,34 +29,47 @@ export function parseGiftFormat(giftText: string): ParsedGiftQuestion[] {
     }
   }
   const cleanedText = cleanedLines.join('\n')
-  
-  // Split by double newline to get question blocks
-  const blocks = cleanedText.split(/\n\s*\n/).filter(b => b.trim())
-  
+
   let currentCategory: string | undefined
-  
-  for (const block of blocks) {
-    const trimmed = block.trim()
-    
-    // Check if this is a category declaration
-    const categoryMatch = trimmed.match(/^\$CATEGORY:\s*(.+)$/m)
+
+  // Split content into chunks by $CATEGORY: declarations
+  const chunks = cleanedText.split(/(?=\$CATEGORY:)/i)
+
+  for (const chunk of chunks) {
+    let textToParse = chunk.trim()
+    if (!textToParse) continue
+
+    // Extract category header if present at start of chunk
+    const categoryMatch = textToParse.match(/^\$CATEGORY:\s*([^\n]+)/i)
     if (categoryMatch) {
       currentCategory = categoryMatch[1].trim()
-      // Check if there's a question in the same block after category
-      const afterCategory = trimmed.substring(categoryMatch[0].length).trim()
-      if (afterCategory) {
-        const parsed = parseGiftQuestion(afterCategory, currentCategory)
+      textToParse = textToParse.replace(/^\$CATEGORY:\s*[^\n]+/i, '').trim()
+    }
+
+    if (!textToParse) continue
+
+    // Extract individual question blocks by finding { ... } pairs
+    let pos = 0
+    while (pos < textToParse.length) {
+      const openBrace = textToParse.indexOf('{', pos)
+      if (openBrace === -1) break
+
+      const closeBrace = textToParse.indexOf('}', openBrace)
+      if (closeBrace === -1) break
+
+      // Question start is either 0 or right after the previous question's closing brace }
+      const prevClose = textToParse.lastIndexOf('}', openBrace - 1)
+      const qStart = prevClose === -1 ? 0 : prevClose + 1
+
+      const questionBlock = textToParse.substring(qStart, closeBrace + 1).trim()
+      if (questionBlock) {
+        const parsed = parseGiftQuestion(questionBlock, currentCategory)
         if (parsed) {
           questions.push(parsed)
         }
       }
-      continue
-    }
-    
-    // Parse as question with current category
-    const parsed = parseGiftQuestion(trimmed, currentCategory)
-    if (parsed) {
-      questions.push(parsed)
+
+      pos = closeBrace + 1
     }
   }
   
