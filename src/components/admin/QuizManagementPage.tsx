@@ -54,7 +54,7 @@ export default function QuizManagementPage({
   
   const [labs, setLabs] = useState<any[]>([])
   const [selectedLab, setSelectedLab] = useState("")
-  const [categories, setCategories] = useState<QuizCategory[]>([])
+  const [categories, setCategories] = useState<QuizCategory[]>([{ id: 'cat_default', name: 'General' }])
   const [questions, setQuestions] = useState<QuizQuestion[]>([])
   const [quizEnabled, setQuizEnabled] = useState(false)
   const [timeLimit, setTimeLimit] = useState(0)
@@ -155,7 +155,12 @@ export default function QuizManagementPage({
       const res = await fetch(`/api/quiz?labNumber=${selectedLab}&subject=${subjectCode.toUpperCase()}`)
       if (res.ok) {
         const data = await res.json()
-        setCategories(data.categories || [])
+        
+        const loadedCategories = (data.categories && data.categories.length > 0)
+          ? data.categories
+          : [{ id: 'cat_default', name: 'General' }]
+        setCategories(loadedCategories)
+        
         setQuizEnabled(data.quizEnabled || false)
         setTimeLimit(data.quizTimeLimit || 0)
         setTimeLimitEnabled(data.quizTimeLimitEnabled || false)
@@ -400,13 +405,19 @@ export default function QuizManagementPage({
 
   // Question Management Handlers
   const openAddQuestion = () => {
+    let activeCategories = categories
+    if (activeCategories.length === 0) {
+      activeCategories = [{ id: 'cat_default', name: 'General' }]
+      setCategories(activeCategories)
+    }
+
     setEditingQuestion(null)
     setQuestionFormData({
       question: "",
       type: "multiple-choice",
       options: ["", "", "", ""],
       correctAnswer: "",
-      category: categories[0]?.id || "",
+      category: activeCategories[0].id,
       explanation: "",
       imageUrl: ""
     })
@@ -467,6 +478,7 @@ export default function QuizManagementPage({
     setSets(prev => prev.map(s => s.id === selectedSetId ? { ...s, questions: updatedQuestions } : s))
     setShowQuestionModal(false)
     setEditingQuestion(null)
+    setSaveStatus("Question updated! Remember to click '💾 Save All Questions' to save to server.")
   }
 
   const deleteQuestion = (id: string) => {
@@ -478,7 +490,17 @@ export default function QuizManagementPage({
   }
 
   const handleGiftImport = (importedQuestions: QuizQuestion[]) => {
-    const updated = [...questions, ...importedQuestions]
+    let activeCategories = categories
+    if (activeCategories.length === 0) {
+      activeCategories = [{ id: 'cat_default', name: 'General' }]
+      setCategories(activeCategories)
+    }
+    const updatedImported = importedQuestions.map(q => ({
+      ...q,
+      category: q.category || activeCategories[0].id
+    }))
+
+    const updated = [...questions, ...updatedImported]
     setQuestions(updated)
     setSets(prev => prev.map(s => s.id === selectedSetId ? { ...s, questions: updated } : s))
     setShowGiftImport(false)
@@ -781,7 +803,7 @@ export default function QuizManagementPage({
 
               {categories.length === 0 ? (
                 <p className="text-slate-500 dark:text-slate-400 text-center py-8">
-                  No categories yet. Add one to start creating questions.
+                  No categories yet. Click "+ Add Category" to create one.
                 </p>
               ) : (
                 <div className="grid gap-3">
@@ -843,22 +865,28 @@ export default function QuizManagementPage({
                   </button>
                   <button
                     onClick={openAddQuestion}
-                    disabled={categories.length === 0}
-                    className={`px-4 py-2 ${colorTheme.secondary} text-white font-bold rounded-xl hover:opacity-90 transition-all shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed`}
+                    className={`px-4 py-2 ${colorTheme.secondary} text-white font-bold rounded-xl hover:opacity-90 transition-all shadow-md`}
                   >
                     + Add Question
                   </button>
                 </div>
               </div>
 
-              {categories.length === 0 ? (
-                <p className="text-slate-500 dark:text-slate-400 text-center py-8">
-                  Please add at least one category before creating questions.
-                </p>
-              ) : questions.length === 0 ? (
-                <p className="text-slate-500 dark:text-slate-400 text-center py-8">
-                  No questions in {currentSetObj?.name} yet. Click "+ Add Question" or "Import GIFT" to create questions.
-                </p>
+              {questions.length === 0 ? (
+                <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl bg-slate-50/50 dark:bg-slate-800/30">
+                  <p className="text-slate-600 dark:text-slate-300 font-bold mb-2">
+                    No questions in {currentSetObj?.name} yet.
+                  </p>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">
+                    Click "+ Add Question" to create your first question, or "Import GIFT" to import Moodle format questions.
+                  </p>
+                  <button
+                    onClick={openAddQuestion}
+                    className={`px-5 py-2.5 ${colorTheme.secondary} text-white font-bold rounded-xl hover:opacity-90 transition-all shadow-md inline-flex items-center gap-2`}
+                  >
+                    <Plus className="w-4 h-4" /> Add First Question
+                  </button>
+                </div>
               ) : (
                 <div className="space-y-6">
                   {categories.map(category => {
