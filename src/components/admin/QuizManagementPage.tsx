@@ -9,7 +9,7 @@ import RichTextDisplay from "@/components/RichTextDisplay"
 import GiftImportModal from "@/components/GiftImportModal"
 import { QuizSet, normalizeQuizPayload } from "@/lib/quizSetAdapter"
 import { QuizLabStats } from "@/lib/quizStats"
-import { BarChart3, Plus, Trash2, Edit3, CheckCircle2, XCircle, Star, Sparkles, HelpCircle, ArrowLeft, RefreshCw, Layers } from "lucide-react"
+import { BarChart3, Plus, Trash2, Edit3, CheckCircle2, XCircle, Star, Sparkles, HelpCircle, ArrowLeft, RefreshCw, Layers, BookOpen } from "lucide-react"
 
 interface QuizQuestion {
   id: string
@@ -59,6 +59,12 @@ export default function QuizManagementPage({
   const [quizEnabled, setQuizEnabled] = useState(false)
   const [timeLimit, setTimeLimit] = useState(0)
   const [timeLimitEnabled, setTimeLimitEnabled] = useState(false)
+
+  // Create Lab Modal
+  const [showCreateLabModal, setShowCreateLabModal] = useState(false)
+  const [newLabNumber, setNewLabNumber] = useState("")
+  const [newLabTitle, setNewLabTitle] = useState("")
+  const [isCreatingLab, setIsCreatingLab] = useState(false)
 
   // Question Sets Management
   const [sets, setSets] = useState<QuizSet[]>([
@@ -114,14 +120,23 @@ export default function QuizManagementPage({
       .catch(() => router.push('/admin/login'))
       .finally(() => setLoading(false))
 
-    fetch(`/api/labs?activeOnly=false&subject=${subjectCode.toUpperCase()}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setLabs(data.labs.sort((a: any, b: any) => a.labNumber.localeCompare(b.labNumber)))
-        }
-      })
+    fetchLabsList()
   }, [router, subjectCode])
+
+  const fetchLabsList = async () => {
+    try {
+      const res = await fetch(`/api/labs?activeOnly=false&subject=${subjectCode.toUpperCase()}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) {
+          const sorted = data.labs.sort((a: any, b: any) => a.labNumber.localeCompare(b.labNumber))
+          setLabs(sorted)
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch labs", e)
+    }
+  }
 
   useEffect(() => {
     if (selectedLab) {
@@ -248,6 +263,63 @@ export default function QuizManagementPage({
     } catch (e) {
       console.error("Failed to save settings", e)
       alert("Error saving settings")
+    }
+  }
+
+  // Create Lab Assignment Handler
+  const handleCreateNewLab = async () => {
+    if (!newLabNumber.trim() || !newLabTitle.trim()) {
+      alert("Quiz number and title are required.")
+      return
+    }
+
+    setIsCreatingLab(true)
+    try {
+      const res = await fetch("/api/labs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          labNumber: newLabNumber.trim(),
+          title: newLabTitle.trim(),
+          subject: subjectCode.toUpperCase(),
+          labType: "Lab",
+          isActive: true,
+          fileName: `quiz_${newLabNumber.trim()}.html`
+        })
+      })
+
+      const data = await res.json()
+      if (res.ok && data.success) {
+        // Enable quiz for newly created lab
+        await fetch("/api/quiz", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "update_settings",
+            labNumber: newLabNumber.trim(),
+            subject: subjectCode.toUpperCase(),
+            quizEnabled: true,
+            quizTimeLimit: 0,
+            quizTimeLimitEnabled: false
+          })
+        })
+
+        // Refresh labs list
+        await fetchLabsList()
+
+        // Automatically select the newly created quiz lab!
+        setSelectedLab(newLabNumber.trim())
+        setShowCreateLabModal(false)
+        setNewLabNumber("")
+        setNewLabTitle("")
+      } else {
+        alert(data.error || "Failed to create new quiz lab")
+      }
+    } catch (err: any) {
+      console.error("Failed to create quiz lab:", err)
+      alert(err.message || "Failed to create quiz lab")
+    } finally {
+      setIsCreatingLab(false)
     }
   }
 
@@ -455,21 +527,49 @@ export default function QuizManagementPage({
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-6 mb-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex-1">
-              <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">
-                Select Lab Assignment
-              </label>
-              <select
-                value={selectedLab}
-                onChange={(e) => setSelectedLab(e.target.value)}
-                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200 font-medium shadow-sm"
-              >
-                <option value="">-- Select a Lab --</option>
-                {labs.filter(lab => lab.labType !== 'Challenge').map(lab => (
-                  <option key={lab.id} value={lab.labNumber}>
-                    {lab.labNumber} - {lab.title}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  Select Quiz Lab Assignment
+                </label>
+                <button
+                  onClick={() => {
+                    const nextNum = (labs.length + 1).toString()
+                    setNewLabNumber(nextNum)
+                    setNewLabTitle(`Quiz ${nextNum}`)
+                    setShowCreateLabModal(true)
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1 bg-purple-600 text-white rounded-lg text-xs font-bold hover:bg-purple-700 transition-all shadow-sm"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Create New Quiz Lab
+                </button>
+              </div>
+
+              <div className="flex gap-2">
+                <select
+                  value={selectedLab}
+                  onChange={(e) => setSelectedLab(e.target.value)}
+                  className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200 font-medium shadow-sm"
+                >
+                  <option value="">-- Select a Quiz Lab --</option>
+                  {labs.filter(lab => lab.labType !== 'Challenge').map(lab => (
+                    <option key={lab.id} value={lab.labNumber}>
+                      {lab.labNumber} - {lab.title}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  onClick={() => {
+                    const nextNum = (labs.length + 1).toString()
+                    setNewLabNumber(nextNum)
+                    setNewLabTitle(`Quiz ${nextNum}`)
+                    setShowCreateLabModal(true)
+                  }}
+                  className="px-4 py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition-all shadow-md flex items-center gap-1 text-sm flex-shrink-0"
+                >
+                  <Plus className="w-4 h-4" /> New Quiz
+                </button>
+              </div>
             </div>
 
             {selectedLab && (
@@ -497,6 +597,32 @@ export default function QuizManagementPage({
               </div>
             )}
           </div>
+
+          {!selectedLab && (
+            <div className="mt-4 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl text-center">
+              {labs.length === 0 ? (
+                <div>
+                  <p className="font-semibold text-purple-900 dark:text-purple-200 text-sm mb-2">
+                    No quiz labs exist for {subjectCode.toUpperCase()} yet.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setNewLabNumber("1")
+                      setNewLabTitle("Quiz 1 - Check Your Understanding")
+                      setShowCreateLabModal(true)
+                    }}
+                    className="px-5 py-2.5 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition-all shadow-md inline-flex items-center gap-2 text-sm"
+                  >
+                    <Plus className="w-4 h-4" /> Create Your First Quiz Lab
+                  </button>
+                </div>
+              ) : (
+                <p className="text-sm text-purple-700 dark:text-purple-300">
+                  Select a Quiz Lab from the dropdown above (or click "+ New Quiz") to edit questions, sets, and settings.
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {selectedLab && activeViewTab === 'editor' && (
@@ -985,6 +1111,65 @@ export default function QuizManagementPage({
           </div>
         )}
       </div>
+
+      {/* Create New Quiz Lab Modal */}
+      {showCreateLabModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center gap-2 mb-4">
+              <BookOpen className="w-6 h-6 text-purple-600" />
+              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200">
+                Create New Quiz Lab
+              </h3>
+            </div>
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                  Quiz / Lab Number
+                </label>
+                <input
+                  type="text"
+                  value={newLabNumber}
+                  onChange={(e) => setNewLabNumber(e.target.value)}
+                  placeholder="e.g. 1, 2, or Quiz 1"
+                  className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200 font-mono font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                  Quiz Title
+                </label>
+                <input
+                  type="text"
+                  value={newLabTitle}
+                  onChange={(e) => setNewLabTitle(e.target.value)}
+                  placeholder="e.g. Quiz 1 - Introduction to Variables"
+                  className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200 font-medium"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setShowCreateLabModal(false)}
+                disabled={isCreatingLab}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-slate-200 font-semibold rounded-xl hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateNewLab}
+                disabled={isCreatingLab || !newLabNumber.trim() || !newLabTitle.trim()}
+                className={`px-5 py-2 ${colorTheme.secondary} text-white font-bold rounded-xl hover:opacity-90 disabled:opacity-50`}
+              >
+                {isCreatingLab ? 'Creating...' : 'Create Quiz Lab'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add / Rename Set Modal */}
       {(showAddSetModal || editingSet) && (
