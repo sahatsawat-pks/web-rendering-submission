@@ -4,7 +4,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Home, Layers, Key, AlertCircle } from "lucide-react"
+import { ArrowLeft, Home, Layers, Key, AlertCircle, HelpCircle } from "lucide-react"
 import LogoutButton from "@/components/LogoutButton"
 import { ModeToggle } from "@/components/mode-toggle"
 import LabChallengeGrading from "@/components/admin/LabChallengeGrading"
@@ -289,18 +289,44 @@ export default function DynamicAdminDashboard() {
             </Link>
           </div>
         ) : !subject.hasGradingInterface ? (
-          <div className="glass-card p-8 rounded-2xl text-center">
-            <AlertCircle className="w-12 h-12 mx-auto text-blue-500 mb-4" />
-            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-200 mb-2">Grading Interface Disabled</h2>
-            <p className="text-slate-600 dark:text-slate-400 mb-4">
-              Enable grading features for this subject in Subject Management.
-            </p>
-            <Link
-              href="/admin/subjects"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-semibold transition-all shadow-lg"
-            >
-              Configure Subject
-            </Link>
+          <div className="glass-card p-8 rounded-2xl text-center max-w-2xl mx-auto shadow-2xl">
+            {subject.hasQuizManagement ? (
+              <>
+                <HelpCircle className="w-14 h-14 mx-auto text-purple-600 dark:text-purple-400 mb-4 animate-bounce" />
+                <h2 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 mb-2">Quiz-Only Subject Module</h2>
+                <p className="text-slate-600 dark:text-slate-300 mb-6">
+                  This subject is configured exclusively for Quiz Management & Check Your Understanding quizzes.
+                </p>
+                <div className="flex flex-wrap gap-4 justify-center">
+                  <Link
+                    href="/admin/quiz-management"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold transition-all shadow-lg hover:scale-105"
+                  >
+                    Manage Quiz Questions & Sets
+                  </Link>
+                  <Link
+                    href={`/${subjectCode.toLowerCase()}/quiz`}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold transition-all border border-slate-300 dark:border-slate-600"
+                  >
+                    Preview Student Quiz
+                  </Link>
+                </div>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="w-12 h-12 mx-auto text-blue-500 mb-4" />
+                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-200 mb-2">Grading Interface Disabled</h2>
+                <p className="text-slate-600 dark:text-slate-400 mb-4">
+                  Enable grading features for this subject in Subject Management.
+                </p>
+                <Link
+                  href="/admin/subjects"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-semibold transition-all shadow-lg"
+                >
+                  Configure Subject
+                </Link>
+              </>
+            )}
           </div>
         ) : (
           <div className="glass-card p-8 rounded-2xl text-center">
