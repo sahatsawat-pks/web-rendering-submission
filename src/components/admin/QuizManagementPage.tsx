@@ -7,16 +7,19 @@ import { ModeToggle } from "@/components/mode-toggle"
 import RichTextEditor from "@/components/RichTextEditor"
 import RichTextDisplay from "@/components/RichTextDisplay"
 import GiftImportModal from "@/components/GiftImportModal"
+import { QuizSet, normalizeQuizPayload } from "@/lib/quizSetAdapter"
+import { QuizLabStats } from "@/lib/quizStats"
+import { BarChart3, Plus, Trash2, Edit3, CheckCircle2, XCircle, Star, Sparkles, HelpCircle, ArrowLeft, RefreshCw, Layers } from "lucide-react"
 
 interface QuizQuestion {
   id: string
   question: string
   type: 'multiple-choice' | 'short-answer' | 'true-false' | 'multiple-answer'
-  options?: string[] // For multiple choice, true-false, and multiple-answer
-  correctAnswer: string | string[] // String for single answer, array for multiple answers
+  options?: string[]
+  correctAnswer: string | string[]
   category: string
   explanation?: string
-  imageUrl?: string // Optional image URL for the question
+  imageUrl?: string
 }
 
 interface QuizCategory {
@@ -56,6 +59,21 @@ export default function QuizManagementPage({
   const [quizEnabled, setQuizEnabled] = useState(false)
   const [timeLimit, setTimeLimit] = useState(0)
   const [timeLimitEnabled, setTimeLimitEnabled] = useState(false)
+
+  // Question Sets Management
+  const [sets, setSets] = useState<QuizSet[]>([
+    { id: 'set_1', name: 'Set 1 (English)', questions: [] }
+  ])
+  const [selectedSetId, setSelectedSetId] = useState<string>('set_1')
+  const [activeSetId, setActiveSetId] = useState<string>('set_1')
+  const [showAddSetModal, setShowAddSetModal] = useState(false)
+  const [newSetName, setNewSetName] = useState("")
+  const [editingSet, setEditingSet] = useState<QuizSet | null>(null)
+  
+  // View Mode: 'editor' | 'analytics'
+  const [activeViewTab, setActiveViewTab] = useState<'editor' | 'analytics'>('editor')
+  const [stats, setStats] = useState<QuizLabStats | null>(null)
+  const [loadingStats, setLoadingStats] = useState(false)
   
   // Category management
   const [showCategoryModal, setShowCategoryModal] = useState(false)
@@ -80,7 +98,6 @@ export default function QuizManagementPage({
   const [showSettingsSavedDialog, setShowSettingsSavedDialog] = useState(false)
 
   useEffect(() => {
-    // Check auth and permissions
     fetch("/api/auth/me")
       .then(res => res.json())
       .then(data => {
@@ -97,7 +114,6 @@ export default function QuizManagementPage({
       .catch(() => router.push('/admin/login'))
       .finally(() => setLoading(false))
 
-    // Fetch labs (convert to uppercase for database lookup)
     fetch(`/api/labs?activeOnly=false&subject=${subjectCode.toUpperCase()}`)
       .then(res => res.json())
       .then(data => {
@@ -113,19 +129,62 @@ export default function QuizManagementPage({
     }
   }, [selectedLab])
 
+  useEffect(() => {
+    if (selectedLab && activeViewTab === 'analytics') {
+      loadStatsData()
+    }
+  }, [selectedLab, activeViewTab, selectedSetId])
+
   const loadQuizData = async () => {
     try {
       const res = await fetch(`/api/quiz?labNumber=${selectedLab}&subject=${subjectCode.toUpperCase()}`)
       if (res.ok) {
         const data = await res.json()
         setCategories(data.categories || [])
-        setQuestions(data.questions || [])
         setQuizEnabled(data.quizEnabled || false)
         setTimeLimit(data.quizTimeLimit || 0)
         setTimeLimitEnabled(data.quizTimeLimitEnabled || false)
+
+        if (data.sets && data.sets.length > 0) {
+          setSets(data.sets)
+          const actId = data.activeSetId || data.sets[0].id
+          setActiveSetId(actId)
+          const targetSet = data.sets.find((s: any) => s.id === (selectedSetId || actId)) || data.sets[0]
+          setSelectedSetId(targetSet.id)
+          setQuestions(targetSet.questions || [])
+        } else {
+          const initialSet: QuizSet = { id: 'set_1', name: 'Set 1 (English)', questions: data.questions || [] }
+          setSets([initialSet])
+          setSelectedSetId('set_1')
+          setActiveSetId('set_1')
+          setQuestions(data.questions || [])
+        }
       }
     } catch (e) {
       console.error("Failed to load quiz data", e)
+    }
+  }
+
+  const loadStatsData = async () => {
+    setLoadingStats(true)
+    try {
+      const res = await fetch(`/api/quiz?action=stats&labNumber=${selectedLab}&subject=${subjectCode.toUpperCase()}&setId=${selectedSetId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setStats(data.stats || null)
+      }
+    } catch (e) {
+      console.error("Failed to load stats data", e)
+    } finally {
+      setLoadingStats(false)
+    }
+  }
+
+  const handleSelectSet = (setId: string) => {
+    setSelectedSetId(setId)
+    const targetSet = sets.find(s => s.id === setId)
+    if (targetSet) {
+      setQuestions(targetSet.questions || [])
     }
   }
 
@@ -133,6 +192,9 @@ export default function QuizManagementPage({
     if (!selectedLab) return
     
     setSaveStatus("Saving...")
+    const updatedSets = sets.map(s => s.id === selectedSetId ? { ...s, questions } : s)
+    setSets(updatedSets)
+
     try {
       const res = await fetch('/api/quiz', {
         method: 'POST',
@@ -142,6 +204,8 @@ export default function QuizManagementPage({
           labNumber: selectedLab,
           subject: subjectCode.toUpperCase(),
           categories,
+          sets: updatedSets,
+          activeSetId,
           questions
         })
       })
@@ -187,37 +251,73 @@ export default function QuizManagementPage({
     }
   }
 
+  // Set Management Handlers
+  const handleAddSet = () => {
+    if (!newSetName.trim()) return
+    const newId = `set_${Date.now()}`
+    const newSet: QuizSet = {
+      id: newId,
+      name: newSetName.trim(),
+      questions: []
+    }
+    const updated = [...sets, newSet]
+    setSets(updated)
+    setSelectedSetId(newId)
+    setQuestions([])
+    setNewSetName("")
+    setShowAddSetModal(false)
+  }
+
+  const handleRenameSet = () => {
+    if (!editingSet || !newSetName.trim()) return
+    const updated = sets.map(s => s.id === editingSet.id ? { ...s, name: newSetName.trim() } : s)
+    setSets(updated)
+    setEditingSet(null)
+    setNewSetName("")
+  }
+
+  const handleDeleteSet = (setId: string) => {
+    if (sets.length <= 1) {
+      alert("At least one question set must be kept.")
+      return
+    }
+    if (!confirm("Are you sure you want to delete this question set? All questions inside it will be removed.")) return
+
+    const updated = sets.filter(s => s.id !== setId)
+    setSets(updated)
+    if (activeSetId === setId) {
+      setActiveSetId(updated[0].id)
+    }
+    handleSelectSet(updated[0].id)
+  }
+
+  const handleMakeActiveSet = (setId: string) => {
+    setActiveSetId(setId)
+  }
+
+  // Category Management Handlers
   const addCategory = () => {
     if (!newCategoryName.trim()) return
-    
-    const newCategory: QuizCategory = {
-      id: Date.now().toString(),
-      name: newCategoryName.trim()
-    }
-    
+    const newCategory: QuizCategory = { id: Date.now().toString(), name: newCategoryName.trim() }
     setCategories([...categories, newCategory])
     setNewCategoryName("")
     setShowCategoryModal(false)
   }
 
-  const updateCategory = () => {
+  const editCategory = () => {
     if (!editingCategory || !newCategoryName.trim()) return
-    
-    setCategories(categories.map(cat => 
-      cat.id === editingCategory.id 
-        ? { ...cat, name: newCategoryName.trim() }
-        : cat
-    ))
-    setNewCategoryName("")
+    setCategories(categories.map(c => c.id === editingCategory.id ? { ...c, name: newCategoryName.trim() } : c))
     setEditingCategory(null)
+    setNewCategoryName("")
     setShowCategoryModal(false)
   }
 
-  const deleteCategory = (categoryId: string) => {
-    if (!confirm("Are you sure you want to delete this category? All questions in this category will also be removed.")) return
-    
-    setCategories(categories.filter(cat => cat.id !== categoryId))
-    setQuestions(questions.filter(q => q.category !== categoryId))
+  const deleteCategory = (id: string) => {
+    if (questions.some(q => q.category === id)) {
+      alert("Cannot delete category with existing questions. Reassign or delete the questions first.")
+      return
+    }
+    setCategories(categories.filter(c => c.id !== id))
   }
 
   const openEditCategory = (category: QuizCategory) => {
@@ -226,6 +326,7 @@ export default function QuizManagementPage({
     setShowCategoryModal(true)
   }
 
+  // Question Management Handlers
   const openAddQuestion = () => {
     setEditingQuestion(null)
     setQuestionFormData({
@@ -233,7 +334,7 @@ export default function QuizManagementPage({
       type: "multiple-choice",
       options: ["", "", "", ""],
       correctAnswer: "",
-      category: categories.length > 0 ? categories[0].id : "",
+      category: categories[0]?.id || "",
       explanation: "",
       imageUrl: ""
     })
@@ -245,7 +346,7 @@ export default function QuizManagementPage({
     setQuestionFormData({
       question: question.question,
       type: question.type,
-      options: question.options || ["", "", "", ""],
+      options: question.options ? [...question.options] : ["", "", "", ""],
       correctAnswer: question.correctAnswer,
       category: question.category,
       explanation: question.explanation || "",
@@ -255,156 +356,90 @@ export default function QuizManagementPage({
   }
 
   const saveQuestion = () => {
-    // Validate question text
-    if (!questionFormData.question.trim()) {
-      alert("Please enter a question")
+    if (!questionFormData.question.trim() || !questionFormData.category) {
+      alert("Question text and category are required.")
       return
     }
 
-    // Validate based on question type
-    if (questionFormData.type === 'multiple-choice' || questionFormData.type === 'multiple-answer' || questionFormData.type === 'true-false') {
-      const filledOptions = questionFormData.options.filter(opt => opt.trim())
-      
-      if (questionFormData.type === 'true-false') {
-        // True/false must have exactly 2 options (True and False)
-        if (filledOptions.length !== 2 || !filledOptions.includes('True') || !filledOptions.includes('False')) {
-          alert("True/False questions must have 'True' and 'False' options")
-          return
-        }
-      } else if (filledOptions.length < 2) {
-        alert(`${questionFormData.type === 'multiple-answer' ? 'Multiple answer' : 'Multiple choice'} questions need at least 2 options`)
+    if ((questionFormData.type === 'multiple-choice' || questionFormData.type === 'true-false') && !questionFormData.correctAnswer) {
+      alert("Correct answer is required.")
+      return
+    }
+
+    if (questionFormData.type === 'multiple-answer') {
+      if (!Array.isArray(questionFormData.correctAnswer) || questionFormData.correctAnswer.length === 0) {
+        alert("Please select at least one correct answer for multiple-answer question.")
         return
       }
-      
-      if (questionFormData.type === 'multiple-answer') {
-        // For multiple-answer, correctAnswer should be an array
-        if (!Array.isArray(questionFormData.correctAnswer) || questionFormData.correctAnswer.length === 0) {
-          alert("Please select at least one correct answer")
-          return
-        }
-        // Check all correct answers are in options
-        for (const answer of questionFormData.correctAnswer) {
-          if (!filledOptions.includes(answer)) {
-            alert("All correct answers must be in the options list")
-            return
-          }
-        }
-      } else {
-        // For single answer questions
-        if (!questionFormData.correctAnswer || !filledOptions.includes(questionFormData.correctAnswer as string)) {
-          alert("Correct answer must be one of the options")
-          return
-        }
-      }
-    } else if (questionFormData.type === 'short-answer') {
-      // Short answer can have empty correct answer (for manual grading)
-      // No validation needed
     }
 
     const questionData: QuizQuestion = {
-      id: editingQuestion?.id || Date.now().toString(),
-      question: questionFormData.question.trim(),
+      id: editingQuestion ? editingQuestion.id : Date.now().toString(),
+      question: questionFormData.question,
       type: questionFormData.type,
-      options: (questionFormData.type === 'multiple-choice' || questionFormData.type === 'multiple-answer' || questionFormData.type === 'true-false')
-        ? questionFormData.options.filter(opt => opt.trim())
-        : undefined,
-      correctAnswer: questionFormData.type === 'multiple-answer' 
-        ? questionFormData.correctAnswer 
-        : typeof questionFormData.correctAnswer === 'string' ? questionFormData.correctAnswer.trim() : '',
+      options: questionFormData.type === 'short-answer' ? undefined : questionFormData.options.filter(o => o.trim() !== ""),
+      correctAnswer: questionFormData.correctAnswer,
       category: questionFormData.category,
-      explanation: questionFormData.explanation.trim(),
-      imageUrl: questionFormData.imageUrl.trim() || undefined
+      explanation: questionFormData.explanation || undefined,
+      imageUrl: questionFormData.imageUrl || undefined
     }
 
+    let updatedQuestions: QuizQuestion[]
     if (editingQuestion) {
-      setQuestions(questions.map(q => q.id === editingQuestion.id ? questionData : q))
+      updatedQuestions = questions.map(q => q.id === editingQuestion.id ? questionData : q)
     } else {
-      setQuestions([...questions, questionData])
+      updatedQuestions = [...questions, questionData]
     }
 
+    setQuestions(updatedQuestions)
+    setSets(prev => prev.map(s => s.id === selectedSetId ? { ...s, questions: updatedQuestions } : s))
     setShowQuestionModal(false)
+    setEditingQuestion(null)
   }
 
-  const deleteQuestion = (questionId: string) => {
-    if (!confirm("Are you sure you want to delete this question?")) return
-    setQuestions(questions.filter(q => q.id !== questionId))
-  }
-
-  const handleGiftImport = (importedQuestions: QuizQuestion[], categoryId: string) => {
-    if (categoryId === 'GIFT_CATEGORIES') {
-      // Using GIFT categories - create categories from question data
-      const categoryNameToId = new Map<string, string>()
-      const updatedCategories = [...categories]
-      
-      // First pass: create missing categories
-      importedQuestions.forEach(q => {
-        const catName = q.category || 'Uncategorized'
-        
-        // Check if category already exists
-        const existing = categories.find(c => c.name === catName)
-        if (existing) {
-          categoryNameToId.set(catName, existing.id)
-        } else if (!categoryNameToId.has(catName)) {
-          // Create new category
-          const newCat = {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-            name: catName
-          }
-          updatedCategories.push(newCat)
-          categoryNameToId.set(catName, newCat.id)
-        }
-      })
-      
-      // Second pass: assign category IDs to questions
-      importedQuestions.forEach(q => {
-        const catName = q.category || 'Uncategorized'
-        q.category = categoryNameToId.get(catName) || updatedCategories[0]?.id || ''
-      })
-      
-      setCategories(updatedCategories)
-      const newCatCount = updatedCategories.length - categories.length
-      const msg = newCatCount > 0
-        ? `Successfully imported ${importedQuestions.length} question(s) with ${newCatCount} new categor${newCatCount > 1 ? 'ies' : 'y'}!`
-        : `Successfully imported ${importedQuestions.length} question(s)!`
-      alert(msg)
-    } else {
-      // Using selected category - assign to all questions
-      importedQuestions.forEach(q => q.category = categoryId)
-      alert(`Successfully imported ${importedQuestions.length} question(s)!`)
+  const deleteQuestion = (id: string) => {
+    if (confirm("Are you sure you want to delete this question?")) {
+      const updated = questions.filter(q => q.id !== id)
+      setQuestions(updated)
+      setSets(prev => prev.map(s => s.id === selectedSetId ? { ...s, questions: updated } : s))
     }
-    
-    setQuestions([...questions, ...importedQuestions])
   }
 
-  if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  const handleGiftImport = (importedQuestions: QuizQuestion[]) => {
+    const updated = [...questions, ...importedQuestions]
+    setQuestions(updated)
+    setSets(prev => prev.map(s => s.id === selectedSetId ? { ...s, questions: updated } : s))
+    setShowGiftImport(false)
+    setSaveStatus(`Imported ${importedQuestions.length} questions! Click "Save All Questions" to keep.`)
   }
 
-  if (!hasAccess) {
-    return null
+  if (loading || !hasAccess) {
+    return (
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-purple-500 border-t-transparent"></div>
+          <p className="mt-4 text-slate-600 dark:text-slate-400">{loading ? 'Loading...' : 'Checking permissions...'}</p>
+        </div>
+      </div>
+    )
   }
+
+  const currentSetObj = sets.find(s => s.id === selectedSetId) || sets[0]
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${colorTheme.gradient} dark:from-gray-900 dark:to-gray-800 relative overflow-hidden`}>
-      {/* Animated Background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className={`absolute top-0 -left-4 w-96 h-96 bg-${colorTheme.accent}-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-float`}></div>
-        <div
-          className={`absolute bottom-0 -right-4 w-96 h-96 bg-${colorTheme.accent}-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-float`}
-          style={{ animationDelay: "3s" }}
-        ></div>
-      </div>
-      {/* Header */}
-      <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-sm border-b border-gray-100 dark:border-gray-700 animate-slide-up">
+    <div className={`min-h-screen bg-gradient-to-br ${colorTheme.gradient} dark:from-slate-900 dark:to-slate-950 text-slate-900 dark:text-slate-100 transition-colors`}>
+      {/* Top Navbar */}
+      <div className="bg-white dark:bg-gray-800 shadow-md border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.push(`/admin/${subjectCode.toLowerCase()}`)}
-              className={`${colorTheme.primary} dark:text-${colorTheme.accent}-400 hover:opacity-80`}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 font-medium text-sm transition-all"
             >
-              ← Back to {subjectCode.toUpperCase()}
+              <ArrowLeft className="w-4 h-4" /> Back to {subjectCode.toUpperCase()}
             </button>
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-slate-200">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-slate-200 flex items-center gap-2">
+              <Layers className="w-6 h-6 text-purple-600 dark:text-purple-400" />
               Quiz Management - {subjectCode.toUpperCase()}
             </h1>
           </div>
@@ -416,55 +451,86 @@ export default function QuizManagementPage({
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8 animate-scale-in">
-        {/* Lab Selection */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-            Select Lab
-          </label>
-          <select
-            value={selectedLab}
-            onChange={(e) => setSelectedLab(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200"
-          >
-            <option value="">-- Select a Lab --</option>
-            {labs.filter(lab => lab.labType !== 'Challenge').map(lab => (
-              <option key={lab.id} value={lab.labNumber}>
-                {lab.labNumber} - {lab.title}
-              </option>
-            ))}
-          </select>
+        {/* Lab Selection & Mode Tabs */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-6 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">
+                Select Lab Assignment
+              </label>
+              <select
+                value={selectedLab}
+                onChange={(e) => setSelectedLab(e.target.value)}
+                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200 font-medium shadow-sm"
+              >
+                <option value="">-- Select a Lab --</option>
+                {labs.filter(lab => lab.labType !== 'Challenge').map(lab => (
+                  <option key={lab.id} value={lab.labNumber}>
+                    {lab.labNumber} - {lab.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {selectedLab && (
+              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700/60 p-1.5 rounded-xl border border-slate-200 dark:border-slate-600">
+                <button
+                  onClick={() => setActiveViewTab('editor')}
+                  className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                    activeViewTab === 'editor'
+                      ? 'bg-purple-600 text-white shadow-md'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                  }`}
+                >
+                  <Edit3 className="w-4 h-4" /> Questions Editor
+                </button>
+                <button
+                  onClick={() => setActiveViewTab('analytics')}
+                  className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                    activeViewTab === 'analytics'
+                      ? 'bg-purple-600 text-white shadow-md'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                  }`}
+                >
+                  <BarChart3 className="w-4 h-4" /> Analytics & Statistics
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
-        {selectedLab && (
+        {selectedLab && activeViewTab === 'editor' && (
           <>
             {/* Quiz Settings */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-              <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-slate-200">Quiz Settings</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-6 mb-6">
+              <h2 className="text-xl font-bold mb-4 text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-600" /> Quiz Settings
+              </h2>
               <div className="space-y-4">
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-3 font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={quizEnabled}
                     onChange={(e) => setQuizEnabled(e.target.checked)}
-                    className="w-5 h-5"
+                    className="w-5 h-5 accent-purple-600 rounded"
                   />
-                  <span className="text-gray-700 dark:text-gray-300">Enable Quiz for this Lab</span>
+                  <span>Enable Quiz for this Lab</span>
                 </label>
 
                 <div>
-                  <label className="flex items-center gap-2 mb-2">
+                  <label className="flex items-center gap-3 mb-2 font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={timeLimitEnabled}
                       onChange={(e) => setTimeLimitEnabled(e.target.checked)}
-                      className="w-5 h-5"
+                      className="w-5 h-5 accent-purple-600 rounded"
                     />
-                    <span className="text-gray-700 dark:text-gray-300">Enable Time Limit</span>
+                    <span>Enable Time Limit</span>
                   </label>
                   
                   {timeLimitEnabled && (
-                    <div className="ml-7">
-                      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                    <div className="ml-8">
+                      <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-300">
                         Time Limit (minutes)
                       </label>
                       <input
@@ -472,7 +538,7 @@ export default function QuizManagementPage({
                         value={timeLimit}
                         onChange={(e) => setTimeLimit(parseInt(e.target.value) || 0)}
                         min="0"
-                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200"
+                        className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200 font-mono w-40"
                       />
                     </div>
                   )}
@@ -480,31 +546,115 @@ export default function QuizManagementPage({
 
                 <button
                   onClick={saveSettings}
-                  className={`px-6 py-2 ${colorTheme.secondary} text-white rounded-lg hover:opacity-90 transition-colors`}
+                  className={`px-6 py-2.5 ${colorTheme.secondary} text-white font-semibold rounded-xl hover:opacity-90 transition-all shadow-md`}
                 >
                   Save Settings
                 </button>
               </div>
             </div>
 
+            {/* Question Sets Manager */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-6 mb-6">
+              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-4 pb-4 border-b border-slate-100 dark:border-slate-700">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                    <Layers className="w-5 h-5 text-purple-600" /> Question Sets (Multi-Language / Versions)
+                  </h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    Manage sets for English, Thai, or alternate quiz versions. The active set is delivered to students.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setNewSetName("")
+                    setShowAddSetModal(true)
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 font-semibold rounded-xl hover:bg-purple-200 dark:hover:bg-purple-900/60 transition-colors text-sm"
+                >
+                  <Plus className="w-4 h-4" /> Add Question Set
+                </button>
+              </div>
+
+              {/* Sets Tabs */}
+              <div className="flex flex-wrap gap-2 items-center">
+                {sets.map((set) => {
+                  const isSelected = set.id === selectedSetId
+                  const isActiveForStudents = set.id === activeSetId
+
+                  return (
+                    <div
+                      key={set.id}
+                      onClick={() => handleSelectSet(set.id)}
+                      className={`group relative flex items-center gap-2 px-4 py-2.5 rounded-xl border font-semibold text-sm cursor-pointer transition-all ${
+                        isSelected
+                          ? 'bg-purple-600 text-white border-purple-600 shadow-md'
+                          : 'bg-slate-50 dark:bg-slate-700/50 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      <span>{set.name}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${isSelected ? 'bg-purple-500 text-white' : 'bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300'}`}>
+                        {set.questions.length} Qs
+                      </span>
+                      {isActiveForStudents && (
+                        <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 bg-amber-400 text-amber-950 font-bold rounded-full shadow-sm" title="Active set delivered to students">
+                          <Star className="w-3 h-3 fill-amber-950" /> Active
+                        </span>
+                      )}
+
+                      {/* Dropdown action on selected set */}
+                      {isSelected && (
+                        <div className="flex items-center gap-1 ml-2 border-l border-purple-400/50 pl-2">
+                          {!isActiveForStudents && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleMakeActiveSet(set.id); }}
+                              className="p-1 hover:bg-purple-500 rounded text-amber-300"
+                              title="Set as Active Set for students"
+                            >
+                              <Star className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setEditingSet(set); setNewSetName(set.name); }}
+                            className="p-1 hover:bg-purple-500 rounded text-white"
+                            title="Rename Set"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          {sets.length > 1 && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteSet(set.id); }}
+                              className="p-1 hover:bg-purple-500 rounded text-red-200"
+                              title="Delete Set"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
             {/* Categories Management */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-6 mb-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-800 dark:text-slate-200">Categories</h2>
+                <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200">Categories</h2>
                 <button
                   onClick={() => {
                     setEditingCategory(null)
                     setNewCategoryName("")
                     setShowCategoryModal(true)
                   }}
-                  className={`px-4 py-2 ${colorTheme.secondary} text-white rounded-lg hover:opacity-90 transition-colors`}
+                  className={`px-4 py-2 ${colorTheme.secondary} text-white font-semibold rounded-xl hover:opacity-90 transition-colors shadow-sm`}
                 >
                   + Add Category
                 </button>
               </div>
 
               {categories.length === 0 ? (
-                <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+                <p className="text-slate-500 dark:text-slate-400 text-center py-8">
                   No categories yet. Add one to start creating questions.
                 </p>
               ) : (
@@ -512,24 +662,24 @@ export default function QuizManagementPage({
                   {categories.map(category => (
                     <div
                       key={category.id}
-                      className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
+                      className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/50 dark:bg-slate-800/50"
                     >
                       <div>
-                        <span className="font-medium text-gray-800 dark:text-slate-200">{category.name}</span>
-                        <span className="ml-3 text-sm text-gray-500 dark:text-gray-400">
-                          ({questions.filter(q => q.category === category.id).length} questions)
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">{category.name}</span>
+                        <span className="ml-3 text-sm text-slate-500 dark:text-slate-400 font-medium">
+                          ({questions.filter(q => q.category === category.id).length} questions in {currentSetObj?.name})
                         </span>
                       </div>
                       <div className="flex gap-2">
                         <button
                           onClick={() => openEditCategory(category)}
-                          className="px-3 py-1 text-sm bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800"
+                          className="px-3 py-1.5 text-sm bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 font-medium rounded-lg hover:bg-blue-200 transition-colors"
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => deleteCategory(category.id)}
-                          className="px-3 py-1 text-sm bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-800"
+                          className="px-3 py-1.5 text-sm bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 font-medium rounded-lg hover:bg-red-200 transition-colors"
                         >
                           Delete
                         </button>
@@ -541,22 +691,26 @@ export default function QuizManagementPage({
             </div>
 
             {/* Questions Management */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-800 dark:text-slate-200">Questions</h2>
-                <div className="flex gap-2 items-center">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-6 mb-6">
+              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-4">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200">
+                    Questions ({currentSetObj?.name})
+                  </h2>
+                </div>
+                <div className="flex flex-wrap gap-2 items-center">
                   {saveStatus && (
-                    <span className="text-sm text-green-600 dark:text-green-400">{saveStatus}</span>
+                    <span className="text-sm font-semibold text-green-600 dark:text-green-400 mr-2">{saveStatus}</span>
                   )}
                   <button
                     onClick={saveQuizData}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    className="px-4 py-2 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-all shadow-md flex items-center gap-1.5"
                   >
                     💾 Save All Questions
                   </button>
                   <button
                     onClick={() => setShowGiftImport(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-md flex items-center gap-1.5"
                     title="Import questions from GIFT format (Moodle)"
                   >
                     📥 Import GIFT
@@ -564,7 +718,7 @@ export default function QuizManagementPage({
                   <button
                     onClick={openAddQuestion}
                     disabled={categories.length === 0}
-                    className={`px-4 py-2 ${colorTheme.secondary} text-white rounded-lg hover:opacity-90 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed`}
+                    className={`px-4 py-2 ${colorTheme.secondary} text-white font-bold rounded-xl hover:opacity-90 transition-all shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed`}
                   >
                     + Add Question
                   </button>
@@ -572,39 +726,41 @@ export default function QuizManagementPage({
               </div>
 
               {categories.length === 0 ? (
-                <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+                <p className="text-slate-500 dark:text-slate-400 text-center py-8">
                   Please add at least one category before creating questions.
                 </p>
               ) : questions.length === 0 ? (
-                <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-                  No questions yet. Click "Add Question" to create one.
+                <p className="text-slate-500 dark:text-slate-400 text-center py-8">
+                  No questions in {currentSetObj?.name} yet. Click "+ Add Question" or "Import GIFT" to create questions.
                 </p>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {categories.map(category => {
                     const categoryQuestions = questions.filter(q => q.category === category.id)
                     if (categoryQuestions.length === 0) return null
 
                     return (
-                      <div key={category.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                        <h3 className="font-semibold text-lg mb-3 text-gray-800 dark:text-slate-200">{category.name}</h3>
-                        <div className="space-y-3">
+                      <div key={category.id} className="border border-slate-200 dark:border-slate-700 rounded-xl p-5 bg-slate-50/30 dark:bg-slate-800/30">
+                        <h3 className="font-bold text-lg mb-3 text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700 pb-2">
+                          {category.name} ({categoryQuestions.length})
+                        </h3>
+                        <div className="space-y-4">
                           {categoryQuestions.map((question, idx) => (
                             <div
                               key={question.id}
-                              className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                              className="p-5 bg-white dark:bg-slate-700/60 rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm"
                             >
                               <div className="flex justify-between items-start mb-2">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2 mb-2">
-                                    <span className="font-medium text-gray-700 dark:text-gray-300">Q{idx + 1}.</span>
-                                    <span className="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded">
+                                    <span className="font-bold text-slate-700 dark:text-slate-300">Q{idx + 1}.</span>
+                                    <span className="text-xs font-semibold px-2.5 py-1 bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 rounded-lg">
                                       {question.type === 'multiple-choice' ? 'Multiple Choice' : 
                                        question.type === 'multiple-answer' ? 'Multiple Answer' :
                                        question.type === 'true-false' ? 'True/False' : 'Short Answer'}
                                     </span>
                                     {question.imageUrl && (
-                                      <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
+                                      <span className="text-xs font-semibold px-2.5 py-1 bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 rounded-lg">
                                         Has Image
                                       </span>
                                     )}
@@ -616,7 +772,7 @@ export default function QuizManagementPage({
                                       <img 
                                         src={question.imageUrl} 
                                         alt="Question" 
-                                        className="max-h-32 rounded border border-gray-300 dark:border-gray-600"
+                                        className="max-h-32 rounded-lg border border-slate-300 dark:border-slate-600"
                                       />
                                     </div>
                                   )}
@@ -629,10 +785,10 @@ export default function QuizManagementPage({
                                           : opt === question.correctAnswer
                                         return (
                                           <div key={i} className="flex items-center gap-2">
-                                            <span className="text-sm text-gray-600 dark:text-gray-400">
+                                            <span className="text-sm font-semibold text-slate-500 dark:text-slate-400 font-mono">
                                               {String.fromCharCode(65 + i)}.
                                             </span>
-                                            <span className={`text-sm ${isCorrect ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-gray-600 dark:text-gray-400'}`}>
+                                            <span className={`text-sm ${isCorrect ? 'text-green-600 dark:text-green-400 font-bold' : 'text-slate-600 dark:text-slate-300'}`}>
                                               {opt} {isCorrect && '✓'}
                                             </span>
                                           </div>
@@ -643,29 +799,29 @@ export default function QuizManagementPage({
                                   
                                   {question.type === 'short-answer' && question.correctAnswer && (
                                     <div className="ml-4 mb-2">
-                                      <span className="text-sm text-gray-600 dark:text-gray-400">Correct Answer: </span>
-                                      <span className="text-sm text-green-600 dark:text-green-400 font-semibold">{question.correctAnswer}</span>
+                                      <span className="text-sm text-slate-500 dark:text-slate-400">Correct Answer: </span>
+                                      <span className="text-sm text-green-600 dark:text-green-400 font-bold">{question.correctAnswer}</span>
                                     </div>
                                   )}
-                                  
+
                                   {question.explanation && (
-                                    <div className="ml-4 text-sm text-gray-500 dark:text-gray-400">
-                                      <span className="italic">Explanation: </span>
+                                    <div className="ml-4 mt-2 p-3 bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-500 rounded text-xs text-slate-700 dark:text-slate-300">
+                                      <span className="font-bold block mb-1">Explanation:</span>
                                       <RichTextDisplay content={question.explanation} />
                                     </div>
                                   )}
                                 </div>
-                                
+
                                 <div className="flex gap-2 ml-4">
                                   <button
                                     onClick={() => openEditQuestion(question)}
-                                    className="px-3 py-1 text-sm bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800"
+                                    className="px-3 py-1.5 text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded-lg hover:bg-blue-200 transition-colors"
                                   >
                                     Edit
                                   </button>
                                   <button
                                     onClick={() => deleteQuestion(question.id)}
-                                    className="px-3 py-1 text-sm bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-800"
+                                    className="px-3 py-1.5 text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 rounded-lg hover:bg-red-200 transition-colors"
                                   >
                                     Delete
                                   </button>
@@ -682,37 +838,217 @@ export default function QuizManagementPage({
             </div>
           </>
         )}
+
+        {/* Analytics & Statistics Tab View */}
+        {selectedLab && activeViewTab === 'analytics' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <BarChart3 className="w-6 h-6 text-purple-600" /> Quiz Statistics & Response Histograms
+                </h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  Viewing question accuracy and distractor frequency for <strong className="text-slate-700 dark:text-slate-300">{currentSetObj?.name}</strong>.
+                </p>
+              </div>
+              <button
+                onClick={loadStatsData}
+                disabled={loadingStats}
+                className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold hover:bg-slate-200 transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 ${loadingStats ? 'animate-spin' : ''}`} /> Refresh Stats
+              </button>
+            </div>
+
+            {loadingStats ? (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-12 text-center border border-slate-200 dark:border-slate-700">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-purple-500 border-t-transparent"></div>
+                <p className="mt-4 text-slate-500 dark:text-slate-400 font-medium">Calculating question response statistics...</p>
+              </div>
+            ) : stats ? (
+              <>
+                {/* Summary Metrics Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                  <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-md">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Total Submissions</span>
+                    <span className="text-3xl font-extrabold text-slate-800 dark:text-slate-100">{stats.totalSubmissions}</span>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-md">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Average Score</span>
+                    <span className="text-3xl font-extrabold text-purple-600 dark:text-purple-400">{stats.averageScore}</span>
+                    <span className="text-xs font-semibold text-slate-500 ml-2">({stats.averagePercentage}% accuracy)</span>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-md">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Easiest Question</span>
+                    <span className="text-lg font-bold text-green-600 dark:text-green-400 truncate block">
+                      {stats.questions.find(q => q.questionId === stats.easiestQuestionId)?.questionText.replace(/<[^>]*>?/gm, '').slice(0, 30) || 'N/A'}
+                    </span>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-md">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Most Challenging</span>
+                    <span className="text-lg font-bold text-red-600 dark:text-red-400 truncate block">
+                      {stats.questions.find(q => q.questionId === stats.hardestQuestionId)?.questionText.replace(/<[^>]*>?/gm, '').slice(0, 30) || 'N/A'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Per-Question Histograms & Distribution */}
+                <div className="space-y-6">
+                  {stats.questions.map((q, idx) => (
+                    <div key={q.questionId} className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-lg">
+                      <div className="flex flex-col md:flex-row justify-between md:items-center gap-2 mb-4 pb-4 border-b border-slate-100 dark:border-slate-700">
+                        <div className="flex items-center gap-3">
+                          <span className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 dark:bg-purple-900/60 dark:text-purple-300 flex items-center justify-center font-extrabold text-sm">
+                            Q{idx + 1}
+                          </span>
+                          <div className="flex-1">
+                            <RichTextDisplay content={q.questionText} className="font-bold text-slate-800 dark:text-slate-200" />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm font-semibold">
+                          <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                            <CheckCircle2 className="w-4 h-4" /> Correct: {q.totalCorrect} ({q.correctPercentage}%)
+                          </span>
+                          <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
+                            <XCircle className="w-4 h-4" /> Wrong: {q.totalWrong} ({q.wrongPercentage}%)
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Correct vs Wrong Overall Progress Histogram Bar */}
+                      <div className="mb-6">
+                        <div className="flex justify-between text-xs font-bold text-slate-500 mb-1.5">
+                          <span>Response Accuracy Breakdown</span>
+                          <span>{q.totalAnswered} Total Responses</span>
+                        </div>
+                        <div className="w-full h-5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden flex shadow-inner">
+                          <div
+                            style={{ width: `${q.correctPercentage}%` }}
+                            className="bg-green-500 transition-all duration-500 flex items-center justify-center text-[10px] font-extrabold text-white"
+                            title={`Correct: ${q.totalCorrect} (${q.correctPercentage}%)`}
+                          >
+                            {q.correctPercentage > 8 && `${q.correctPercentage}%`}
+                          </div>
+                          <div
+                            style={{ width: `${q.wrongPercentage}%` }}
+                            className="bg-red-500 transition-all duration-500 flex items-center justify-center text-[10px] font-extrabold text-white"
+                            title={`Wrong: ${q.totalWrong} (${q.wrongPercentage}%)`}
+                          >
+                            {q.wrongPercentage > 8 && `${q.wrongPercentage}%`}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Option-level breakdown histogram for Multiple Choice */}
+                      {q.options && q.options.length > 0 && (
+                        <div className="space-y-3 bg-slate-50/60 dark:bg-slate-700/30 p-4 rounded-xl border border-slate-100 dark:border-slate-700/60">
+                          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-2">Option Selection Distribution</span>
+                          {q.options.map((opt, optIdx) => {
+                            const dist = q.choiceDistribution[optIdx.toString()] || { count: 0, percentage: 0, isCorrect: false }
+                            const isCorrectChoice = dist.isCorrect || (Array.isArray(q.correctAnswer) ? q.correctAnswer.includes(opt) : opt === q.correctAnswer)
+
+                            return (
+                              <div key={optIdx} className="space-y-1">
+                                <div className="flex justify-between text-xs font-medium">
+                                  <span className={`flex items-center gap-1.5 ${isCorrectChoice ? 'text-green-700 dark:text-green-300 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>
+                                    <span className="font-mono font-bold text-slate-400">{String.fromCharCode(65 + optIdx)}.</span>
+                                    {opt} {isCorrectChoice && <span className="text-xs text-green-600 font-bold">✓ (Correct)</span>}
+                                  </span>
+                                  <span className="font-mono font-semibold text-slate-600 dark:text-slate-400">
+                                    {dist.count} votes ({dist.percentage}%)
+                                  </span>
+                                </div>
+                                <div className="w-full h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden shadow-inner">
+                                  <div
+                                    style={{ width: `${dist.percentage}%` }}
+                                    className={`h-full rounded-full transition-all duration-500 ${
+                                      isCorrectChoice ? 'bg-green-500' : 'bg-purple-400'
+                                    }`}
+                                  />
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-12 text-center border border-slate-200 dark:border-slate-700">
+                <HelpCircle className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                <p className="text-slate-600 dark:text-slate-300 font-bold">No student response statistics recorded for this lab set yet.</p>
+                <p className="text-xs text-slate-500 mt-1">Student submissions will generate real-time accuracy and distractor histograms here.</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Add / Rename Set Modal */}
+      {(showAddSetModal || editingSet) && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-700">
+            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4">
+              {editingSet ? 'Rename Question Set' : 'Add New Question Set'}
+            </h3>
+            <div className="mb-4">
+              <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Set Name</label>
+              <input
+                type="text"
+                value={newSetName}
+                onChange={(e) => setNewSetName(e.target.value)}
+                placeholder="e.g. Set 2 (Thai language)"
+                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200 font-medium"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => { setShowAddSetModal(false); setEditingSet(null); setNewSetName(""); }}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-slate-200 font-semibold rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={editingSet ? handleRenameSet : handleAddSet}
+                className={`px-5 py-2 ${colorTheme.secondary} text-white font-bold rounded-xl`}
+              >
+                {editingSet ? 'Save Name' : 'Create Set'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Category Modal */}
       {showCategoryModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md">
-            <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-slate-200">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-700">
+            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4">
               {editingCategory ? 'Edit Category' : 'Add Category'}
             </h3>
             <input
               type="text"
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
-              placeholder="Category name"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200 mb-4"
-              onKeyPress={(e) => e.key === 'Enter' && (editingCategory ? updateCategory() : addCategory())}
+              placeholder="Category Name"
+              className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200 mb-4 font-medium"
             />
             <div className="flex gap-2 justify-end">
               <button
                 onClick={() => {
                   setShowCategoryModal(false)
-                  setNewCategoryName("")
                   setEditingCategory(null)
+                  setNewCategoryName("")
                 }}
-                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-slate-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-slate-200 font-semibold rounded-xl"
               >
                 Cancel
               </button>
               <button
-                onClick={editingCategory ? updateCategory : addCategory}
-                className={`px-4 py-2 ${colorTheme.secondary} text-white rounded-lg hover:opacity-90`}
+                onClick={editingCategory ? editCategory : addCategory}
+                className={`px-5 py-2 ${colorTheme.secondary} text-white font-bold rounded-xl`}
               >
                 {editingCategory ? 'Update' : 'Add'}
               </button>
@@ -723,19 +1059,19 @@ export default function QuizManagementPage({
 
       {/* Question Modal */}
       {showQuestionModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-2xl my-8">
-            <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-slate-200">
-              {editingQuestion ? 'Edit Question' : 'Add Question'}
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-700">
+            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4">
+              {editingQuestion ? 'Edit Question' : 'Add Question'} ({currentSetObj?.name})
             </h3>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Category</label>
+                <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Category</label>
                 <select
                   value={questionFormData.category}
                   onChange={(e) => setQuestionFormData({ ...questionFormData, category: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200"
+                  className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-xl dark:bg-gray-700 dark:text-slate-200 font-medium"
                 >
                   {categories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
@@ -744,137 +1080,137 @@ export default function QuizManagementPage({
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Question Type</label>
+                <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Question Type</label>
                 <select
                   value={questionFormData.type}
-                  onChange={(e) => {
-                    const newType = e.target.value as 'multiple-choice' | 'short-answer' | 'true-false' | 'multiple-answer'
-                    setQuestionFormData({ 
-                      ...questionFormData, 
-                      type: newType,
-                      options: newType === 'true-false' ? ['True', 'False'] : 
-                               (newType === 'multiple-choice' || newType === 'multiple-answer') ? ["", "", "", ""] : [],
-                      correctAnswer: newType === 'multiple-answer' ? [] : ""
-                    })
-                  }}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200"
+                  onChange={(e) => setQuestionFormData({
+                    ...questionFormData,
+                    type: e.target.value as any,
+                    options: e.target.value === 'true-false' ? ["True", "False"] : ["", "", "", ""],
+                    correctAnswer: e.target.value === 'multiple-answer' ? [] : ""
+                  })}
+                  className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-xl dark:bg-gray-700 dark:text-slate-200 font-medium"
                 >
-                  <option value="multiple-choice">Multiple Choice (Single Answer)</option>
-                  <option value="multiple-answer">Multiple Answer (Multiple Correct)</option>
+                  <option value="multiple-choice">Multiple Choice</option>
+                  <option value="multiple-answer">Multiple Answer (Checkboxes)</option>
                   <option value="true-false">True/False</option>
                   <option value="short-answer">Short Answer</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Image URL (Optional)</label>
+                <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Question Text</label>
+                <RichTextEditor
+                  value={questionFormData.question}
+                  onChange={(value) => setQuestionFormData({ ...questionFormData, question: value })}
+                  placeholder="Enter your question here..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">
+                  Image URL (Optional)
+                </label>
                 <input
                   type="text"
                   value={questionFormData.imageUrl}
                   onChange={(e) => setQuestionFormData({ ...questionFormData, imageUrl: e.target.value })}
-                  placeholder="https://example.com/image.jpg"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200"
-                />
-                {questionFormData.imageUrl && (
-                  <div className="mt-2">
-                    <img 
-                      src={questionFormData.imageUrl} 
-                      alt="Question preview" 
-                      className="max-h-32 rounded border border-gray-300 dark:border-gray-600"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none'
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Question</label>
-                <RichTextEditor
-                  value={questionFormData.question}
-                  onChange={(value) => setQuestionFormData({ ...questionFormData, question: value })}
-                  placeholder="Enter your question here (supports rich text formatting)"
+                  placeholder="https://example.com/image.png"
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-xl dark:bg-gray-700 dark:text-slate-200 font-mono text-sm"
                 />
               </div>
 
+              {/* Options for Multiple Choice & Multiple Answer */}
               {(questionFormData.type === 'multiple-choice' || questionFormData.type === 'multiple-answer') && (
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Options</label>
-                  {questionFormData.options.map((option, idx) => (
-                    <input
-                      key={idx}
-                      type="text"
-                      value={option}
-                      onChange={(e) => {
-                        const newOptions = [...questionFormData.options]
-                        newOptions[idx] = e.target.value
-                        setQuestionFormData({ ...questionFormData, options: newOptions })
-                      }}
-                      placeholder={`Option ${String.fromCharCode(65 + idx)}`}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200 mb-2"
-                    />
-                  ))}
-                </div>
-              )}
-
-              {questionFormData.type === 'true-false' && (
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <p className="text-sm text-blue-700 dark:text-blue-300">
-                    True/False question will have two options: "True" and "False"
-                  </p>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                  Correct Answer{questionFormData.type === 'multiple-answer' && 's (Select all that apply)'}
-                </label>
-                {questionFormData.type === 'multiple-choice' || questionFormData.type === 'true-false' ? (
-                  <select
-                    value={questionFormData.correctAnswer as string}
-                    onChange={(e) => setQuestionFormData({ ...questionFormData, correctAnswer: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200"
-                  >
-                    <option value="">-- Select Correct Answer --</option>
-                    {questionFormData.options.filter(opt => opt.trim()).map((opt, idx) => (
-                      <option key={idx} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-                ) : questionFormData.type === 'multiple-answer' ? (
+                  <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Options</label>
                   <div className="space-y-2">
-                    {questionFormData.options.filter(opt => opt.trim()).map((opt, idx) => (
-                      <label key={idx} className="flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                    {questionFormData.options.map((opt, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <span className="w-6 font-bold text-slate-500 font-mono">{String.fromCharCode(65 + idx)}.</span>
                         <input
-                          type="checkbox"
-                          checked={Array.isArray(questionFormData.correctAnswer) && questionFormData.correctAnswer.includes(opt)}
+                          type="text"
+                          value={opt}
                           onChange={(e) => {
-                            const currentAnswers = Array.isArray(questionFormData.correctAnswer) ? questionFormData.correctAnswer : []
-                            if (e.target.checked) {
-                              setQuestionFormData({ ...questionFormData, correctAnswer: [...currentAnswers, opt] })
-                            } else {
-                              setQuestionFormData({ ...questionFormData, correctAnswer: currentAnswers.filter(a => a !== opt) })
-                            }
+                            const newOpts = [...questionFormData.options]
+                            newOpts[idx] = e.target.value
+                            setQuestionFormData({ ...questionFormData, options: newOpts })
                           }}
-                          className="w-4 h-4 text-purple-600"
+                          placeholder={`Option ${String.fromCharCode(65 + idx)}`}
+                          className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-xl dark:bg-gray-700 dark:text-slate-200"
                         />
-                        <span className="text-gray-700 dark:text-gray-300">{opt}</span>
+                        {questionFormData.type === 'multiple-choice' ? (
+                          <input
+                            type="radio"
+                            name="correctAnswer"
+                            checked={questionFormData.correctAnswer === opt}
+                            onChange={() => setQuestionFormData({ ...questionFormData, correctAnswer: opt })}
+                            className="w-5 h-5 accent-purple-600"
+                            title="Select as correct answer"
+                          />
+                        ) : (
+                          <input
+                            type="checkbox"
+                            checked={Array.isArray(questionFormData.correctAnswer) && questionFormData.correctAnswer.includes(opt)}
+                            onChange={(e) => {
+                              const currentArr = Array.isArray(questionFormData.correctAnswer) ? questionFormData.correctAnswer : []
+                              let updatedArr: string[]
+                              if (e.target.checked) {
+                                updatedArr = [...currentArr, opt]
+                              } else {
+                                updatedArr = currentArr.filter(a => a !== opt)
+                              }
+                              setQuestionFormData({ ...questionFormData, correctAnswer: updatedArr })
+                            }}
+                            className="w-5 h-5 accent-purple-600 rounded"
+                            title="Check as correct answer"
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Options for True/False */}
+              {questionFormData.type === 'true-false' && (
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Correct Answer</label>
+                  <div className="flex gap-4">
+                    {["True", "False"].map(opt => (
+                      <label key={opt} className="flex items-center gap-2 font-medium cursor-pointer">
+                        <input
+                          type="radio"
+                          name="tfAnswer"
+                          checked={questionFormData.correctAnswer === opt}
+                          onChange={() => setQuestionFormData({ ...questionFormData, correctAnswer: opt })}
+                          className="w-5 h-5 accent-purple-600"
+                        />
+                        <span>{opt}</span>
                       </label>
                     ))}
                   </div>
-                ) : (
+                </div>
+              )}
+
+              {/* Short Answer */}
+              {questionFormData.type === 'short-answer' && (
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Correct Answer</label>
                   <input
                     type="text"
                     value={questionFormData.correctAnswer as string}
                     onChange={(e) => setQuestionFormData({ ...questionFormData, correctAnswer: e.target.value })}
-                    placeholder="Enter the correct answer (optional for manual grading)"
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200"
+                    placeholder="Enter correct answer"
+                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-xl dark:bg-gray-700 dark:text-slate-200"
                   />
-                )}
-              </div>
+                </div>
+              )}
 
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Explanation (optional)</label>
+                <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">
+                  Explanation (Optional)
+                </label>
                 <RichTextEditor
                   value={questionFormData.explanation}
                   onChange={(value) => setQuestionFormData({ ...questionFormData, explanation: value })}
@@ -889,13 +1225,13 @@ export default function QuizManagementPage({
                   setShowQuestionModal(false)
                   setEditingQuestion(null)
                 }}
-                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-slate-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-slate-200 font-semibold rounded-xl hover:bg-gray-300"
               >
                 Cancel
               </button>
               <button
                 onClick={saveQuestion}
-                className={`px-4 py-2 ${colorTheme.secondary} text-white rounded-lg hover:opacity-90`}
+                className={`px-5 py-2 ${colorTheme.secondary} text-white font-bold rounded-xl hover:opacity-90`}
               >
                 {editingQuestion ? 'Update' : 'Add'} Question
               </button>
