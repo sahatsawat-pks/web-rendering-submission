@@ -1138,16 +1138,17 @@ export async function createLab(
   testCases?: string,
   labType: 'Lab' | 'Challenge' = 'Lab',
   subQuestions?: string,
-  challengeEnabled?: boolean
+  challengeEnabled?: boolean,
+  quizEnabled: boolean = true
 ): Promise<Lab> {
     await init();
     const client = await getPool().connect();
     try {
         const res = await client.query(`
-            INSERT INTO labs (lab_number, title, file_name, subject, is_active, deadline, test_cases, lab_type, sub_questions, challenge_enabled)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            INSERT INTO labs (lab_number, title, file_name, subject, is_active, deadline, test_cases, lab_type, sub_questions, challenge_enabled, quiz_enabled)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING *
-        `, [labNumber, title, fileName, subject, isActive, deadline || null, testCases || null, labType, subQuestions || null, challengeEnabled !== undefined ? challengeEnabled : true]);
+        `, [labNumber, title, fileName, subject, isActive, deadline || null, testCases || null, labType, subQuestions || null, challengeEnabled !== undefined ? challengeEnabled : true, quizEnabled]);
         
         const r = res.rows[0];
         return {
@@ -1164,6 +1165,9 @@ export async function createLab(
             totalScore: r.total_score,
             databaseStarter: r.database_starter,
             challengeEnabled: r.challenge_enabled,
+            quizEnabled: r.quiz_enabled ?? true,
+            quizQuestions: r.quiz_questions,
+            quizCategories: r.quiz_categories,
             createdAt: r.created_at.toString()
         };
     } finally {

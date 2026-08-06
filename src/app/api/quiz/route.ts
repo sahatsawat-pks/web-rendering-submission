@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
 
     // Get all labs with quiz for subject
     const labs = await getAllLabs(false, subject)
-    const subjectLabs = labs.filter((lab: Lab) => lab.quizEnabled === true && lab.labType !== 'Challenge')
+    const subjectLabs = labs.filter((lab: Lab) => lab.quizEnabled !== false && lab.labType !== 'Challenge')
 
     const labsWithQuiz = subjectLabs.map((lab: Lab) => {
       const { questions, sets, activeSetId } = normalizeQuizPayload(lab.quizQuestions)
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
         questionCount: questions.length,
         setCount: sets.length,
         activeSetId,
-        quizEnabled: lab.quizEnabled ?? false
+        quizEnabled: lab.quizEnabled ?? true
       }
     })
 

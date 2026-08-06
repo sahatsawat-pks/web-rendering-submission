@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { labNumber, title, fileName, isActive, deadline, subject: rawSubject, testCases, labType, subQuestions, challengeEnabled } = body;
+    const { labNumber, title, fileName, isActive, deadline, subject: rawSubject, testCases, labType, subQuestions, challengeEnabled, quizEnabled } = body;
     const subject = getCanonicalSubjectCodeOrDefault(rawSubject) || undefined;
 
     if (!labNumber || !title) {
@@ -73,7 +73,8 @@ export async function POST(request: NextRequest) {
       testCases,
       labType || 'Lab',
       subQuestions,
-      challengeEnabled
+      challengeEnabled,
+      quizEnabled !== undefined ? quizEnabled : true
     );
 
     return NextResponse.json({
