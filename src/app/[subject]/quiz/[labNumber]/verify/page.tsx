@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation"
 import { ModeToggle } from "@/components/mode-toggle"
 import { getCanonicalSubjectCodeOrDefault, getSubjectConfig, isValidSubject, SubjectConfig } from "@/lib/subjectConfig"
 import { fetchSubjectConfig } from "@/lib/subjectConfigCache"
-import { ArrowLeft, Shield, AlertCircle } from "lucide-react"
+import { ArrowLeft, Shield, AlertCircle, UserCheck, Sparkles } from "lucide-react"
 
 export default function QuizVerifyPage() {
   const router = useRouter()
@@ -14,16 +14,28 @@ export default function QuizVerifyPage() {
   const subject = getCanonicalSubjectCodeOrDefault(rawSubject) || rawSubject
   const labNumber = typeof params?.labNumber === 'string' ? params.labNumber : ''
   
-  // if (!isValidSubject(subject)) { ... } // Dynamic check handles this
-  
   const [dbConfig, setDbConfig] = useState<SubjectConfig | null>(null)
   
-  // Use DB config if available, otherwise static
   const staticConfig = subject ? getSubjectConfig(subject) : null
   const config = dbConfig || staticConfig
 
-  // Effect to load config and verify quiz active status
+  const [studentId, setStudentId] = useState("")
+  const [credential, setCredential] = useState("")
+  const [verificationError, setVerificationError] = useState("")
+  const [verifying, setVerifying] = useState(false)
+  const [staffUser, setStaffUser] = useState<{ username: string; role: string } | null>(null)
+
   useEffect(() => {
+    // Check if staff user is already logged in
+    fetch("/api/auth/me")
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.username) {
+          setStaffUser({ username: data.username, role: data.role || 'Staff' })
+        }
+      })
+      .catch(() => {})
+
     if (subject) {
       fetchSubjectConfig(subject)
         .then(adapted => {
@@ -47,7 +59,6 @@ export default function QuizVerifyPage() {
           router.push(`/${rawSubject}`)
         })
 
-      // Fetch lab quiz data to check if this lab's quiz is active
       fetch(`/api/quiz?labNumber=${labNumber}&subject=${subject}`, { cache: 'no-store' })
         .then(res => {
           if (!res.ok) {
@@ -67,15 +78,24 @@ export default function QuizVerifyPage() {
     }
   }, [subject, labNumber, router, staticConfig, rawSubject])
 
-  // Need to handle loading state slightly better but for now let's just return null if no config
   if (!config) {
-     return null // Or a loader
+     return null
   }
 
-  const [studentId, setStudentId] = useState("")
-  const [credential, setCredential] = useState("")
-  const [verificationError, setVerificationError] = useState("")
-  const [verifying, setVerifying] = useState(false)
+  const handleStaffFastTrack = (username: string) => {
+    sessionStorage.setItem('quiz_verified', 'true')
+    sessionStorage.setItem('quiz_student_id', username)
+    sessionStorage.setItem('quiz_credential', 'STAFF_AUTH')
+    sessionStorage.setItem('quiz_lab', labNumber)
+    
+    localStorage.setItem(`quiz_auth_${labNumber}`, JSON.stringify({
+      studentId: username,
+      credential: 'STAFF_AUTH',
+      labNumber
+    }))
+    
+    router.push(`/${rawSubject}/quiz/${labNumber}`)
+  }
 
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault()
@@ -83,28 +103,29 @@ export default function QuizVerifyPage() {
     setVerifying(true)
 
     try {
-      // Verify credentials
-      const response = await fetch(`/api/credentials?credential=${credential}&subject=${subject}`)
+      const cleanStudentId = studentId.trim()
+      const cleanCred = credential.trim()
+
+      const response = await fetch(`/api/credentials?credential=${encodeURIComponent(cleanCred)}&studentId=${encodeURIComponent(cleanStudentId)}&subject=${subject}`)
       const data = await response.json()
 
-      if (data.success && data.studentId === studentId) {
-        // Store verification in session storage
+      if (data.success && (data.isStaff || (data.studentId && data.studentId.toLowerCase() === cleanStudentId.toLowerCase()))) {
+        const verifiedId = data.studentId || cleanStudentId
+        
         sessionStorage.setItem('quiz_verified', 'true')
-        sessionStorage.setItem('quiz_student_id', studentId)
-        sessionStorage.setItem('quiz_credential', credential)
+        sessionStorage.setItem('quiz_student_id', verifiedId)
+        sessionStorage.setItem('quiz_credential', cleanCred)
         sessionStorage.setItem('quiz_lab', labNumber)
         
-        // Also store in localStorage for persistent login
         localStorage.setItem(`quiz_auth_${labNumber}`, JSON.stringify({
-          studentId,
-          credential,
+          studentId: verifiedId,
+          credential: cleanCred,
           labNumber
         }))
         
-        // Redirect to quiz page
         router.push(`/${rawSubject}/quiz/${labNumber}`)
       } else {
-        setVerificationError("Invalid Student ID or Credential. Please check and try again.")
+        setVerificationError("Invalid Student ID, Staff Username, or Credential Password.")
       }
     } catch (err) {
       setVerificationError("An error occurred during verification. Please try again.")
@@ -141,53 +162,71 @@ export default function QuizVerifyPage() {
           </div>
 
           <h2 className="text-2xl font-bold text-center mb-2 text-slate-800 dark:text-white">
-            Student Verification Required
+            Quiz Verification
           </h2>
           <p className="text-center text-slate-600 dark:text-slate-400 mb-6">
-            Please enter your Student ID and Credential to access Lab {labNumber} Quiz
+            Enter your Student ID or Staff Username to access Lab {labNumber} Quiz
           </p>
+
+          {/* Staff Fast-Track Banner */}
+          {staffUser && (
+            <div className="mb-6 p-4 bg-purple-50 dark:bg-purple-900/30 border-2 border-purple-400 dark:border-purple-600 rounded-xl shadow-md">
+              <div className="flex items-center gap-2 mb-2">
+                <UserCheck className="w-5 h-5 text-purple-600 dark:text-purple-300" />
+                <span className="font-bold text-purple-900 dark:text-purple-200 text-sm">
+                  Logged in as {staffUser.role}: <strong className="font-mono">{staffUser.username}</strong>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleStaffFastTrack(staffUser.username)}
+                className="w-full mt-2 py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg shadow-sm transition-all text-sm flex items-center justify-center gap-1.5"
+              >
+                <Sparkles className="w-4 h-4" /> Enter Quiz as {staffUser.username}
+              </button>
+            </div>
+          )}
 
           {verificationError && (
             <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+              <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
               <span className="text-sm text-red-700 dark:text-red-300">{verificationError}</span>
             </div>
           )}
 
           <form onSubmit={handleVerify} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
-                Student ID
+              <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">
+                Student ID or Staff Username
               </label>
               <input
                 type="text"
                 value={studentId}
                 onChange={(e) => setStudentId(e.target.value)}
-                placeholder="Enter your Student ID (e.g., 6788003)"
+                placeholder="Student ID (e.g. 6788003) or Username"
                 required
-                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-white"
+                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-white font-medium"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
-                Credential Code
+              <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">
+                Credential Code or Staff Password
               </label>
               <input
-                type="text"
+                type="password"
                 value={credential}
-                onChange={(e) => setCredential(e.target.value.toUpperCase())}
-                placeholder="Enter your 6-character code"
+                onChange={(e) => setCredential(e.target.value)}
+                placeholder="Enter credential code or account password"
                 required
-                maxLength={6}
-                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-white font-mono uppercase"
+                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-white font-medium"
               />
             </div>
 
             <button
               type="submit"
-              disabled={verifying || !studentId || credential.length !== 6}
-              className={`w-full px-6 py-3 bg-gradient-to-r ${config.gradientFrom.replace('/5', '')} ${config.gradientTo.replace('/5', '')} text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-semibold`}
+              disabled={verifying || !studentId.trim() || !credential.trim()}
+              className={`w-full px-6 py-3 bg-gradient-to-r ${config.gradientFrom.replace('/5', '')} ${config.gradientTo.replace('/5', '')} text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-bold`}
             >
               {verifying ? "Verifying..." : "Verify & Start Quiz"}
             </button>
@@ -195,8 +234,8 @@ export default function QuizVerifyPage() {
 
           <div className={`mt-6 p-4 bg-gradient-to-r ${config.gradientFrom.replace('/5', '/5')} ${config.gradientTo.replace('/5', '/5')} border border-slate-200 dark:border-slate-700 rounded-lg`}>
             <p className="text-xs text-slate-700 dark:text-slate-300">
-              <strong>Note:</strong> Your credential code was provided by your instructor.
-              If you don't have your credential, please contact your instructor.
+              <strong>Note:</strong> Students use the credential code provided by their instructor.
+              Instructors, LAs, and Main Admins can log in using their staff username & account password.
             </p>
           </div>
         </div>

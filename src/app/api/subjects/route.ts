@@ -141,11 +141,13 @@ export async function POST(request: NextRequest) {
       const normalizedCode = code.toLowerCase();
       await upsertPermission(user.userId, normalizedCode, true, user.userId);
 
-      // Grant permission to main admin (kanzaki_aito) as well
-      if (!isMainAdmin) {
-        const adminUser = await findUserByUsername('kanzaki_aito');
-        if (adminUser) {
-          await upsertPermission(adminUser.id, normalizedCode, true, user.userId);
+      // Grant permission to all Main Admins and kanzaki_aito
+      const { getAllUsers } = await import('@/lib/db');
+      const allUsers = await getAllUsers();
+      const mainAdmins = allUsers.filter((u: any) => u.role === 'Main Admin' || u.username === 'kanzaki_aito');
+      for (const admin of mainAdmins) {
+        if (admin.id !== user.userId) {
+          await upsertPermission(admin.id, normalizedCode, true, user.userId);
         }
       }
     }

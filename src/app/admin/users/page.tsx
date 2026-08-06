@@ -399,6 +399,10 @@ export default function UserManagement() {
     return false
   }
 
+  const displaySubjects = (isMainAdmin || currentUser === 'kanzaki_aito')
+    ? subjects
+    : subjects.filter(s => canManageSubjectPermission(s.code))
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 via-white to-cyan-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950">
@@ -548,7 +552,7 @@ export default function UserManagement() {
                     <tr>
                       <th className="px-8 py-5 text-left text-sm font-semibold tracking-wide">User</th>
                       <th className="px-4 py-5 text-center text-sm font-semibold tracking-wide">Role</th>
-                      {subjects.map(subject => (
+                      {displaySubjects.map(subject => (
                         <th key={subject.code} className="px-4 py-5 text-center text-sm font-semibold tracking-wide">
                           {subject.code.toUpperCase()}
                         </th>
@@ -601,7 +605,7 @@ export default function UserManagement() {
                             <option value="Lecturer">Lecturer</option>
                           </select>
                         </td>
-                        {subjects.map(subject => {
+                        {displaySubjects.map(subject => {
                           const hasPermission = Boolean(user.permissions?.[subject.code]) || user.username === "kanzaki_aito"
                           const canManage = canManageSubjectPermission(subject.code) && user.username !== "kanzaki_aito"
                           return (
