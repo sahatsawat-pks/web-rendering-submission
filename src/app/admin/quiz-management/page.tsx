@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, ClipboardList, Search, Filter, Eye, EyeOff, Trash2, Clock, CheckCircle, XCircle, Home } from "lucide-react"
+import { ArrowLeft, ClipboardList, Search, Filter, Eye, EyeOff, Trash2, Clock, CheckCircle, XCircle, Home, Plus, BookOpen } from "lucide-react"
 import Link from "next/link"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
@@ -29,14 +29,22 @@ export default function QuizManagement() {
   const [searchQuery, setSearchQuery] = useState("")
   const [updating, setUpdating] = useState<string | null>(null)
 
-  const subjects = ["ITCS123", "ITCS223", "ITCS227", "ITCS251", "ITCS255", "ITDS283", "ITGE162"]
+  // Create Quiz Lab state
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [createSubject, setCreateSubject] = useState<string>("ITDS242")
+  const [createLabNumber, setCreateLabNumber] = useState<string>("1")
+  const [createTitle, setCreateTitle] = useState<string>("Quiz 1 - Check Your Understanding")
+  const [isCreating, setIsCreating] = useState(false)
+
+  const subjects = ["ITCS123", "ITCS223", "ITCS227", "ITCS251", "ITCS255", "ITDS283", "ITGE162", "ITDS242"]
 
   useEffect(() => {
     // Check for subject parameter in URL
     const params = new URLSearchParams(window.location.search)
     const subjectParam = params.get('subject')
-    if (subjectParam && subjects.includes(subjectParam)) {
+    if (subjectParam) {
       setFilterSubject(subjectParam)
+      setCreateSubject(subjectParam)
     }
     
     fetchQuizzes()
@@ -60,30 +68,31 @@ export default function QuizManagement() {
     setUpdating(labId)
     try {
       const res = await fetch("/api/admin/quiz-management", {
-        method: "POST",
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ labId, quizEnabled: !currentStatus })
+        body: JSON.stringify({
+          labId,
+          quizEnabled: !currentStatus,
+        }),
       })
 
       if (res.ok) {
         await fetchQuizzes()
       }
     } catch (error) {
-      console.error("Failed to toggle quiz:", error)
+      console.error("Failed to toggle quiz status:", error)
     } finally {
       setUpdating(null)
     }
   }
 
   async function removeQuiz(labId: string) {
-    if (!confirm("Are you sure you want to remove all quiz data for this lab? This action cannot be undone.")) {
-      return
-    }
+    if (!confirm("Are you sure you want to remove questions and disable quiz for this lab?")) return
 
     setUpdating(labId)
     try {
       const res = await fetch(`/api/admin/quiz-management?labId=${labId}`, {
-        method: "DELETE"
+        method: "DELETE",
       })
 
       if (res.ok) {
@@ -96,8 +105,60 @@ export default function QuizManagement() {
     }
   }
 
+  const handleCreateQuizLab = async () => {
+    if (!createLabNumber.trim() || !createTitle.trim() || !createSubject) {
+      alert("Subject, Quiz Number, and Title are required.")
+      return
+    }
+
+    setIsCreating(true)
+    try {
+      const res = await fetch("/api/labs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          labNumber: createLabNumber.trim(),
+          title: createTitle.trim(),
+          subject: createSubject,
+          labType: "Lab",
+          isActive: true,
+          fileName: `quiz_${createLabNumber.trim()}.html`
+        })
+      })
+
+      const data = await res.json()
+      if (res.ok && data.success) {
+        // Enable quiz automatically
+        await fetch("/api/quiz", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "update_settings",
+            labNumber: createLabNumber.trim(),
+            subject: createSubject,
+            quizEnabled: true,
+            quizTimeLimit: 0,
+            quizTimeLimitEnabled: false
+          })
+        })
+
+        await fetchQuizzes()
+        setShowCreateModal(false)
+        setCreateLabNumber("")
+        setCreateTitle("")
+      } else {
+        alert(data.error || "Failed to create quiz lab")
+      }
+    } catch (err: any) {
+      console.error("Failed to create quiz lab:", err)
+      alert(err.message || "Failed to create quiz lab")
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
   const filteredQuizzes = quizzes.filter(quiz => {
-    const matchesSubject = filterSubject === "all" || quiz.subject === filterSubject
+    const matchesSubject = filterSubject === "all" || quiz.subject.toUpperCase() === filterSubject.toUpperCase()
     const matchesStatus = 
       filterStatus === "all" ||
       (filterStatus === "enabled" && quiz.quizEnabled) ||
@@ -148,6 +209,16 @@ export default function QuizManagement() {
             </span>
           </div>
           <div className="flex items-center gap-2 md:gap-4">
+            <button
+              onClick={() => {
+                setCreateLabNumber((quizzes.length + 1).toString())
+                setCreateTitle(`Quiz ${quizzes.length + 1} - Check Your Understanding`)
+                setShowCreateModal(true)
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-md transition-all text-sm"
+            >
+              <Plus className="w-4 h-4" /> Create New Quiz Lab
+            </button>
             <ModeToggle />
             <LogoutButton />
           </div>
@@ -206,7 +277,7 @@ export default function QuizManagement() {
           </div>
         </div>
 
-        {/* Filters */}
+        {/* Filters & Actions Bar */}
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 mb-6 shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -249,9 +320,9 @@ export default function QuizManagement() {
                 onChange={(e) => setFilterStatus(e.target.value)}
                 className="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
               >
-                <option value="all">All Status</option>
-                <option value="enabled">Enabled</option>
-                <option value="disabled">Disabled</option>
+                <option value="all">All Statuses</option>
+                <option value="enabled">Enabled Only</option>
+                <option value="disabled">Disabled Only</option>
                 <option value="has-questions">Has Questions</option>
                 <option value="no-questions">No Questions</option>
               </select>
@@ -259,122 +330,165 @@ export default function QuizManagement() {
           </div>
         </div>
 
-        {/* Quiz List */}
+        {/* Quizzes Grid */}
         {loading ? (
           <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-            <p className="mt-4 text-slate-600 dark:text-slate-400">Loading quizzes...</p>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent"></div>
+            <p className="mt-2 text-slate-500">Loading quizzes...</p>
           </div>
         ) : filteredQuizzes.length === 0 ? (
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center">
-            <ClipboardList className="w-16 h-16 text-slate-300 dark:text-slate-700 mx-auto mb-4" />
-            <p className="text-lg text-slate-600 dark:text-slate-400">No quizzes found</p>
-            <p className="text-sm text-slate-500 dark:text-slate-500 mt-2">Try adjusting your filters</p>
+          <div className="text-center py-12 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+            <ClipboardList className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-slate-900 dark:text-slate-200">No quizzes found</h3>
+            <p className="text-slate-500 text-sm mt-1 mb-4">Click below to create a new quiz lab for any subject.</p>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition-all shadow-md text-sm"
+            >
+              <Plus className="w-4 h-4" /> Create New Quiz Lab
+            </button>
           </div>
         ) : (
-          <div className="space-y-3">
-            {filteredQuizzes.map((quiz) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredQuizzes.map(quiz => (
               <div
                 key={quiz.id}
-                className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm hover:shadow-md transition-all"
+                className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
               >
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-start gap-3 mb-2">
-                      <span className={`px-3 py-1 rounded-lg text-xs font-bold ${
-                        quiz.subject === "ITCS123" ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" :
-                        quiz.subject === "ITCS223" ? "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400" :
-                        quiz.subject === "ITCS227" ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400" :
-                        quiz.subject === "ITCS251" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
-                        quiz.subject === "ITCS255" ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" :
-                        quiz.subject === "ITDS283" ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400" :
-                        "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                      }`}>
-                        {quiz.subject}
-                      </span>
-                      <span className="px-3 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                        {quiz.labNumber}
-                      </span>
-                      {!quiz.isActive && (
-                        <span className="px-3 py-1 rounded-lg text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                          INACTIVE
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-200 mb-2">
-                      {quiz.title}
-                    </h3>
-                    <div className="flex flex-wrap items-center gap-4 text-sm">
-                      <div className="flex items-center gap-2">
-                        {quiz.hasQuestions ? (
-                          <>
-                            <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                            <span className="text-slate-600 dark:text-slate-400">
-                              {quiz.questionCount} {quiz.questionCount === 1 ? 'question' : 'questions'}
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="w-4 h-4 text-slate-400 dark:text-slate-600" />
-                            <span className="text-slate-500 dark:text-slate-500">No questions</span>
-                          </>
-                        )}
-                      </div>
-                      {quiz.timeLimitEnabled && (
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                          <span className="text-slate-600 dark:text-slate-400">
-                            {quiz.timeLimit} min limit
-                          </span>
-                        </div>
-                      )}
-                      {quiz.hasCategories && (
-                        <div className="flex items-center gap-2">
-                          <Filter className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                          <span className="text-slate-600 dark:text-slate-400">Categorized</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => toggleQuiz(quiz.id, quiz.quizEnabled)}
-                      disabled={updating === quiz.id}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all disabled:opacity-50 ${
+                <div className="p-6">
+                  <div className="flex items-start justify-between mb-3">
+                    <span className="px-2.5 py-1 text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg">
+                      {quiz.subject} - Lab {quiz.labNumber}
+                    </span>
+                    <span
+                      className={`px-2.5 py-1 text-xs font-bold rounded-full ${
                         quiz.quizEnabled
-                          ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
-                          : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                          : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
                       }`}
                     >
-                      {quiz.quizEnabled ? (
-                        <>
-                          <Eye className="w-4 h-4" />
-                          <span className="hidden sm:inline">Enabled</span>
-                        </>
-                      ) : (
-                        <>
-                          <EyeOff className="w-4 h-4" />
-                          <span className="hidden sm:inline">Disabled</span>
-                        </>
-                      )}
-                    </button>
-
-                    {quiz.hasQuestions && (
-                      <button
-                        onClick={() => removeQuiz(quiz.id)}
-                        disabled={updating === quiz.id}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50 transition-all disabled:opacity-50"
-                        title="Remove all quiz data"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        <span className="hidden sm:inline">Remove</span>
-                      </button>
-                    )}
+                      {quiz.quizEnabled ? "Enabled" : "Disabled"}
+                    </span>
                   </div>
+
+                  <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100 mb-2 line-clamp-1">
+                    {quiz.title}
+                  </h3>
+
+                  <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400 mt-4">
+                    <div className="flex items-center justify-between">
+                      <span>Questions:</span>
+                      <span className="font-semibold text-slate-900 dark:text-slate-200">
+                        {quiz.questionCount} {quiz.questionCount === 1 ? 'question' : 'questions'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span>Time Limit:</span>
+                      <span className="font-semibold text-slate-900 dark:text-slate-200">
+                        {quiz.timeLimitEnabled ? `${quiz.timeLimit} mins` : 'No limit'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
+                  <button
+                    onClick={() => toggleQuiz(quiz.id, quiz.quizEnabled)}
+                    disabled={updating === quiz.id}
+                    className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                      quiz.quizEnabled
+                        ? "bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-300"
+                        : "bg-green-600 text-white hover:bg-green-700"
+                    }`}
+                  >
+                    {quiz.quizEnabled ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    {quiz.quizEnabled ? "Disable" : "Enable"}
+                  </button>
+
+                  <Link
+                    href={`/admin/${quiz.subject.toLowerCase()}/quiz`}
+                    className="flex-1 py-2 px-3 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-center transition-all shadow-sm"
+                  >
+                    Edit Quiz
+                  </Link>
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Create Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2 mb-4">
+                <BookOpen className="w-6 h-6 text-purple-600" />
+                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                  Create New Quiz Lab
+                </h3>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                    Subject Code
+                  </label>
+                  <select
+                    value={createSubject}
+                    onChange={(e) => setCreateSubject(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl dark:bg-slate-800 dark:text-slate-200 font-bold"
+                  >
+                    {subjects.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                    Quiz / Lab Number
+                  </label>
+                  <input
+                    type="text"
+                    value={createLabNumber}
+                    onChange={(e) => setCreateLabNumber(e.target.value)}
+                    placeholder="e.g. 1, 2, or Quiz 1"
+                    className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl dark:bg-slate-800 dark:text-slate-200 font-mono font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                    Quiz Title
+                  </label>
+                  <input
+                    type="text"
+                    value={createTitle}
+                    onChange={(e) => setCreateTitle(e.target.value)}
+                    placeholder="e.g. Quiz 1 - Introduction to Variables"
+                    className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl dark:bg-slate-800 dark:text-slate-200 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  disabled={isCreating}
+                  className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-semibold rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateQuizLab}
+                  disabled={isCreating || !createLabNumber.trim() || !createTitle.trim()}
+                  className="px-5 py-2 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 disabled:opacity-50"
+                >
+                  {isCreating ? 'Creating...' : 'Create Quiz Lab'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </main>
