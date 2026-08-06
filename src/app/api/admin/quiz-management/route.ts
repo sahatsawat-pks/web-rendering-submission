@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAuthUser } from "@/lib/auth"
-import { getAllLabs } from "@/lib/db"
+import { getAllLabs, getSubjects } from "@/lib/db"
 import { getCanonicalSubjectCodeOrDefault } from '@/lib/subjectConfig'
+import { normalizeQuizPayload } from '@/lib/quizSetAdapter'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,35 +20,36 @@ export async function GET(req: NextRequest) {
     const allLabs = await getAllLabs(false, subject)
     const labs = allLabs.filter(lab => lab.labType !== 'Challenge')
     
-    // Transform labs to quiz format
-    const result = { rows: labs.map(lab => ({
-      id: lab.id,
-      lab_number: lab.labNumber,
-      title: lab.title,
-      subject: lab.subject,
-      quiz_enabled: lab.quizEnabled,
-      quiz_questions: lab.quizQuestions,
-      quiz_categories: lab.quizCategories,
-      quiz_time_limit: lab.quizTimeLimit,
-      quiz_time_limit_enabled: lab.quizTimeLimitEnabled,
-      is_active: lab.isActive
-    }))}
+    // Get all subjects dynamically from database
+    const allSubjects = await getSubjects()
+    const subjectCodes = Array.from(new Set(allSubjects.map(s => s.code.toUpperCase())))
+    
+    const quizzes = labs.map(lab => {
+      const { questions } = normalizeQuizPayload(lab.quizQuestions)
+      let hasCat = false
+      try {
+        const cat = lab.quizCategories ? JSON.parse(lab.quizCategories) : []
+        hasCat = cat.length > 0
+      } catch {
+        hasCat = false
+      }
 
-    const quizzes = result.rows.map(row => ({
-      id: row.id,
-      labNumber: row.lab_number,
-      title: row.title,
-      subject: row.subject,
-      quizEnabled: row.quiz_enabled || false,
-      hasQuestions: !!row.quiz_questions,
-      questionCount: row.quiz_questions ? JSON.parse(row.quiz_questions).length : 0,
-      hasCategories: !!row.quiz_categories,
-      timeLimit: row.quiz_time_limit || 0,
-      timeLimitEnabled: row.quiz_time_limit_enabled || false,
-      isActive: row.is_active
-    }))
+      return {
+        id: lab.id,
+        labNumber: lab.labNumber,
+        title: lab.title,
+        subject: lab.subject.toUpperCase(),
+        quizEnabled: lab.quizEnabled || false,
+        hasQuestions: questions.length > 0,
+        questionCount: questions.length,
+        hasCategories: hasCat,
+        timeLimit: lab.quizTimeLimit || 0,
+        timeLimitEnabled: lab.quizTimeLimitEnabled || false,
+        isActive: lab.isActive
+      }
+    })
 
-    return NextResponse.json({ quizzes })
+    return NextResponse.json({ quizzes, subjects: subjectCodes })
   } catch (error) {
     console.error("Error fetching quizzes:", error)
     return NextResponse.json(
@@ -70,37 +72,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Lab ID is required" }, { status: 400 })
     }
 
-    // Import Pool here to update quiz enabled status
-    const { Pool } = await import('pg')
-    const pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false }
-    })
+    const { updateLab } = await import("@/lib/db")
+    await updateLab(labId, { quizEnabled })
 
-    // Toggle quiz enabled status
-    const result = await pool.query(
-      `UPDATE labs 
-       SET quiz_enabled = $1 
-       WHERE id = $2 
-       RETURNING id, quiz_enabled`,
-      [quizEnabled, labId]
-    )
-
-    await pool.end()
-
-    if (result.rows.length === 0) {
-      return NextResponse.json({ error: "Lab not found" }, { status: 404 })
-    }
-
-    return NextResponse.json({
-      success: true,
-      labId: result.rows[0].id,
-      quizEnabled: result.rows[0].quiz_enabled
-    })
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error toggling quiz:", error)
+    console.error("Error updating quiz:", error)
     return NextResponse.json(
-      { error: "Failed to toggle quiz" },
+      { error: "Failed to update quiz" },
       { status: 500 }
     )
   }
@@ -120,36 +99,14 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Lab ID is required" }, { status: 400 })
     }
 
-    // Import Pool here to clear quiz data
-    const { Pool } = await import('pg')
-    const pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false }
+    const { updateLab } = await import("@/lib/db")
+    await updateLab(labId, {
+      quizEnabled: false,
+      quizQuestions: undefined,
+      quizCategories: undefined
     })
 
-    // Clear quiz data from lab
-    const result = await pool.query(
-      `UPDATE labs 
-       SET quiz_questions = NULL, 
-           quiz_categories = NULL, 
-           quiz_enabled = FALSE,
-           quiz_time_limit = 0,
-           quiz_time_limit_enabled = FALSE
-       WHERE id = $1 
-       RETURNING id`,
-      [labId]
-    )
-
-    await pool.end()
-
-    if (result.rows.length === 0) {
-      return NextResponse.json({ error: "Lab not found" }, { status: 404 })
-    }
-
-    return NextResponse.json({
-      success: true,
-      labId: result.rows[0].id
-    })
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Error removing quiz:", error)
     return NextResponse.json(

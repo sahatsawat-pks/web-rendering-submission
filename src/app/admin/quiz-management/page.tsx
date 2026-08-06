@@ -23,6 +23,7 @@ interface Quiz {
 
 export default function QuizManagement() {
   const [quizzes, setQuizzes] = useState<Quiz[]>([])
+  const [subjects, setSubjects] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [filterSubject, setFilterSubject] = useState<string>("all")
   const [filterStatus, setFilterStatus] = useState<string>("all")
@@ -31,22 +32,12 @@ export default function QuizManagement() {
 
   // Create Quiz Lab state
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [createSubject, setCreateSubject] = useState<string>("ITDS242")
+  const [createSubject, setCreateSubject] = useState<string>("")
   const [createLabNumber, setCreateLabNumber] = useState<string>("1")
   const [createTitle, setCreateTitle] = useState<string>("Quiz 1 - Check Your Understanding")
   const [isCreating, setIsCreating] = useState(false)
 
-  const subjects = ["ITCS123", "ITCS223", "ITCS227", "ITCS251", "ITCS255", "ITDS283", "ITGE162", "ITDS242"]
-
   useEffect(() => {
-    // Check for subject parameter in URL
-    const params = new URLSearchParams(window.location.search)
-    const subjectParam = params.get('subject')
-    if (subjectParam) {
-      setFilterSubject(subjectParam)
-      setCreateSubject(subjectParam)
-    }
-    
     fetchQuizzes()
   }, [])
 
@@ -56,6 +47,33 @@ export default function QuizManagement() {
       const data = await res.json()
       if (data.quizzes) {
         setQuizzes(data.quizzes)
+      }
+      
+      let fetchedSubjects: string[] = data.subjects || []
+
+      // Also fetch from /api/subjects to get any subject configured for quiz management
+      try {
+        const subRes = await fetch("/api/subjects")
+        const subData = await subRes.json()
+        if (subData.subjects && Array.isArray(subData.subjects)) {
+          const allCodes = subData.subjects.map((s: any) => s.code.toUpperCase())
+          fetchedSubjects = Array.from(new Set([...fetchedSubjects, ...allCodes]))
+        }
+      } catch (e) {
+        console.error("Failed to fetch subjects list", e)
+      }
+
+      setSubjects(fetchedSubjects)
+      if (fetchedSubjects.length > 0 && !createSubject) {
+        setCreateSubject(fetchedSubjects[0])
+      }
+
+      // Check URL search params for subject filter
+      const params = new URLSearchParams(window.location.search)
+      const subjectParam = params.get('subject')
+      if (subjectParam) {
+        setFilterSubject(subjectParam.toUpperCase())
+        setCreateSubject(subjectParam.toUpperCase())
       }
     } catch (error) {
       console.error("Failed to fetch quizzes:", error)
@@ -119,7 +137,7 @@ export default function QuizManagement() {
         body: JSON.stringify({
           labNumber: createLabNumber.trim(),
           title: createTitle.trim(),
-          subject: createSubject,
+          subject: createSubject.toUpperCase(),
           labType: "Lab",
           isActive: true,
           fileName: `quiz_${createLabNumber.trim()}.html`
@@ -135,7 +153,7 @@ export default function QuizManagement() {
           body: JSON.stringify({
             action: "update_settings",
             labNumber: createLabNumber.trim(),
-            subject: createSubject,
+            subject: createSubject.toUpperCase(),
             quizEnabled: true,
             quizTimeLimit: 0,
             quizTimeLimitEnabled: false
@@ -231,7 +249,7 @@ export default function QuizManagement() {
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Total Labs</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium font-mono">Total Labs</p>
                 <p className="text-3xl font-bold text-slate-900 dark:text-slate-200 mt-1">{stats.total}</p>
               </div>
               <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
@@ -243,7 +261,7 @@ export default function QuizManagement() {
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Enabled Quizzes</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium font-mono">Enabled Quizzes</p>
                 <p className="text-3xl font-bold text-green-600 dark:text-green-400 mt-1">{stats.enabled}</p>
               </div>
               <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
@@ -255,7 +273,7 @@ export default function QuizManagement() {
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">With Questions</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium font-mono">With Questions</p>
                 <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">{stats.hasQuestions}</p>
               </div>
               <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center">
@@ -267,7 +285,7 @@ export default function QuizManagement() {
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Total Questions</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium font-mono">Total Questions</p>
                 <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1">{stats.totalQuestions}</p>
               </div>
               <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
@@ -290,7 +308,7 @@ export default function QuizManagement() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by title, lab number, or subject..."
-                className="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                className="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-medium"
               />
             </div>
 
@@ -302,9 +320,9 @@ export default function QuizManagement() {
               <select
                 value={filterSubject}
                 onChange={(e) => setFilterSubject(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                className="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-bold"
               >
-                <option value="all">All Subjects</option>
+                <option value="all">All Subjects ({subjects.length})</option>
                 {subjects.map(subject => (
                   <option key={subject} value={subject}>{subject}</option>
                 ))}
@@ -318,7 +336,7 @@ export default function QuizManagement() {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                className="w-full px-4 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-medium"
               >
                 <option value="all">All Statuses</option>
                 <option value="enabled">Enabled Only</option>
@@ -339,11 +357,14 @@ export default function QuizManagement() {
         ) : filteredQuizzes.length === 0 ? (
           <div className="text-center py-12 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
             <ClipboardList className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-slate-900 dark:text-slate-200">No quizzes found</h3>
-            <p className="text-slate-500 text-sm mt-1 mb-4">Click below to create a new quiz lab for any subject.</p>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-200">No quiz labs found for {filterSubject === 'all' ? 'any subject' : filterSubject}</h3>
+            <p className="text-slate-500 text-sm mt-1 mb-6">Click below to create a new quiz lab for this subject.</p>
             <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition-all shadow-md text-sm"
+              onClick={() => {
+                if (filterSubject !== 'all') setCreateSubject(filterSubject);
+                setShowCreateModal(true);
+              }}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition-all shadow-md text-sm"
             >
               <Plus className="w-4 h-4" /> Create New Quiz Lab
             </button>
@@ -378,7 +399,7 @@ export default function QuizManagement() {
                   <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400 mt-4">
                     <div className="flex items-center justify-between">
                       <span>Questions:</span>
-                      <span className="font-semibold text-slate-900 dark:text-slate-200">
+                      <span className="font-semibold text-slate-900 dark:text-slate-200 font-mono">
                         {quiz.questionCount} {quiz.questionCount === 1 ? 'question' : 'questions'}
                       </span>
                     </div>
@@ -410,7 +431,7 @@ export default function QuizManagement() {
                     href={`/admin/${quiz.subject.toLowerCase()}/quiz`}
                     className="flex-1 py-2 px-3 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-center transition-all shadow-sm"
                   >
-                    Edit Quiz
+                    Edit Questions
                   </Link>
                 </div>
               </div>
