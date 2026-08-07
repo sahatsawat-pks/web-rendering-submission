@@ -24,6 +24,7 @@ interface GradeSubmissionDialogProps {
   studentName?: string
   studentSurname?: string
   labNumber: string
+  labTitle?: string
   subjectCode: string
   isLoading?: boolean
   
@@ -46,6 +47,7 @@ export default function GradeSubmissionDialog({
   studentName,
   studentSurname,
   labNumber,
+  labTitle,
   subjectCode,
   isLoading = false,
   gradingType,
@@ -138,18 +140,12 @@ export default function GradeSubmissionDialog({
     }
   }
 
-  // Get assignment title based on grading type
+  // Get assignment title based on lab title or number
   const getAssignmentTitle = () => {
-    switch (gradingType) {
-      case 'criteria':
-        return `Lab ${labNumber} - Criteria Assessment`
-      case 'multi_question':
-        return `Lab ${labNumber} - Multi-Question Assessment`
-      case 'lab_challenge':
-        return `Lab ${labNumber} - Lab & Challenge`
-      default:
-        return `Lab ${labNumber} - ${subjectCode}`
+    if (labTitle && labTitle.trim()) {
+      return `Lab ${labNumber} - ${labTitle}`
     }
+    return `Lab ${labNumber}`
   }
 
   return (

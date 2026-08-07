@@ -1289,6 +1289,7 @@ export default function MultiQuestionGrading({
         studentName={studentDetails?.name}
         studentSurname={studentDetails?.surname}
         labNumber={selectedLab}
+        labTitle={labs.find((l: any) => l.labNumber === selectedLab)?.title}
         subjectCode={subjectCode}
         isLoading={submissionLoading}
         gradingType="multi_question"

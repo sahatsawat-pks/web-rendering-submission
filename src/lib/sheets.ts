@@ -1386,8 +1386,6 @@ export async function updateStudentLabScore(
           else if (sheetName === 'ITDS283') targetTabs = ['Section 1', 'Section 2'];
           else targetTabs = ['Sec1', 'Sec2'];
       }
-  } else if (sheetName === 'ITCS113') {
-      targetTabs = ['lab'];
   }
 
   // Iterate tabs to find student

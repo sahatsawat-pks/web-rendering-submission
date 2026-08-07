@@ -1603,6 +1603,7 @@ export default function LabChallengeGrading({
         studentName={studentDetails?.name}
         studentSurname={studentDetails?.surname}
         labNumber={selectedLab}
+        labTitle={labs.find(l => l.labNumber === selectedLab)?.title}
         subjectCode={subjectCode}
         isLoading={submissionLoading}
         gradingType="lab_challenge"

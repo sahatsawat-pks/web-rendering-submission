@@ -1662,6 +1662,7 @@ export default function PythonGrading({
         studentName={studentDetails?.name}
         studentSurname={studentDetails?.surname}
         labNumber={selectedLab}
+        labTitle={labs.find(l => l.labNumber === selectedLab)?.title}
         subjectCode={subjectCode}
         isLoading={isSubmitting}
         gradingType="python"
