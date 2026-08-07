@@ -63,7 +63,7 @@ const subjectConfigs: Record<string, SubjectConfig> = {
     aliases: ["ITDS242"],
     title: "ITCS223",
     subtitle: "Introduction to Web Development",
-    description: "Choose to view student rendering submissions or check your lab scores.",
+    description: "Check your lab scores or take quizzes for ITCS223 / ITDS242.",
     gradientFrom: "from-cyan-500",
     gradientTo: "to-blue-500",
     bgGradient: "from-cyan-50 via-white to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950",
@@ -72,23 +72,12 @@ const subjectConfigs: Record<string, SubjectConfig> = {
     shadowColor: "shadow-cyan-500/20",
     accentColor: "text-cyan-600 dark:text-cyan-400",
     accentColorDark: "text-cyan-400",
-    hasRendering: true,
+    hasRendering: false,
     hasTestRunner: false,
     hasScoreCheck: true,
     hasQuiz: true,
     hasCourseSummary: false,
     cards: [
-      {
-        title: "Viewing Submissions",
-        description: "Browse and inspect active web rendering submissions from students.",
-        href: "/itcs223/rendering",
-        icon: Presentation,
-        iconBg: "bg-cyan-100 dark:bg-cyan-900/30",
-        iconColor: "text-cyan-600 dark:text-cyan-400",
-        gradientFrom: "from-cyan-500/5",
-        gradientTo: "to-blue-500/5",
-        shadowColor: "shadow-cyan-500/20"
-      },
       {
         title: "Check Lab Scores",
         subtitle: "Lab Scores",

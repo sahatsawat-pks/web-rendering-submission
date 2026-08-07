@@ -271,7 +271,7 @@ export function adaptSubjectConfig(subject: Subject): SubjectConfig {
   const displayCode = subject.displaySubjectId || subject.code
   
   const cards: SubjectCard[] = []
-  const hasRendering = subject.code === 'ITCS223'
+  const hasRendering = false
 
   if (hasRendering) {
     cards.push({
