@@ -643,6 +643,20 @@ function findLabColumnIndex(
   );
   if (exactIdx !== -1) return exactIdx;
 
+  // 2. Try question-specific header matching (e.g. lab 1 question 2 -> matches "Lab1-Q2", "l1-q2", "Lab 1 Q2")
+  const qMatch = labNumberStr.match(/^(?:Lab|L|l)?(\d+)[-_]?(?:Q|q)?(\d+)$/i);
+  if (qMatch?.[1] && qMatch?.[2]) {
+    const targetLab = parseInt(qMatch[1], 10);
+    const targetQ = parseInt(qMatch[2], 10);
+    
+    const qIdx = headers.findIndex((h) => {
+      const headerStr = String(h ?? '').trim();
+      const m = headerStr.match(/^(?:Lab|L|l)?(\d+)[-_]?(?:Q|q)?(\d+)$/i);
+      return m && parseInt(m[1], 10) === targetLab && parseInt(m[2], 10) === targetQ;
+    });
+    if (qIdx !== -1) return qIdx;
+  }
+
   const labIntNum = parseRequestedLabNumber(labNumber);
   if (labIntNum === null) return -1;
   const labInt = labIntNum.toString();

@@ -309,16 +309,8 @@ export default function MultiQuestionGrading({
         // User request: "Ex l1-q1 , l1-q2"
         
         const updates = totalQuestions.map(q => {
-             let labColumnName = `L${selectedLab}-${q}`;
-             
-             if (subjectCode === 'ITCS113') {
-                 // Format: l2-q1 (lowercase, no padding on lab, remove 'Q' prefix from question)
-                 const labInt = parseInt(selectedLab).toString();
-                 const qInt = q.replace(/Q/i, 'q'); 
-                 // Actually q is "Q1", so q.replace(/Q/i, 'q') -> "q1"
-                 // Or just lower case everything: l2-q1
-                 labColumnName = `l${labInt}-${qInt.toLowerCase()}`;
-             }
+             const labInt = parseInt(selectedLab).toString();
+             let labColumnName = `Lab${labInt}-${q}`;
 
              const scoreValue = questionScores[q];
              
