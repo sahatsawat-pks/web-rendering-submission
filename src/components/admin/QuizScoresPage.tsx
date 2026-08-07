@@ -216,13 +216,117 @@ export default function QuizScoresPage({
       ...rows.map(row => row.join(","))
     ].join("\n")
 
-    const blob = new Blob([csv], { type: 'text/csv' })
+    const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' })
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     a.download = `${subjectCode.toLowerCase()}-quiz-scores-${selectedLab}-${new Date().toISOString().split('T')[0]}.csv`
     a.click()
     window.URL.revokeObjectURL(url)
+  }
+
+  const [isExportingAnswers, setIsExportingAnswers] = useState(false)
+
+  const exportAnswersToCSV = async () => {
+    if (sortedScores.length === 0) {
+      alert("No quiz submissions available to export.")
+      return
+    }
+
+    setIsExportingAnswers(true)
+    try {
+      // Fetch questions for all unique lab numbers in sortedScores
+      const labsList = Array.from(new Set(sortedScores.map(s => s.labNumber)))
+      const labQuestionsMap: { [labNum: string]: any[] } = {}
+
+      await Promise.all(labsList.map(async (lNum) => {
+        try {
+          const res = await fetch(`/api/quiz?labNumber=${lNum}&subject=${subjectCode}`)
+          if (res.ok) {
+            const data = await res.json()
+            labQuestionsMap[lNum] = data.questions || []
+          }
+        } catch (err) {
+          console.error(`Failed to fetch questions for Lab ${lNum}:`, err)
+        }
+      }))
+
+      const headers = [
+        "Student ID",
+        "Subject",
+        "Lab Number",
+        "Submitted At",
+        "Score (%)",
+        "Question #",
+        "Question Text",
+        "Student Selected Answer",
+        "Correct Answer",
+        "Result"
+      ]
+
+      const csvRows: string[][] = [headers]
+
+      sortedScores.forEach(s => {
+        const questions = labQuestionsMap[s.labNumber] || []
+        let rawAnswers = (s as any).answers
+        if (typeof rawAnswers === 'string') {
+          try { rawAnswers = JSON.parse(rawAnswers) } catch { rawAnswers = {} }
+        }
+
+        if (questions.length === 0) {
+          csvRows.push([
+            `"${s.studentId}"`,
+            `"${subjectCode.toUpperCase()}"`,
+            `"${s.labNumber}"`,
+            `"${new Date(s.submittedAt).toLocaleString()}"`,
+            `"${s.score}"`,
+            `"N/A"`,
+            `"No question definitions"`,
+            `"N/A"`,
+            `"N/A"`,
+            `"N/A"`
+          ])
+        } else {
+          questions.forEach((q, idx) => {
+            const userAns = rawAnswers?.[q.id]
+            const isCorrect = Array.isArray(q.correctAnswer)
+              ? Array.isArray(userAns) && userAns.length === q.correctAnswer.length && userAns.every((v: any) => q.correctAnswer.includes(String(v)))
+              : String(userAns || '').trim().toLowerCase() === String(q.correctAnswer || '').trim().toLowerCase()
+
+            const studentSelectedStr = Array.isArray(userAns) ? userAns.join('; ') : (userAns || (rawAnswers ? 'No Answer' : 'Not Recorded (Legacy)'))
+            const correctAnswerStr = Array.isArray(q.correctAnswer) ? q.correctAnswer.join('; ') : String(q.correctAnswer || '')
+            const cleanQuestionText = (q.question || '').replace(/<[^>]*>?/gm, '').replace(/"/g, '""')
+
+            csvRows.push([
+              `"${s.studentId}"`,
+              `"${subjectCode.toUpperCase()}"`,
+              `"${s.labNumber}"`,
+              `"${new Date(s.submittedAt).toLocaleString()}"`,
+              `"${s.score}"`,
+              `"${idx + 1}"`,
+              `"${cleanQuestionText}"`,
+              `"${String(studentSelectedStr).replace(/"/g, '""')}"`,
+              `"${String(correctAnswerStr).replace(/"/g, '""')}"`,
+              `"${isCorrect ? 'Correct' : 'Incorrect'}"`
+            ])
+          })
+        }
+      })
+
+      const csvContent = csvRows.map(row => row.join(",")).join("\n")
+      const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${subjectCode.toLowerCase()}-detailed-answers-${selectedLab}-${new Date().toISOString().split('T')[0]}.csv`
+      a.click()
+      window.URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error('Failed to export student answers CSV:', e)
+      alert("Error exporting student answers CSV")
+    } finally {
+      setIsExportingAnswers(false)
+    }
   }
 
   const getScoreColor = (score: number) => {
@@ -384,7 +488,7 @@ export default function QuizScoresPage({
               </select>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => loadScores(false)}
                 disabled={isRefreshing}
@@ -396,13 +500,23 @@ export default function QuizScoresPage({
               <button
                 onClick={exportToCSV}
                 className="px-4 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 text-sm"
+                title="Export summary scores CSV"
               >
                 <Download className="w-4 h-4" />
-                Export CSV
+                Export Scores CSV
+              </button>
+              <button
+                onClick={exportAnswersToCSV}
+                disabled={isExportingAnswers}
+                className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm disabled:opacity-70"
+                title="Export detailed question-by-question student answers CSV"
+              >
+                <Download className={`w-4 h-4 ${isExportingAnswers ? 'animate-spin' : ''}`} />
+                {isExportingAnswers ? 'Building CSV...' : 'Export Answers CSV'}
               </button>
               <button
                 onClick={handleClearAllAttempts}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors flex items-center gap-2 text-sm shadow-sm"
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors flex items-center gap-2 text-sm shadow-sm ml-auto"
                 title="Clear All Student Attempts and Reset Scores"
               >
                 <Trash2 className="w-4 h-4" />
