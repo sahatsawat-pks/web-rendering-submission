@@ -577,6 +577,12 @@ function parseLabNumberFromColumnHeader(header: string): number | null {
   const h = String(header ?? '').trim();
   if (!h) return null;
 
+  const matchQ = h.match(/^(?:Lab\s*|L|l)(\d+)[-_]?q\d+/i);
+  if (matchQ?.[1]) {
+    const n = parseInt(matchQ[1], 10);
+    if (!Number.isNaN(n)) return n;
+  }
+
   const patterns = [
     REGEX_PATTERNS.labNumber,
     REGEX_PATTERNS.weekNumber,
@@ -628,16 +634,19 @@ function findLabColumnIndex(
   subject: string,
   config?: { columnPattern?: string }
 ): number {
-  const labIntNum = parseRequestedLabNumber(labNumber);
-  if (labIntNum === null) return -1;
-  const labInt = labIntNum.toString();
-  const labNumPad = labIntNum.toString().padStart(2, '0');
-  const labNumberStr = labNumber.toString().trim();
+  const labNumberStr = String(labNumber ?? '').trim();
+  if (!labNumberStr) return -1;
 
+  // 1. Try exact header match first (e.g. "Lab1-Q1", "l1-q1", "Lab 1")
   const exactIdx = headers.findIndex(
     (h) => String(h ?? '').trim().toLowerCase() === labNumberStr.toLowerCase()
   );
   if (exactIdx !== -1) return exactIdx;
+
+  const labIntNum = parseRequestedLabNumber(labNumber);
+  if (labIntNum === null) return -1;
+  const labInt = labIntNum.toString();
+  const labNumPad = labIntNum.toString().padStart(2, '0');
 
   if (config?.columnPattern?.trim()) {
     try {
@@ -1586,10 +1595,19 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
       
       headers.push(headerValue);
       
-      pendingUpdates.push({
+      const headerUpdate = {
           range: `${resolvedTab}!${getColumnLetter(labIndex + 1)}${headerRow}`,
           values: [[headerValue]]
-      });
+      };
+
+      try {
+        await sheets.spreadsheets.values.batchUpdate({
+          spreadsheetId,
+          requestBody: { valueInputOption: 'RAW', data: [headerUpdate] },
+        });
+      } catch (headerErr) {
+        // Ignore if header row (Row 2) is protected in Google Sheets
+      }
       xlsxUpdates.push({ col: labIndex + 1, row: headerRow, value: headerValue });
   }
 

@@ -111,12 +111,20 @@ export default function MultiQuestionGrading({
     fetchLabs()
 
     fetch(`/api/student-prefixes?subject=${subjectCode}`).then(r=>r.json()).then(d=>{
-        if(d.success && d.prefixes) {
+        if(d.success && d.prefixes && d.prefixes.length > 0) {
             const sorted = d.prefixes.sort();
             setPrefixes(sorted);
             if(sorted.length > 0) setSelectedPrefix(sorted[sorted.length - 1]);
+        } else {
+            const defaultPrefixes = ['6988', '6888', '6788', '6688', '6588'];
+            setPrefixes(defaultPrefixes);
+            setSelectedPrefix(defaultPrefixes[0]);
         }
-    }).catch(console.error)
+    }).catch(() => {
+        const defaultPrefixes = ['6988', '6888', '6788', '6688', '6588'];
+        setPrefixes(defaultPrefixes);
+        setSelectedPrefix(defaultPrefixes[0]);
+    })
 
     // Fetch subject config
     fetch(`/api/subjects?code=${subjectCode}`)

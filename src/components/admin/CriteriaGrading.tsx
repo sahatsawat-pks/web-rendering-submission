@@ -115,15 +115,23 @@ export default function CriteriaGrading({
     fetch(`/api/student-prefixes?subject=${subjectCode}`)
       .then(res => res.json())
       .then(data => {
-        if (data.success && data.prefixes) {
+        if (data.success && data.prefixes && data.prefixes.length > 0) {
           const sorted = data.prefixes.sort();
           setPrefixes(sorted)
           if (sorted.length > 0) {
             setSelectedPrefix(sorted[sorted.length - 1])
           }
+        } else {
+          const defaultPrefixes = ['6988', '6888', '6788', '6688', '6588'];
+          setPrefixes(defaultPrefixes);
+          setSelectedPrefix(defaultPrefixes[0]);
         }
       })
-      .catch(err => console.error("Failed to fetch prefixes", err))
+      .catch(() => {
+        const defaultPrefixes = ['6988', '6888', '6788', '6688', '6588'];
+        setPrefixes(defaultPrefixes);
+        setSelectedPrefix(defaultPrefixes[0]);
+      })
 
     // Fetch current quiz section status
     fetch(`/api/subjects?code=${subjectCode}`)
