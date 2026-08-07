@@ -1028,7 +1028,7 @@ export async function getAllLabs(activeOnly: boolean = false, subject?: string):
         }
         
         if (subject) {
-            query += ` AND subject = $${params.length + 1}`;
+            query += ` AND UPPER(subject) = UPPER($${params.length + 1})`;
             params.push(subject);
         }
         

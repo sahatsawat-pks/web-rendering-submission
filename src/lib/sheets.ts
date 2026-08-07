@@ -9,7 +9,7 @@ const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')
 // Local cache for subjects to avoid redundant DB lookups
 let cachedSubjects: any[] | null = null;
 let subjectsCacheTimestamp = 0;
-const SUBJECTS_CACHE_TTL = 30 * 1000; // 30 seconds for fast config updates
+const SUBJECTS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 async function getCachedSubjects() {
     if (cachedSubjects && (Date.now() - subjectsCacheTimestamp < SUBJECTS_CACHE_TTL)) {
@@ -986,7 +986,28 @@ export async function getStudentIdPrefixes(
     })
   );
 
-  const prefixes = Array.from(prefixSet).sort();
+  let prefixes = Array.from(prefixSet).sort();
+
+  // Robust Fallback: If lightweight column scanning returned 0 prefixes, read via mapRowsToStudents / getSheetData
+  if (prefixes.length === 0) {
+    try {
+      const fullData = await getSheetData(subject, undefined, bypassCache);
+      if (fullData && fullData.length > 0) {
+        const studs = mapRowsToStudents(fullData, subject, config);
+        const fallbackSet = new Set<string>();
+        studs.forEach((s: any) => {
+          const id = String(s.username || '').trim().replace(/^[uU]/, '');
+          if (id.length >= 4 && /^\d{4}/.test(id)) {
+            fallbackSet.add(id.substring(0, 4));
+          }
+        });
+        prefixes = Array.from(fallbackSet).sort();
+      }
+    } catch (e) {
+      // Fallback ignore error
+    }
+  }
+
   sheetsCache.set(cacheKey, { data: prefixes, timestamp: Date.now() });
   return prefixes;
 }
