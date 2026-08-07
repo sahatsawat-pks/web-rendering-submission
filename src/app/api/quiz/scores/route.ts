@@ -70,16 +70,16 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE - Clear quiz scores for a lab
+// DELETE - Clear quiz scores for a lab or whole subject
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const subject = getCanonicalSubjectCodeOrDefault(searchParams.get('subject')) || undefined
-    const labNumber = searchParams.get('labNumber')
+    const labNumber = searchParams.get('labNumber') || undefined
 
-    if (!subject || !labNumber) {
+    if (!subject) {
       return NextResponse.json(
-        { success: false, error: 'Subject and Lab Number are required' },
+        { success: false, error: 'Subject is required' },
         { status: 400 }
       )
     }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { ModeToggle } from "@/components/mode-toggle"
-import { ArrowLeft, Download, RefreshCw, Trophy, TrendingUp, Users, BarChart2 } from "lucide-react"
+import { ArrowLeft, Download, RefreshCw, Trophy, TrendingUp, Users, BarChart2, Trash2 } from "lucide-react"
 
 interface QuizScore {
   id: string
@@ -89,6 +89,27 @@ export default function QuizScoresPage({
     } finally {
       setLoading(false)
       setIsRefreshing(false)
+    }
+  }
+
+  const handleClearAllAttempts = async () => {
+    const targetLabel = selectedLab === "all" ? `ALL quiz attempts for ${subjectCode}` : `quiz attempts for Lab ${selectedLab} in ${subjectCode}`
+    if (!confirm(`Are you sure you want to PERMANENTLY CLEAR ${targetLabel}? This will reset all student quiz scores to 0.`)) {
+      return
+    }
+
+    try {
+      const url = `/api/quiz/scores?subject=${subjectCode}${selectedLab !== "all" ? `&labNumber=${selectedLab}` : ''}`
+      const res = await fetch(url, { method: 'DELETE' })
+      if (res.ok) {
+        await loadScores(false)
+        alert('Quiz attempts cleared successfully!')
+      } else {
+        alert('Failed to clear quiz attempts')
+      }
+    } catch (e) {
+      console.error('Failed to clear quiz scores:', e)
+      alert('Error clearing quiz attempts')
     }
   }
 
@@ -367,17 +388,25 @@ export default function QuizScoresPage({
               <button
                 onClick={() => loadScores(false)}
                 disabled={isRefreshing}
-                className={`px-4 py-2 ${colorTheme.secondary} text-white rounded-lg hover:opacity-90 transition-colors flex items-center gap-2 disabled:opacity-70`}
+                className={`px-4 py-2 ${colorTheme.secondary} text-white rounded-lg hover:opacity-90 transition-colors flex items-center gap-2 disabled:opacity-70 text-sm font-bold`}
               >
                 <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                 {isRefreshing ? 'Refreshing...' : 'Refresh'}
               </button>
               <button
                 onClick={exportToCSV}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 text-sm"
               >
                 <Download className="w-4 h-4" />
                 Export CSV
+              </button>
+              <button
+                onClick={handleClearAllAttempts}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors flex items-center gap-2 text-sm shadow-sm"
+                title="Clear All Student Attempts and Reset Scores"
+              >
+                <Trash2 className="w-4 h-4" />
+                Clear All Attempts
               </button>
             </div>
           </div>
@@ -651,42 +680,58 @@ export default function QuizScoresPage({
               </div>
             ) : (
               <div className="space-y-4">
-                {modalQuestions.map((q, idx) => {
+                {(() => {
                   let rawAnswers = selectedSubmission.answers
                   if (typeof rawAnswers === 'string') {
                     try { rawAnswers = JSON.parse(rawAnswers) } catch { rawAnswers = {} }
                   }
-                  const userAns = rawAnswers?.[q.id]
-                  const isCorrect = Array.isArray(q.correctAnswer)
-                    ? Array.isArray(userAns) && userAns.length === q.correctAnswer.length && userAns.every((v: any) => q.correctAnswer.includes(String(v)))
-                    : String(userAns || '').trim().toLowerCase() === String(q.correctAnswer || '').trim().toLowerCase()
+                  const hasAnswersPayload = rawAnswers && Object.keys(rawAnswers).length > 0
 
                   return (
-                    <div key={q.id || idx} className={`p-4 rounded-xl border ${isCorrect ? 'bg-green-50/60 border-green-200 dark:bg-green-900/10 dark:border-green-800' : 'bg-red-50/60 border-red-200 dark:bg-red-900/10 dark:border-red-800'}`}>
-                      <div className="flex justify-between items-start mb-2 gap-2">
-                        <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">
-                          Q{idx + 1}. {q.question?.replace(/<[^>]*>?/gm, '') || q.question}
-                        </span>
-                        <span className={`text-xs font-extrabold px-2 py-0.5 rounded ${isCorrect ? 'bg-green-200 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-200 text-red-800 dark:bg-red-900 dark:text-red-200'}`}>
-                          {isCorrect ? '✓ Correct' : '✕ Incorrect'}
-                        </span>
-                      </div>
+                    <>
+                      {!hasAnswersPayload && (
+                        <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl text-amber-800 dark:text-amber-300 text-xs font-medium mb-4">
+                          ℹ️ <strong>Legacy Attempt Note:</strong> Exact individual choice selections were not recorded for this specific attempt, but the total score (<strong>{selectedSubmission.score}%</strong>) and correct count (<strong>{selectedSubmission.correctAnswers}/{selectedSubmission.totalQuestions}</strong>) are saved.
+                        </div>
+                      )}
 
-                      <div className="text-xs space-y-1 mt-2">
-                        <p className="text-slate-700 dark:text-slate-300 font-medium">
-                          <strong>Student Selected:</strong> <span className={isCorrect ? 'text-green-700 dark:text-green-300 font-bold' : 'text-red-700 dark:text-red-300 font-bold'}>
-                            {Array.isArray(userAns) ? userAns.join(', ') : (userAns || 'No Answer')}
-                          </span>
-                        </p>
-                        <p className="text-slate-500 dark:text-slate-400">
-                          <strong>Correct Answer:</strong> <span className="text-green-600 dark:text-green-400 font-bold">
-                            {Array.isArray(q.correctAnswer) ? q.correctAnswer.join(', ') : q.correctAnswer}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
+                      {modalQuestions.map((q, idx) => {
+                        const userAns = rawAnswers?.[q.id]
+                        const isCorrect = Array.isArray(q.correctAnswer)
+                          ? Array.isArray(userAns) && userAns.length === q.correctAnswer.length && userAns.every((v: any) => q.correctAnswer.includes(String(v)))
+                          : String(userAns || '').trim().toLowerCase() === String(q.correctAnswer || '').trim().toLowerCase()
+
+                        return (
+                          <div key={q.id || idx} className={`p-4 rounded-xl border ${hasAnswersPayload ? (isCorrect ? 'bg-green-50/60 border-green-200 dark:bg-green-900/10 dark:border-green-800' : 'bg-red-50/60 border-red-200 dark:bg-red-900/10 dark:border-red-800') : 'bg-slate-50 dark:bg-slate-700/40 border-slate-200 dark:border-slate-700'}`}>
+                            <div className="flex justify-between items-start mb-2 gap-2">
+                              <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">
+                                Q{idx + 1}. {q.question?.replace(/<[^>]*>?/gm, '') || q.question}
+                              </span>
+                              {hasAnswersPayload && (
+                                <span className={`text-xs font-extrabold px-2 py-0.5 rounded ${isCorrect ? 'bg-green-200 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-200 text-red-800 dark:bg-red-900 dark:text-red-200'}`}>
+                                  {isCorrect ? '✓ Correct' : '✕ Incorrect'}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="text-xs space-y-1 mt-2">
+                              <p className="text-slate-700 dark:text-slate-300 font-medium">
+                                <strong>Student Selected:</strong> <span className={hasAnswersPayload ? (isCorrect ? 'text-green-700 dark:text-green-300 font-bold' : 'text-red-700 dark:text-red-300 font-bold') : 'text-slate-500 italic'}>
+                                  {hasAnswersPayload ? (Array.isArray(userAns) ? userAns.join(', ') : (userAns || 'No Answer')) : 'Not recorded (Legacy Attempt)'}
+                                </span>
+                              </p>
+                              <p className="text-slate-500 dark:text-slate-400">
+                                <strong>Correct Answer:</strong> <span className="text-green-600 dark:text-green-400 font-bold">
+                                  {Array.isArray(q.correctAnswer) ? q.correctAnswer.join(', ') : q.correctAnswer}
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </>
                   )
-                })}
+                })()}
               </div>
             )}
 
