@@ -659,7 +659,7 @@ export default function MultiQuestionGrading({
                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 shadow-sm hover:border-orange-300 dark:hover:border-orange-600 transition-all"
                >
                  <option value="">Select Lab</option>
-                 {labs.filter(l=>l.isActive).map(l=><option key={l.id} value={l.labNumber}>Lab {l.labNumber}: {l.title}</option>)}
+                 {labs.map(l=><option key={l.id} value={l.labNumber}>Lab {l.labNumber}: {l.title} {!l.isActive ? '(Inactive)' : ''}</option>)}
                </select>
              </div>
 
@@ -748,25 +748,17 @@ export default function MultiQuestionGrading({
          </form>
       </div>
 
-      {/* Lab List */}
+      {/* Labs List */}
       <div className="glass-card p-8 animate-scale-in hover:shadow-2xl hover:shadow-orange-500/5 transition-all duration-300 border-white/40">
-        <div className="flex items-center justify-between mb-8">
-          <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-200 flex items-center gap-2">
-            <svg
-              className="w-5 h-5 text-orange-600 dark:text-orange-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-            Labs
-          </h3>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className={`p-2.5 rounded-xl text-white ${getGradientStyleProps(color).className}`} style={getGradientStyleProps(color).style}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-200">Labs</h3>
+          </div>
           <div className="flex gap-2">
             <span className={`px-3 py-1.5 rounded-lg text-xs font-bold border shadow-md text-white ${getGradientStyleProps(color).className}`}
                   style={getGradientStyleProps(color).style}
@@ -796,7 +788,7 @@ export default function MultiQuestionGrading({
           </div>
         </div>
         <div className="grid gap-4">
-          {labs.filter(l => l.isActive).map(l => (
+          {labs.map(l => (
             <div
               key={l.id}
               className="flex items-center gap-5 p-5 rounded-2xl border transition-all smooth-transition group border-slate-100 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 hover:border-orange-300 dark:hover:border-orange-600 hover:shadow-lg hover:shadow-orange-500/5"
