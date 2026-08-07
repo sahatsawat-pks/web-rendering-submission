@@ -399,8 +399,39 @@ export default function QuizManagementPage({
     handleSelectSet(updated[0].id)
   }
 
-  const handleMakeActiveSet = (setId: string) => {
+  const handleMakeActiveSet = async (setId: string) => {
     setActiveSetId(setId)
+    setSaveStatus("Saving Active Set...")
+    
+    const updatedSets = sets.map(s => s.id === selectedSetId ? { ...s, questions } : s)
+    setSets(updatedSets)
+
+    try {
+      const res = await fetch('/api/quiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_questions',
+          labNumber: selectedLab,
+          subject: subjectCode.toUpperCase(),
+          categories,
+          sets: updatedSets,
+          activeSetId: setId,
+          questions: (updatedSets.find(s => s.id === setId) || updatedSets[0]).questions
+        })
+      })
+      
+      if (res.ok) {
+        const targetSet = sets.find(s => s.id === setId)
+        setSaveStatus(`Saved! "${targetSet?.name || setId}" is now the active set for students.`)
+        setTimeout(() => setSaveStatus(null), 4000)
+      } else {
+        setSaveStatus("Failed to save active set")
+      }
+    } catch (e) {
+      console.error("Failed to activate set", e)
+      setSaveStatus("Error saving active set")
+    }
   }
 
   // Category Management Handlers
@@ -844,16 +875,16 @@ export default function QuizManagementPage({
                         </span>
                       )}
 
-                      {/* Dropdown action on selected set */}
+                      {/* Actions on selected set */}
                       {isSelected && (
-                        <div className="flex items-center gap-1 ml-2 border-l border-purple-400/50 pl-2">
+                        <div className="flex items-center gap-1.5 ml-2 border-l border-purple-400/50 pl-2">
                           {!isActiveForStudents && (
                             <button
                               onClick={(e) => { e.stopPropagation(); handleMakeActiveSet(set.id); }}
-                              className="p-1 hover:bg-purple-500 rounded text-amber-300"
-                              title="Set as Active Set for students"
+                              className="flex items-center gap-1 text-[11px] px-2 py-1 bg-amber-400 hover:bg-amber-300 text-amber-950 font-bold rounded-lg shadow-sm transition-all"
+                              title="Set as Active Set for students taking the quiz"
                             >
-                              <Star className="w-4 h-4" />
+                              <Star className="w-3.5 h-3.5 fill-amber-950" /> Make Active
                             </button>
                           )}
                           <button
