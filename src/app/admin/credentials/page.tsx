@@ -108,7 +108,7 @@ export default function UniversalCredentialsPage() {
 
       // 3. Merge data
       // Create a map of existing credentials
-      const credMap = new Map(dbCredentials.map((c: any) => [c.studentId, c]))
+      const credMap = new Map((dbCredentials || []).map((c: any) => [c.studentId, c]))
 
       // Combine lists: Preference to Sheet students (to show missing ones)
       const mergedList: StudentCredential[] = []
@@ -125,16 +125,22 @@ export default function UniversalCredentialsPage() {
           name: student.name || existing?.name || '',
           surname: student.surname || existing?.surname || '',
           section: student.section || existing?.section || '',
-          credential: existing?.credential || '', // Will be rendered as placeholder in UI if empty
+          credential: existing?.credential || existing?.credentialCode || '',
           subject: selectedSubject
         })
       })
 
-      // Add remaining from DB (only if they belong to this subject context roughly, or if we want to show orphans)
-      // To keep it clean, let's only add orphans if their 'subject' matches the current view.
+      // Add remaining from DB (universal across subjects)
       dbCredentials.forEach((cred: any) => {
-        if (!processedIds.has(cred.studentId) && cred.subject === selectedSubject) {
-          mergedList.push(cred)
+        if (!processedIds.has(cred.studentId)) {
+          mergedList.push({
+            studentId: cred.studentId,
+            name: cred.name || '',
+            surname: cred.surname || '',
+            section: cred.section || '',
+            credential: cred.credential || cred.credentialCode || '',
+            subject: cred.subject || selectedSubject
+          })
         }
       })
 
@@ -223,7 +229,8 @@ export default function UniversalCredentialsPage() {
       // 1. Get current credentials from DB
       const credRes = await fetch('/api/credentials', { cache: 'no-store', headers: { 'Pragma': 'no-cache' } })
       const credData = await credRes.json()
-      const existingMap = new Map(credData.credentials.map((c: any) => [c.studentId, c.credential]))
+      const dbCredList: any[] = credData.credentials || []
+      const existingMap = new Map(dbCredList.map((c: any) => [c.studentId, c.credential || c.credentialCode]))
 
       // Generate credentials
       const generatedCredentials = data.students.map((student: any) => {

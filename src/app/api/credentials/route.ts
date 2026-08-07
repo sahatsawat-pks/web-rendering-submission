@@ -111,6 +111,7 @@ export async function GET(request: NextRequest) {
         id: c.id,
         subject: c.subject,
         studentId: c.studentId,
+        credential: c.credential,
         credentialCode: c.credential,
         createdAt: c.createdAt,
         updatedAt: c.updatedAt
