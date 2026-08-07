@@ -228,6 +228,21 @@ export default function QuizTakingPage() {
     }
   }, [timeLimitEnabled, timeRemaining, showReview, showResults])
 
+function shuffleChoices<T>(array: T[], seedStr: string): T[] {
+  const arr = [...array]
+  let hash = 0
+  for (let i = 0; i < seedStr.length; i++) {
+    hash = (hash << 5) - hash + seedStr.charCodeAt(i)
+    hash |= 0
+  }
+  for (let i = arr.length - 1; i > 0; i--) {
+    const pseudoRandom = Math.abs(Math.sin(hash + i * 13)) * 10000
+    const j = Math.floor((pseudoRandom - Math.floor(pseudoRandom)) * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
   const loadQuizData = async () => {
     try {
       const res = await fetch(`/api/quiz?labNumber=${labNumber}&subject=${subject}`, { cache: 'no-store' })
@@ -237,7 +252,48 @@ export default function QuizTakingPage() {
           router.push(`/${rawSubject}`)
           return
         }
-        setQuestions(data.questions || [])
+
+        let loadedQuestions = data.questions || []
+        const studentSeed = studentId || 'guest'
+
+        // 1. Shuffle question order within each category if quizShuffleQuestions is enabled
+        if (data.quizShuffleQuestions && Array.isArray(loadedQuestions) && loadedQuestions.length > 0) {
+          const categoryGroups: { [key: string]: any[] } = {}
+          const categoryOrder: string[] = []
+
+          loadedQuestions.forEach((q: any) => {
+            const catKey = q.category || 'cat_default'
+            if (!categoryGroups[catKey]) {
+              categoryGroups[catKey] = []
+              categoryOrder.push(catKey)
+            }
+            categoryGroups[catKey].push(q)
+          })
+
+          let reorderedQuestions: any[] = []
+          categoryOrder.forEach((catKey) => {
+            const groupQuestions = categoryGroups[catKey]
+            const shuffledGroup = shuffleChoices(groupQuestions, `${studentSeed}_questions_${catKey}_${labNumber}`)
+            reorderedQuestions = [...reorderedQuestions, ...shuffledGroup]
+          })
+
+          loadedQuestions = reorderedQuestions
+        }
+
+        // 2. Shuffle answer choices within each question if quizShuffleChoices is enabled
+        if (data.quizShuffleChoices && Array.isArray(loadedQuestions)) {
+          loadedQuestions = loadedQuestions.map((q: any) => {
+            if (q.options && Array.isArray(q.options) && q.options.length > 0) {
+              return {
+                ...q,
+                options: shuffleChoices(q.options, `${studentSeed}_${q.id}_${labNumber}`)
+              }
+            }
+            return q
+          })
+        }
+
+        setQuestions(loadedQuestions)
         setCategories(data.categories || [])
         setLabTitle(data.labTitle || "")
         setTimeLimitEnabled(data.quizTimeLimitEnabled || false)

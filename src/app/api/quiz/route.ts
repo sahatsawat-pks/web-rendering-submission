@@ -71,6 +71,8 @@ export async function GET(request: NextRequest) {
         quizEnabled: lab.quizEnabled ?? false,
         quizTimeLimit: lab.quizTimeLimit ?? 0,
         quizTimeLimitEnabled: lab.quizTimeLimitEnabled ?? false,
+        quizShuffleChoices: lab.quizShuffleChoices ?? false,
+        quizShuffleQuestions: lab.quizShuffleQuestions ?? false,
         labTitle: lab.title
       }, { headers: noCacheHeaders })
     }
@@ -89,7 +91,9 @@ export async function GET(request: NextRequest) {
         questionCount: questions.length,
         setCount: sets.length,
         activeSetId,
-        quizEnabled: lab.quizEnabled ?? true
+        quizEnabled: lab.quizEnabled ?? true,
+        quizShuffleChoices: lab.quizShuffleChoices ?? false,
+        quizShuffleQuestions: lab.quizShuffleQuestions ?? false
       }
     })
 
@@ -106,7 +110,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { action, subject: rawSubject, labNumber, questions, sets, activeSetId, categories, quizEnabled, quizTimeLimit, quizTimeLimitEnabled } = body
+    const { action, subject: rawSubject, labNumber, questions, sets, activeSetId, categories, quizEnabled, quizTimeLimit, quizTimeLimitEnabled, quizShuffleChoices, quizShuffleQuestions } = body
     const subject = getCanonicalSubjectCodeOrDefault(rawSubject)
 
     if (!subject || !labNumber) {
@@ -146,7 +150,9 @@ export async function POST(request: NextRequest) {
       await updateLab(lab.id, {
         quizEnabled,
         quizTimeLimit,
-        quizTimeLimitEnabled
+        quizTimeLimitEnabled,
+        quizShuffleChoices,
+        quizShuffleQuestions
       })
 
       return NextResponse.json({
