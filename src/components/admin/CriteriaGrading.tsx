@@ -1379,8 +1379,12 @@ export default function CriteriaGrading({
                 const understandingVal = studentDetails[`Lab ${selectedLab} Code Understanding`] ?? studentDetails[`Lab ${plainNum} Code Understanding`] ?? studentDetails['Code Understanding']
                 const reflectionVal = studentDetails[`Lab ${selectedLab} Reflection`] ?? studentDetails[`Lab ${plainNum} Reflection`] ?? studentDetails['Reflection']
                 
-                if (ethicsVal !== undefined || understandingVal !== undefined || reflectionVal !== undefined) {
-                  return `E:${ethicsVal ?? 0} U:${understandingVal ?? 0} R:${reflectionVal ?? 0}`
+                const hasEthics = ethicsVal !== undefined && ethicsVal !== null && String(ethicsVal).trim() !== ''
+                const hasUnderstanding = understandingVal !== undefined && understandingVal !== null && String(understandingVal).trim() !== ''
+                const hasReflection = reflectionVal !== undefined && reflectionVal !== null && String(reflectionVal).trim() !== ''
+
+                if (hasEthics || hasUnderstanding || hasReflection) {
+                  return `E:${hasEthics ? ethicsVal : '-'} U:${hasUnderstanding ? understandingVal : '-'} R:${hasReflection ? reflectionVal : '-'}`
                 }
                 return undefined
               })()

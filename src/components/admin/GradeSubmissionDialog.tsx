@@ -63,8 +63,19 @@ export default function GradeSubmissionDialog({
     ? `${studentName} ${studentSurname}`
     : 'Name not available'
 
-  // Check if there's an existing score
-  const hasExistingScore = existingScore !== undefined && existingScore !== null && existingScore !== ''
+  // Check if there's a valid, non-blank existing score
+  const isMeaningfulScore = (val: any): boolean => {
+    if (val === undefined || val === null) return false
+    const str = String(val).trim()
+    if (!str || str === '-' || str === '--') return false
+    
+    // Ignore empty criteria strings like "E: U: R:", "E:  U:  R: ", "E:- U:- R:-"
+    if (/^E:\s*-?\s*U:\s*-?\s*R:\s*-?\s*$/i.test(str)) return false
+    
+    return true
+  }
+
+  const hasExistingScore = isMeaningfulScore(existingScore)
 
   // Function to render score details based on grading type
   const renderScoreDetails = () => {
