@@ -97,8 +97,9 @@ export async function GET(request: NextRequest) {
         return pLower === targetCanonicalLower || pCanonicalLower === targetCanonicalLower;
       });
 
-      if (!hasPermission && user.role !== 'Lecturer') {
-        return NextResponse.json({ error: "Forbidden: No permission for this subject" }, { status: 403, headers: NO_CACHE_HEADERS });
+      const isAuthorizedRole = ['Lecturer', 'Main Admin'].includes(user.role) || user.username === 'kanzaki_aito';
+      if (!hasPermission && !isAuthorizedRole) {
+        return NextResponse.json({ error: "Forbidden: Restricted to Lecturers and Main Admins" }, { status: 403, headers: NO_CACHE_HEADERS });
       }
     }
 
@@ -151,8 +152,9 @@ export async function POST(request: NextRequest) {
         return pLower === targetCanonicalLower || pCanonicalLower === targetCanonicalLower;
       });
 
-      if (!hasPermission && user.role !== 'Lecturer') {
-        return NextResponse.json({ error: "Forbidden: No permission for this subject" }, { status: 403, headers: NO_CACHE_HEADERS });
+      const isAuthorizedRole = ['Lecturer', 'Main Admin'].includes(user.role) || user.username === 'kanzaki_aito';
+      if (!hasPermission && !isAuthorizedRole) {
+        return NextResponse.json({ error: "Forbidden: Restricted to Lecturers and Main Admins" }, { status: 403, headers: NO_CACHE_HEADERS });
       }
     }
 

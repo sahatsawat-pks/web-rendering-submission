@@ -27,7 +27,7 @@ export default function CredentialLookupPage() {
           const username = userData.username || ''
           setUserRole(role)
           
-          if (role === 'Lecturer' || username === 'kanzaki_aito') {
+          if (role === 'Lecturer' || role === 'Main Admin' || username === 'kanzaki_aito') {
             setIsAuthorized(true)
           }
         }

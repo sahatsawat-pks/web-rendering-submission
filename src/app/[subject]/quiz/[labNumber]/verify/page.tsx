@@ -232,10 +232,10 @@ export default function QuizVerifyPage() {
             </button>
           </form>
 
-          <div className={`mt-6 p-4 bg-gradient-to-r ${config.gradientFrom.replace('/5', '/5')} ${config.gradientTo.replace('/5', '/5')} border border-slate-200 dark:border-slate-700 rounded-lg`}>
-            <p className="text-xs text-slate-700 dark:text-slate-300">
-              <strong>Note:</strong> Students use the credential code provided by their instructor.
-              Instructors, LAs, and Main Admins can log in using their staff username & account password.
+          <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl flex items-start gap-3 shadow-inner">
+            <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              <strong className="text-slate-800 dark:text-slate-200 font-bold">Note:</strong> Students use the credential code provided by their instructor. Instructors, LAs, and Main Admins can log in using their staff username & account password.
             </p>
           </div>
         </div>

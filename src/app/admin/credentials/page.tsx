@@ -68,8 +68,7 @@ export default function UniversalCredentialsPage() {
           setIsAuthenticated(true)
           setUsername(userData.username || '')
           setRole(userData.role || '')
-          
-          if (userData.role === 'Lecturer' || userData.username === 'kanzaki_aito') {
+          if (userData.role === 'Lecturer' || userData.role === 'Main Admin' || userData.username === 'kanzaki_aito') {
             setIsAuthorized(true)
           }
         }
@@ -342,6 +341,43 @@ export default function UniversalCredentialsPage() {
     }
   }
 
+  const handleGenerateOne = async (index: number) => {
+    const credToUpdate = credentials[index]
+    const newCredential = generateCredential()
+    
+    try {
+      const response = await fetch('/api/credentials', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', 'Pragma': 'no-cache' },
+        body: JSON.stringify({
+          credentials: [{
+            studentId: credToUpdate.studentId,
+            name: credToUpdate.name,
+            surname: credToUpdate.surname,
+            section: credToUpdate.section,
+            credential: newCredential
+          }],
+          subject: selectedSubject
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to save regenerated credential')
+      }
+
+      loadExistingCredentials()
+      setMessage({ 
+        type: 'success', 
+        text: `Successfully generated access code ${newCredential} for student ${credToUpdate.studentId}` 
+      })
+      
+    } catch (error: any) {
+      console.error('Error generating credential:', error)
+      setMessage({ type: 'error', text: 'Failed to generate credential' })
+    }
+  }
+
   const handleFetchAndGenerateNewOnly = async () => {
      // This function is redundant now that handleFetchAndGenerate is smart, 
      // but we can keep it for explicit "New Only" intent if user prefers.
@@ -516,15 +552,17 @@ export default function UniversalCredentialsPage() {
               )}
             </button>
             
-            {credentials.length > 0 && credentials.some(c => c.credential) && (
+            {credentials.length > 0 && (
               <>
-                <button
-                  onClick={handleDownloadCSV}
-                  className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-500 text-white font-semibold rounded-lg transition-colors"
-                >
-                  <Download className="w-4 h-4" />
-                  Download CSV
-                </button>
+                {credentials.some(c => c.credential) && (
+                  <button
+                    onClick={handleDownloadCSV}
+                    className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-500 text-white font-semibold rounded-lg transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download CSV
+                  </button>
+                )}
 
                 <button
                   onClick={handleRemoveAllCredentials}
@@ -554,14 +592,42 @@ export default function UniversalCredentialsPage() {
           </div>
         </div>
 
+        {/* Loading Indicator */}
+        {loading && (
+          <div className="bg-[#161b22] rounded-xl border border-white/5 p-8 text-center">
+            <div className="inline-block w-8 h-8 border-4 border-teal-500/30 border-t-teal-500 rounded-full animate-spin mb-3"></div>
+            <p className="text-sm text-slate-400 font-medium">Loading student data for {selectedSubject}...</p>
+          </div>
+        )}
+
+        {/* Empty State when no students loaded */}
+        {!loading && credentials.length === 0 && (
+          <div className="bg-[#161b22] rounded-xl border border-white/5 p-8 text-center space-y-3">
+            <AlertCircle className="w-10 h-10 text-amber-500 mx-auto" />
+            <h3 className="text-lg font-bold text-white">No Student List Found for {selectedSubject}</h3>
+            <p className="text-xs text-slate-400 max-w-md mx-auto">
+              Click <strong>"Sync & Add Missing Students"</strong> above to fetch the latest student roster for <strong>{selectedSubject}</strong> from Google Sheets and generate access codes.
+            </p>
+          </div>
+        )}
+
         {/* Credentials Table */}
-        {credentials.length > 0 && credentials.some(c => c.credential) && (
+        {!loading && credentials.length > 0 && (
           <div className="bg-[#161b22] rounded-xl border border-white/5 overflow-hidden">
              
              {/* Note about view filtering */}
              <div className="p-4 bg-slate-800/50 border-b border-white/5 text-xs text-slate-400 flex items-center justify-between">
-                <span>Displaying all universal credentials. Names/Sections shown are synced from <strong>{selectedSubject}</strong> where available.</span>
-                <span className="font-mono bg-slate-900 px-2 py-1 rounded text-teal-500">{credentials.filter(c => c.credential).length} Records</span>
+                <span>Displaying <strong>{credentials.length}</strong> students for <strong>{selectedSubject}</strong>.</span>
+                <div className="flex gap-2">
+                  <span className="font-mono bg-teal-950/80 border border-teal-800 text-teal-400 px-2 py-1 rounded text-xs">
+                    {credentials.filter(c => c.credential).length} Access Codes Generated
+                  </span>
+                  {credentials.filter(c => !c.credential).length > 0 && (
+                    <span className="font-mono bg-amber-950/80 border border-amber-800 text-amber-400 px-2 py-1 rounded text-xs">
+                      {credentials.filter(c => !c.credential).length} Missing Codes
+                    </span>
+                  )}
+                </div>
              </div>
 
             <div className="overflow-x-auto">
@@ -576,25 +642,44 @@ export default function UniversalCredentialsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {credentials.filter(c => c.credential).map((cred, index) => (
+                  {credentials.map((cred, index) => (
                     <tr key={index} className="hover:bg-white/5 transition-colors">
-                      <td className="px-6 py-4 text-sm font-mono text-slate-300">{cred.studentId}</td>
-                      <td className="px-6 py-4 text-sm text-slate-300">{cred.name || <span className="text-slate-600 italic">No Match in {selectedSubject}</span>} {cred.surname}</td>
-                      <td className="px-6 py-4 text-sm text-slate-400">{cred.section}</td>
+                      <td className="px-6 py-4 text-sm font-mono text-slate-300 font-semibold">{cred.studentId}</td>
+                      <td className="px-6 py-4 text-sm text-slate-300">
+                        {cred.name ? `${cred.name} ${cred.surname || ''}` : <span className="text-slate-500 italic">No Name in {selectedSubject}</span>}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-400">{cred.section || '-'}</td>
                       <td className="px-6 py-4">
-                        <code className="px-3 py-1.5 bg-teal-500/10 text-teal-400 rounded font-mono text-sm font-bold border border-teal-500/20">
-                          {cred.credential}
-                        </code>
+                        {cred.credential ? (
+                          <code className="px-3 py-1.5 bg-teal-500/10 text-teal-400 rounded font-mono text-sm font-bold border border-teal-500/20">
+                            {cred.credential}
+                          </code>
+                        ) : (
+                          <span className="px-2.5 py-1 bg-amber-500/10 text-amber-400 rounded text-xs font-semibold border border-amber-500/20">
+                            No Access Code Yet
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
-                        <button
-                          onClick={() => handleRegenerate(index)}
-                          className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded transition-colors flex items-center gap-1"
-                          title="Regenerate code"
-                        >
-                          <RefreshCw className="w-3 h-3" />
-                          Regenerate
-                        </button>
+                        {cred.credential ? (
+                          <button
+                            onClick={() => handleRegenerate(index)}
+                            className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 font-medium rounded transition-colors flex items-center gap-1"
+                            title="Regenerate code"
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                            Regenerate
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleGenerateOne(index)}
+                            className="text-xs px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded transition-colors flex items-center gap-1 shadow-sm"
+                            title="Generate access code"
+                          >
+                            <Key className="w-3 h-3" />
+                            + Generate
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
