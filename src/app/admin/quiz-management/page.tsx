@@ -43,7 +43,7 @@ export default function QuizManagement() {
 
   async function fetchQuizzes() {
     try {
-      const res = await fetch("/api/admin/quiz-management")
+      const res = await fetch(`/api/admin/quiz-management?t=${Date.now()}`, { cache: 'no-store' })
       const data = await res.json()
       if (data.quizzes) {
         setQuizzes(data.quizzes)
@@ -53,7 +53,7 @@ export default function QuizManagement() {
 
       // Also fetch from /api/subjects to get any subject configured for quiz management
       try {
-        const subRes = await fetch("/api/subjects")
+        const subRes = await fetch(`/api/subjects?t=${Date.now()}`, { cache: 'no-store' })
         const subData = await subRes.json()
         if (subData.subjects && Array.isArray(subData.subjects)) {
           const allCodes = subData.subjects.map((s: any) => s.code.toUpperCase())

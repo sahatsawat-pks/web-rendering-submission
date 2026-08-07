@@ -125,7 +125,7 @@ export default function QuizManagementPage({
 
   const fetchLabsList = async () => {
     try {
-      const res = await fetch(`/api/labs?activeOnly=false&subject=${subjectCode.toUpperCase()}`)
+      const res = await fetch(`/api/labs?activeOnly=false&subject=${subjectCode.toUpperCase()}&t=${Date.now()}`, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
         if (data.success) {
@@ -152,7 +152,7 @@ export default function QuizManagementPage({
 
   const loadQuizData = async () => {
     try {
-      const res = await fetch(`/api/quiz?labNumber=${selectedLab}&subject=${subjectCode.toUpperCase()}`)
+      const res = await fetch(`/api/quiz?labNumber=${selectedLab}&subject=${subjectCode.toUpperCase()}&t=${Date.now()}`, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
         
@@ -188,7 +188,7 @@ export default function QuizManagementPage({
   const loadStatsData = async () => {
     setLoadingStats(true)
     try {
-      const res = await fetch(`/api/quiz?action=stats&labNumber=${selectedLab}&subject=${subjectCode.toUpperCase()}&setId=${selectedSetId}`)
+      const res = await fetch(`/api/quiz?action=stats&labNumber=${selectedLab}&subject=${subjectCode.toUpperCase()}&setId=${selectedSetId}&t=${Date.now()}`, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
         setStats(data.stats || null)

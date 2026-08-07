@@ -16,6 +16,16 @@ export interface QuestionStat {
   choiceDistribution: { [choiceKey: string]: { count: number; percentage: number; isCorrect: boolean } };
 }
 
+export interface StudentSubmissionHistory {
+  id: string;
+  studentId: string;
+  score: number;
+  totalQuestions: number;
+  correctAnswers: number;
+  submittedAt: string;
+  answers: any;
+}
+
 export interface QuizLabStats {
   labNumber: string;
   labTitle: string;
@@ -25,6 +35,7 @@ export interface QuizLabStats {
   easiestQuestionId?: string;
   hardestQuestionId?: string;
   questions: QuestionStat[];
+  history: StudentSubmissionHistory[];
 }
 
 export async function calculateQuizLabStats(
@@ -42,7 +53,8 @@ export async function calculateQuizLabStats(
       totalSubmissions: 0,
       averageScore: 0,
       averagePercentage: 0,
-      questions: []
+      questions: [],
+      history: []
     };
   }
 
@@ -160,6 +172,22 @@ export async function calculateQuizLabStats(
     hardestId = sorted[sorted.length - 1]?.questionId;
   }
 
+  const history: StudentSubmissionHistory[] = scores.map(s => {
+    let parsedAns = s.answers;
+    if (typeof parsedAns === 'string') {
+      try { parsedAns = JSON.parse(parsedAns); } catch { parsedAns = {}; }
+    }
+    return {
+      id: s.id,
+      studentId: s.studentId,
+      score: s.score,
+      totalQuestions: s.totalQuestions,
+      correctAnswers: s.correctAnswers,
+      submittedAt: s.submittedAt,
+      answers: parsedAns
+    };
+  });
+
   return {
     labNumber,
     labTitle: lab.title,
@@ -168,6 +196,7 @@ export async function calculateQuizLabStats(
     averagePercentage,
     easiestQuestionId: easiestId,
     hardestQuestionId: hardestId,
-    questions: questionStats
+    questions: questionStats,
+    history
   };
 }

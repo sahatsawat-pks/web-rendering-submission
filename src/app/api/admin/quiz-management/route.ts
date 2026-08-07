@@ -5,12 +5,19 @@ import { getCanonicalSubjectCodeOrDefault } from '@/lib/subjectConfig'
 import { normalizeQuizPayload } from '@/lib/quizSetAdapter'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+const noCacheHeaders = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+  'Pragma': 'no-cache',
+  'Expires': '0'
+}
 
 export async function GET(req: NextRequest) {
   try {
     const authUser = await getAuthUser()
     if (!authUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: noCacheHeaders })
     }
 
     const url = new URL(req.url)
@@ -49,12 +56,12 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    return NextResponse.json({ quizzes, subjects: subjectCodes })
+    return NextResponse.json({ quizzes, subjects: subjectCodes }, { headers: noCacheHeaders })
   } catch (error) {
     console.error("Error fetching quizzes:", error)
     return NextResponse.json(
       { error: "Failed to fetch quizzes" },
-      { status: 500 }
+      { status: 500, headers: noCacheHeaders }
     )
   }
 }
@@ -63,24 +70,24 @@ export async function POST(req: NextRequest) {
   try {
     const authUser = await getAuthUser()
     if (!authUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: noCacheHeaders })
     }
 
     const { labId, quizEnabled } = await req.json()
 
     if (!labId) {
-      return NextResponse.json({ error: "Lab ID is required" }, { status: 400 })
+      return NextResponse.json({ error: "Lab ID is required" }, { status: 400, headers: noCacheHeaders })
     }
 
     const { updateLab } = await import("@/lib/db")
     await updateLab(labId, { quizEnabled })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true }, { headers: noCacheHeaders })
   } catch (error) {
     console.error("Error updating quiz:", error)
     return NextResponse.json(
       { error: "Failed to update quiz" },
-      { status: 500 }
+      { status: 500, headers: noCacheHeaders }
     )
   }
 }
@@ -89,7 +96,7 @@ export async function DELETE(req: NextRequest) {
   try {
     const authUser = await getAuthUser()
     if (!authUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: noCacheHeaders })
     }
 
     const url = new URL(req.url)
@@ -97,7 +104,7 @@ export async function DELETE(req: NextRequest) {
     const deleteLabRecord = url.searchParams.get("deleteLab") === 'true'
 
     if (!labId) {
-      return NextResponse.json({ error: "Lab ID is required" }, { status: 400 })
+      return NextResponse.json({ error: "Lab ID is required" }, { status: 400, headers: noCacheHeaders })
     }
 
     const { getLabById, deleteLab, deleteQuizScores, updateLab } = await import("@/lib/db")
@@ -117,12 +124,12 @@ export async function DELETE(req: NextRequest) {
       })
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true }, { headers: noCacheHeaders })
   } catch (error) {
     console.error("Error removing quiz:", error)
     return NextResponse.json(
       { error: "Failed to remove quiz" },
-      { status: 500 }
+      { status: 500, headers: noCacheHeaders }
     )
   }
 }
