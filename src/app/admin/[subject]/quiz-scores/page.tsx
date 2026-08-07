@@ -11,7 +11,7 @@ export default function SubjectQuizScoresPage() {
   
   useEffect(() => {
     if (subjectCode) {
-      fetch(`/api/subjects?code=${subjectCode}`)
+      fetch(`/api/subjects?code=${subjectCode}&t=${Date.now()}`, { cache: 'no-store' })
         .then(res => res.json())
         .then(data => {
           if (data.subjects && data.subjects.length > 0) {

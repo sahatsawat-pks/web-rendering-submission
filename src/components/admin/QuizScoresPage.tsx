@@ -58,7 +58,7 @@ export default function QuizScoresPage({
     setSelectedSubmission(scoreRecord)
     setLoadingModalQuestions(true)
     try {
-      const res = await fetch(`/api/quiz?labNumber=${scoreRecord.labNumber}&subject=${subjectCode}`)
+      const res = await fetch(`/api/quiz?labNumber=${scoreRecord.labNumber}&subject=${subjectCode}&t=${Date.now()}`, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
         setModalQuestions(data.questions || [])
@@ -79,7 +79,7 @@ export default function QuizScoresPage({
     else setIsRefreshing(true)
 
     try {
-      const res = await fetch(`/api/quiz/scores?subject=${subjectCode}`)
+      const res = await fetch(`/api/quiz/scores?subject=${subjectCode}&t=${Date.now()}`, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
         setScores(data.scores || [])
@@ -241,7 +241,7 @@ export default function QuizScoresPage({
 
       await Promise.all(labsList.map(async (lNum) => {
         try {
-          const res = await fetch(`/api/quiz?labNumber=${lNum}&subject=${subjectCode}`)
+          const res = await fetch(`/api/quiz?labNumber=${lNum}&subject=${subjectCode}&t=${Date.now()}`, { cache: 'no-store' })
           if (res.ok) {
             const data = await res.json()
             labQuestionsMap[lNum] = data.questions || []

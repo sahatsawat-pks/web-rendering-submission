@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getQuizScores, saveQuizScore } from '@/lib/db'
 import { getCanonicalSubjectCodeOrDefault } from '@/lib/subjectConfig'
+
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+const noCacheHeaders = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+  'Pragma': 'no-cache',
+  'Expires': '0'
+}
 
 // GET - Get quiz scores
 export async function GET(request: NextRequest) {
@@ -13,12 +21,12 @@ export async function GET(request: NextRequest) {
 
     const scores = await getQuizScores(subject, labNumber, studentId)
 
-    return NextResponse.json({ success: true, scores })
+    return NextResponse.json({ success: true, scores }, { headers: noCacheHeaders })
   } catch (error) {
     console.error('Error fetching quiz scores:', error)
     return NextResponse.json(
       { success: false, error: 'Failed to fetch quiz scores' },
-      { status: 500 }
+      { status: 500, headers: noCacheHeaders }
     )
   }
 }
@@ -42,7 +50,7 @@ export async function POST(request: NextRequest) {
     if (!studentId || !subject || !labNumber || score === undefined) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
-        { status: 400 }
+        { status: 400, headers: noCacheHeaders }
       )
     }
 
@@ -60,12 +68,12 @@ export async function POST(request: NextRequest) {
       success: true, 
       message: 'Quiz score saved successfully',
       scoreId: newScore.id 
-    })
+    }, { headers: noCacheHeaders })
   } catch (error) {
     console.error('Error saving quiz score:', error)
     return NextResponse.json(
       { success: false, error: 'Failed to save quiz score' },
-      { status: 500 }
+      { status: 500, headers: noCacheHeaders }
     )
   }
 }
@@ -80,7 +88,7 @@ export async function DELETE(request: NextRequest) {
     if (!subject) {
       return NextResponse.json(
         { success: false, error: 'Subject is required' },
-        { status: 400 }
+        { status: 400, headers: noCacheHeaders }
       )
     }
 
@@ -92,12 +100,12 @@ export async function DELETE(request: NextRequest) {
       success: true, 
       message: `Cleared ${count} quiz scores`,
       count 
-    })
+    }, { headers: noCacheHeaders })
   } catch (error) {
     console.error('Error clearing quiz scores:', error)
     return NextResponse.json(
       { success: false, error: 'Failed to clear quiz scores' },
-      { status: 500 }
+      { status: 500, headers: noCacheHeaders }
     )
   }
 }
