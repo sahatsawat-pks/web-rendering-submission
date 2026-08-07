@@ -599,6 +599,13 @@ export default function QuizManagementPage({
             </h1>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push(`/admin/${subjectCode.toLowerCase()}/quiz-scores`)}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm transition-all shadow-sm"
+              title="View Quiz Scores Page"
+            >
+              <BarChart3 className="w-4 h-4" /> View Quiz Scores
+            </button>
             <ModeToggle />
             <LogoutButton />
           </div>
@@ -686,6 +693,13 @@ export default function QuizManagementPage({
                   }`}
                 >
                   <BarChart3 className="w-4 h-4" /> Analytics & Statistics
+                </button>
+                <button
+                  onClick={() => router.push(`/admin/${subjectCode.toLowerCase()}/quiz-scores`)}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all bg-blue-600 text-white hover:bg-blue-700 shadow-md ml-auto"
+                  title="View All Student Quiz Scores"
+                >
+                  <BarChart3 className="w-4 h-4" /> Quiz Scores Page ↗
                 </button>
               </div>
             )}

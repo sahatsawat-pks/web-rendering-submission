@@ -50,6 +50,25 @@ export default function QuizScoresPage({
   const [selectedLab, setSelectedLab] = useState<string>("all")
   const [sortBy, setSortBy] = useState<"date" | "score" | "student">("date")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
+  const [selectedSubmission, setSelectedSubmission] = useState<any | null>(null)
+  const [modalQuestions, setModalQuestions] = useState<any[]>([])
+  const [loadingModalQuestions, setLoadingModalQuestions] = useState(false)
+
+  const handleViewAnswers = async (scoreRecord: any) => {
+    setSelectedSubmission(scoreRecord)
+    setLoadingModalQuestions(true)
+    try {
+      const res = await fetch(`/api/quiz?labNumber=${scoreRecord.labNumber}&subject=${subjectCode}`)
+      if (res.ok) {
+        const data = await res.json()
+        setModalQuestions(data.questions || [])
+      }
+    } catch (e) {
+      console.error('Failed to load lab questions for submission modal:', e)
+    } finally {
+      setLoadingModalQuestions(false)
+    }
+  }
 
   useEffect(() => {
     loadScores(true)
@@ -556,15 +575,18 @@ export default function QuizScoresPage({
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Submitted At
                         </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {sortedScores.map((score) => (
                         <tr key={score.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-slate-200">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-slate-200 font-mono">
                             {score.studentId}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-700 dark:text-gray-300">
                             Lab {score.labNumber}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -572,11 +594,19 @@ export default function QuizScoresPage({
                               {score.score}%
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 font-semibold">
                             {score.correctAnswers} / {score.totalQuestions}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-600 dark:text-gray-400 font-medium">
                             {new Date(score.submittedAt).toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                            <button
+                              onClick={() => handleViewAnswers(score)}
+                              className="px-3 py-1.5 bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 font-bold rounded-lg text-xs hover:bg-purple-200 transition-colors inline-flex items-center gap-1"
+                            >
+                              👁️ View Answers
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -588,6 +618,89 @@ export default function QuizScoresPage({
           </>
         )}
       </div>
+
+      {/* View Detailed Answers Modal */}
+      {selectedSubmission && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-700 animate-scale-in">
+            <div className="flex justify-between items-start border-b border-slate-200 dark:border-slate-700 pb-4 mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  📜 Answering Breakdown for <span className="font-mono text-purple-600 dark:text-purple-400">{selectedSubmission.studentId}</span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Lab {selectedSubmission.labNumber} | Submitted: {new Date(selectedSubmission.submittedAt).toLocaleString()} | Score: <strong className="text-purple-600">{selectedSubmission.score}%</strong> ({selectedSubmission.correctAnswers}/{selectedSubmission.totalQuestions})
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedSubmission(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {loadingModalQuestions ? (
+              <div className="text-center py-12">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-purple-500 border-t-transparent"></div>
+                <p className="mt-3 text-xs text-slate-500 font-medium">Loading question details...</p>
+              </div>
+            ) : modalQuestions.length === 0 ? (
+              <div className="text-center py-8 text-slate-500 text-sm">
+                No question definitions available for Lab {selectedSubmission.labNumber}.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {modalQuestions.map((q, idx) => {
+                  let rawAnswers = selectedSubmission.answers
+                  if (typeof rawAnswers === 'string') {
+                    try { rawAnswers = JSON.parse(rawAnswers) } catch { rawAnswers = {} }
+                  }
+                  const userAns = rawAnswers?.[q.id]
+                  const isCorrect = Array.isArray(q.correctAnswer)
+                    ? Array.isArray(userAns) && userAns.length === q.correctAnswer.length && userAns.every((v: any) => q.correctAnswer.includes(String(v)))
+                    : String(userAns || '').trim().toLowerCase() === String(q.correctAnswer || '').trim().toLowerCase()
+
+                  return (
+                    <div key={q.id || idx} className={`p-4 rounded-xl border ${isCorrect ? 'bg-green-50/60 border-green-200 dark:bg-green-900/10 dark:border-green-800' : 'bg-red-50/60 border-red-200 dark:bg-red-900/10 dark:border-red-800'}`}>
+                      <div className="flex justify-between items-start mb-2 gap-2">
+                        <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">
+                          Q{idx + 1}. {q.question?.replace(/<[^>]*>?/gm, '') || q.question}
+                        </span>
+                        <span className={`text-xs font-extrabold px-2 py-0.5 rounded ${isCorrect ? 'bg-green-200 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-200 text-red-800 dark:bg-red-900 dark:text-red-200'}`}>
+                          {isCorrect ? '✓ Correct' : '✕ Incorrect'}
+                        </span>
+                      </div>
+
+                      <div className="text-xs space-y-1 mt-2">
+                        <p className="text-slate-700 dark:text-slate-300 font-medium">
+                          <strong>Student Selected:</strong> <span className={isCorrect ? 'text-green-700 dark:text-green-300 font-bold' : 'text-red-700 dark:text-red-300 font-bold'}>
+                            {Array.isArray(userAns) ? userAns.join(', ') : (userAns || 'No Answer')}
+                          </span>
+                        </p>
+                        <p className="text-slate-500 dark:text-slate-400">
+                          <strong>Correct Answer:</strong> <span className="text-green-600 dark:text-green-400 font-bold">
+                            {Array.isArray(q.correctAnswer) ? q.correctAnswer.join(', ') : q.correctAnswer}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setSelectedSubmission(null)}
+                className="px-5 py-2 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-300 transition-colors text-xs"
+              >
+                Close History Breakdown
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

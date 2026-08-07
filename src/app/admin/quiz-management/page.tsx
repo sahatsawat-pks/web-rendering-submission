@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, ClipboardList, Search, Filter, Eye, EyeOff, Trash2, Clock, CheckCircle, XCircle, Home, Plus, BookOpen } from "lucide-react"
+import { ArrowLeft, ClipboardList, Search, Filter, Eye, EyeOff, Trash2, Clock, CheckCircle, XCircle, Home, Plus, BookOpen, BarChart3 } from "lucide-react"
 import Link from "next/link"
 import { ModeToggle } from "@/components/mode-toggle"
 import LogoutButton from "@/components/LogoutButton"
@@ -231,6 +231,13 @@ export default function QuizManagement() {
             </span>
           </div>
           <div className="flex items-center gap-2 md:gap-4">
+            <Link
+              href={`/admin/${filterSubject === 'all' ? (subjects[0] || 'itcs386').toLowerCase() : filterSubject.toLowerCase()}/quiz-scores`}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition-all text-sm"
+              title="View Quiz Scores Page"
+            >
+              <BarChart3 className="w-4 h-4" /> View Quiz Scores
+            </Link>
             <button
               onClick={() => {
                 setCreateLabNumber((quizzes.length + 1).toString())
@@ -421,7 +428,7 @@ export default function QuizManagement() {
                   <button
                     onClick={() => toggleQuiz(quiz.id, quiz.quizEnabled)}
                     disabled={updating === quiz.id}
-                    className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                    className={`flex-1 py-2 px-2.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
                       quiz.quizEnabled
                         ? "bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-300"
                         : "bg-green-600 text-white hover:bg-green-700"
@@ -432,8 +439,16 @@ export default function QuizManagement() {
                   </button>
 
                   <Link
+                    href={`/admin/${quiz.subject.toLowerCase()}/quiz-scores`}
+                    className="py-2 px-2.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-center transition-all shadow-sm flex items-center justify-center gap-1"
+                    title="View Quiz Scores"
+                  >
+                    <BarChart3 className="w-3.5 h-3.5" /> Scores
+                  </Link>
+
+                  <Link
                     href={`/admin/${quiz.subject.toLowerCase()}/quiz`}
-                    className="flex-1 py-2 px-3 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-center transition-all shadow-sm"
+                    className="flex-1 py-2 px-2.5 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-center transition-all shadow-sm text-center"
                   >
                     Edit Questions
                   </Link>
