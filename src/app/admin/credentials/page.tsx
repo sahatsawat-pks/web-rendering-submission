@@ -106,19 +106,15 @@ export default function UniversalCredentialsPage() {
          sheetStudents = sheetData.students || []
       }
 
-      // 3. Merge data
-      // Create a map of existing credentials
+      // 3. Merge data: Only include students belonging to the selected subject roster
       const credMap = new Map((dbCredentials || []).map((c: any) => [c.studentId, c]))
 
-      // Combine lists: Preference to Sheet students (to show missing ones)
       const mergedList: StudentCredential[] = []
-      const processedIds = new Set()
 
-      // Add students from Sheet
+      // Add students from Sheet for the selected subject
       sheetStudents.forEach((student: any) => {
         const sid = student.id || student.studentId
         const existing = credMap.get(sid)
-        processedIds.add(sid)
         
         mergedList.push({
           studentId: sid,
@@ -128,20 +124,6 @@ export default function UniversalCredentialsPage() {
           credential: existing?.credential || existing?.credentialCode || '',
           subject: selectedSubject
         })
-      })
-
-      // Add remaining from DB (universal across subjects)
-      dbCredentials.forEach((cred: any) => {
-        if (!processedIds.has(cred.studentId)) {
-          mergedList.push({
-            studentId: cred.studentId,
-            name: cred.name || '',
-            surname: cred.surname || '',
-            section: cred.section || '',
-            credential: cred.credential || cred.credentialCode || '',
-            subject: cred.subject || selectedSubject
-          })
-        }
       })
 
       // For students with empty name (not in sheet), try to fetch from API
