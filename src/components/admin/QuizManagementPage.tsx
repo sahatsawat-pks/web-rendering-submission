@@ -614,31 +614,18 @@ export default function QuizManagementPage({
 
       <div className="max-w-7xl mx-auto px-4 py-8 animate-scale-in">
         {/* Lab Selection & Mode Tabs */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-6 mb-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex-1">
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            {/* Left: Lab Selector & Action Buttons */}
+            <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                   Select Quiz Lab Assignment
                 </label>
-                <button
-                  onClick={() => {
-                    const nextNum = (labs.length + 1).toString()
-                    setNewLabNumber(nextNum)
-                    setNewLabTitle(`Quiz ${nextNum}`)
-                    setShowCreateLabModal(true)
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1 bg-purple-600 text-white rounded-lg text-xs font-bold hover:bg-purple-700 transition-all shadow-sm"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Create New Quiz Lab
-                </button>
-              </div>
-
-              <div className="flex gap-2">
                 <select
                   value={selectedLab}
                   onChange={(e) => setSelectedLab(e.target.value)}
-                  className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200 font-medium shadow-sm"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-slate-200 font-semibold text-sm shadow-sm"
                 >
                   <option value="">-- Select a Quiz Lab --</option>
                   {labs.filter(lab => lab.labType !== 'Challenge').map(lab => (
@@ -647,7 +634,9 @@ export default function QuizManagementPage({
                     </option>
                   ))}
                 </select>
+              </div>
 
+              <div className="flex items-center gap-2 mt-auto">
                 <button
                   onClick={() => {
                     const nextNum = (labs.length + 1).toString()
@@ -655,51 +644,52 @@ export default function QuizManagementPage({
                     setNewLabTitle(`Quiz ${nextNum}`)
                     setShowCreateLabModal(true)
                   }}
-                  className="px-4 py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition-all shadow-md flex items-center gap-1 text-sm flex-shrink-0"
+                  className="px-3.5 py-2 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition-all shadow-sm flex items-center gap-1 text-xs flex-shrink-0"
                 >
-                  <Plus className="w-4 h-4" /> New Quiz
+                  <Plus className="w-3.5 h-3.5" /> + New Quiz
                 </button>
 
                 {selectedLab && (
                   <button
                     onClick={handleDeleteSelectedLab}
-                    className="px-3.5 py-3 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 font-bold rounded-xl hover:bg-red-200 dark:hover:bg-red-900/60 transition-all shadow-sm flex items-center gap-1.5 text-sm flex-shrink-0"
+                    className="px-3 py-2 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 font-bold rounded-xl hover:bg-red-200 dark:hover:bg-red-900/60 transition-all shadow-sm flex items-center gap-1 text-xs flex-shrink-0"
                     title="Permanently Delete Selected Quiz Lab"
                   >
-                    <Trash2 className="w-4 h-4" /> Delete Quiz
+                    <Trash2 className="w-3.5 h-3.5" /> Delete Quiz
                   </button>
                 )}
               </div>
             </div>
 
+            {/* Right: Mode Tabs */}
             {selectedLab && (
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700/60 p-1.5 rounded-xl border border-slate-200 dark:border-slate-600">
+              <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-700/60 p-1.5 rounded-xl border border-slate-200 dark:border-slate-600 flex-shrink-0 self-start lg:self-center">
                 <button
                   onClick={() => setActiveViewTab('editor')}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
                     activeViewTab === 'editor'
-                      ? 'bg-purple-600 text-white shadow-md'
+                      ? 'bg-purple-600 text-white shadow-sm'
                       : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
                   }`}
                 >
-                  <Edit3 className="w-4 h-4" /> Questions Editor
+                  <Edit3 className="w-3.5 h-3.5" /> Questions Editor
                 </button>
                 <button
                   onClick={() => setActiveViewTab('analytics')}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
                     activeViewTab === 'analytics'
-                      ? 'bg-purple-600 text-white shadow-md'
+                      ? 'bg-purple-600 text-white shadow-sm'
                       : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
                   }`}
                 >
-                  <BarChart3 className="w-4 h-4" /> Analytics & Statistics
+                  <BarChart3 className="w-3.5 h-3.5" /> Analytics & Stats
                 </button>
                 <button
                   onClick={() => router.push(`/admin/${subjectCode.toLowerCase()}/quiz-scores`)}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all bg-blue-600 text-white hover:bg-blue-700 shadow-md ml-auto"
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
                   title="View All Student Quiz Scores"
                 >
-                  <BarChart3 className="w-4 h-4" /> Quiz Scores Page ↗
+                  <BarChart3 className="w-3.5 h-3.5" /> View Scores ↗
                 </button>
               </div>
             )}
