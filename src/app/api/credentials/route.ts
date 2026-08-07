@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { subject: rawSubject, credentials, action } = body;
+    const { subject: rawSubject, credentials, action, overwriteExisting } = body;
     const subject = getCanonicalSubjectCodeOrDefault(rawSubject) || rawSubject;
 
     if (!subject) {
@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Credentials must be an array" }, { status: 400, headers: NO_CACHE_HEADERS });
     }
 
-    await saveCredentials(credentials, subject);
+    await saveCredentials(credentials, subject, Boolean(overwriteExisting));
 
     return NextResponse.json({
       success: true,

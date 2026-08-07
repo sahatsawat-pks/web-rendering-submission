@@ -1751,13 +1751,9 @@ export async function getCredentials(subject?: string, credential?: string, stud
     const params: any[] = [];
     let paramIndex = 1;
     
-    // Subject filter is now optional (for backward compatibility)
-    // When looking up by credential, ignore subject
-    if (subject && !credential && !studentId) {
-      query += ` AND subject = $${paramIndex}`;
-      params.push(subject);
-      paramIndex++;
-    }
+    // Note: Credentials are universal per student_id across all subjects.
+    // We do NOT filter out credentials by subject column so that credentials
+    // are never hidden when switching subject contexts.
     
     if (credential) {
       query += ` AND credential = $${paramIndex}`;
@@ -1787,7 +1783,11 @@ export async function getCredentials(subject?: string, credential?: string, stud
   }
 }
 
-export async function saveCredentials(credentials: { studentId: string; credential: string }[], subject?: string): Promise<number> {
+export async function saveCredentials(
+  credentials: { studentId: string; credential: string }[],
+  subject?: string,
+  overwriteExisting: boolean = false
+): Promise<number> {
   await init();
   const pool = getPool();
   const client = await pool.connect();
@@ -1796,15 +1796,31 @@ export async function saveCredentials(credentials: { studentId: string; credenti
     await client.query('BEGIN');
     
     // Insert or update credentials (upsert)
-    // Now uses student_id as unique key (universal across subjects)
+    // Uses student_id as unique key (universal across subjects)
     for (const cred of credentials) {
-      await client.query(
-        `INSERT INTO credentials (student_id, credential, subject) 
-         VALUES ($1, $2, $3) 
-         ON CONFLICT (student_id) 
-         DO UPDATE SET credential = $2, subject = $3, updated_at = CURRENT_TIMESTAMP`,
-        [cred.studentId, cred.credential, subject || null]
-      );
+      if (overwriteExisting) {
+        await client.query(
+          `INSERT INTO credentials (student_id, credential, subject) 
+           VALUES ($1, $2, $3) 
+           ON CONFLICT (student_id) 
+           DO UPDATE SET credential = $2, subject = COALESCE(credentials.subject, $3), updated_at = CURRENT_TIMESTAMP`,
+          [cred.studentId, cred.credential, subject || null]
+        );
+      } else {
+        await client.query(
+          `INSERT INTO credentials (student_id, credential, subject) 
+           VALUES ($1, $2, $3) 
+           ON CONFLICT (student_id) 
+           DO UPDATE SET 
+             credential = CASE 
+               WHEN credentials.credential IS NOT NULL AND credentials.credential != '' THEN credentials.credential 
+               ELSE EXCLUDED.credential 
+             END,
+             subject = COALESCE(credentials.subject, EXCLUDED.subject),
+             updated_at = CURRENT_TIMESTAMP`,
+          [cred.studentId, cred.credential, subject || null]
+        );
+      }
     }
     
     await client.query('COMMIT');

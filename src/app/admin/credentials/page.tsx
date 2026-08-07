@@ -321,7 +321,8 @@ export default function UniversalCredentialsPage() {
             section: credToUpdate.section,
             credential: newCredential
           }],
-          subject: selectedSubject
+          subject: selectedSubject,
+          overwriteExisting: true
         })
       })
 
@@ -358,7 +359,8 @@ export default function UniversalCredentialsPage() {
             section: credToUpdate.section,
             credential: newCredential
           }],
-          subject: selectedSubject
+          subject: selectedSubject,
+          overwriteExisting: true
         })
       })
 
