@@ -765,9 +765,9 @@ export default function PythonGrading({
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm"
               >
                 <option value="">Select Lab</option>
-                {labs.filter(lab => lab.isActive).map((lab) => (
+                {labs.map((lab) => (
                   <option key={lab.id} value={lab.labNumber}>
-                    Lab {lab.labNumber}: {lab.title}
+                    Lab {lab.labNumber}: {lab.title} {!lab.isActive ? '(Inactive)' : ''}
                   </option>
                 ))}
               </select>

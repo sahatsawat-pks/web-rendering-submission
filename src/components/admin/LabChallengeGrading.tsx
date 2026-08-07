@@ -720,9 +720,9 @@ export default function LabChallengeGrading({
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 shadow-sm hover:border-orange-300 dark:hover:border-orange-600 transition-all"
               >
                 <option value="">Select Lab</option>
-                {labs.filter(lab => (lab.labType || 'Lab') === 'Lab' && lab.isActive).map((lab) => (
+                {labs.filter(lab => (lab.labType || 'Lab') === 'Lab').map((lab) => (
                   <option key={lab.id} value={lab.labNumber}>
-                    Lab {lab.labNumber}: {lab.title}
+                    Lab {lab.labNumber}: {lab.title} {!lab.isActive ? '(Inactive)' : ''}
                   </option>
                 ))}
               </select>

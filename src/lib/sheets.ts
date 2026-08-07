@@ -9,7 +9,7 @@ const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')
 // Local cache for subjects to avoid redundant DB lookups
 let cachedSubjects: any[] | null = null;
 let subjectsCacheTimestamp = 0;
-const SUBJECTS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+const SUBJECTS_CACHE_TTL = 30 * 1000; // 30 seconds for fast config updates
 
 async function getCachedSubjects() {
     if (cachedSubjects && (Date.now() - subjectsCacheTimestamp < SUBJECTS_CACHE_TTL)) {
@@ -329,28 +329,32 @@ const MULTI_SECTION_SUBJECTS = new Set([
 
 /** Parse admin-configured student ID column (letter, 1-based number, or header name). */
 function parseStudentIdColumnConfig(configured: string, headers: any[]): number {
-  const value = configured.trim();
+  let value = configured.trim();
   if (!value) return -1;
 
-  if (/^[A-Za-z]+$/.test(value)) {
+  // 1. First try matching exact header name (e.g. "ID", "Student ID", "Email")
+  const lower = value.toLowerCase();
+  const headerIndex = headers.findIndex(
+    (h) => String(h ?? '').toLowerCase().trim() === lower
+  );
+  if (headerIndex !== -1) return headerIndex;
+
+  // 2. Extract column letter from cell notation like "A2", "A1", "Col A", "Column A"
+  const cellMatch = value.match(/^(?:col(?:umn)?\s*)?([A-Za-z]+)\d*$/i);
+  if (cellMatch?.[1]) {
     let colIndex = 0;
-    const upper = value.toUpperCase();
+    const upper = cellMatch[1].toUpperCase();
     for (let i = 0; i < upper.length; i++) {
       colIndex = colIndex * 26 + (upper.charCodeAt(i) - 64);
     }
     return colIndex - 1;
   }
 
+  // 3. 1-based column number (e.g. "1" for Col A)
   const asNumber = parseInt(value, 10);
   if (!Number.isNaN(asNumber) && asNumber >= 1) {
     return asNumber - 1;
   }
-
-  const lower = value.toLowerCase();
-  const headerIndex = headers.findIndex(
-    (h) => String(h ?? '').toLowerCase().trim() === lower
-  );
-  if (headerIndex !== -1) return headerIndex;
 
   return -1;
 }

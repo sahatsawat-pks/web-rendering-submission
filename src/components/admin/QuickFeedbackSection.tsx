@@ -97,9 +97,9 @@ export default function QuickFeedbackSection({ subjectCode, labs, role }: QuickF
               required
             >
               <option value="">Select Lab</option>
-              {labs.filter((lab: any) => lab.isActive).map((lab: any) => (
+              {labs.map((lab: any) => (
                 <option key={lab.id} value={lab.labNumber}>
-                  Lab {lab.labNumber} - {lab.title}
+                  Lab {lab.labNumber} - {lab.title} {!lab.isActive ? '(Inactive)' : ''}
                 </option>
               ))}
             </select>

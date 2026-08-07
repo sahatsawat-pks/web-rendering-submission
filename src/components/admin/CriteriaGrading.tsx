@@ -99,6 +99,8 @@ export default function CriteriaGrading({
             if (activeLabs.length > 0) {
               const latestActiveLab = activeLabs[activeLabs.length - 1]
               setSelectedLab(latestActiveLab.labNumber)
+            } else if (sortedLabs.length > 0) {
+              setSelectedLab(sortedLabs[sortedLabs.length - 1].labNumber)
             }
           }
         }
@@ -615,9 +617,9 @@ export default function CriteriaGrading({
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 shadow-sm transition-all"
               >
                 <option value="">Select Lab</option>
-                {labs.filter(lab => lab.isActive).map((lab) => (
+                {labs.map((lab) => (
                   <option key={lab.id} value={lab.labNumber}>
-                    Lab {lab.labNumber}: {lab.title}
+                    Lab {lab.labNumber}: {lab.title} {!lab.isActive ? '(Inactive)' : ''}
                   </option>
                 ))}
               </select>
