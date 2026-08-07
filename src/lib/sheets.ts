@@ -500,14 +500,17 @@ export async function getSheetData(subject: string = 'Sheet1', tabName?: string,
   // Removed ITCS113 special block to default to starting from 'A' and using 'Sheet1' or subject name fallback
   let firstRow = 'A';
 
-  if (subject === 'ITCS113') {
-    tabName = 'lab';
-  }
+  // Use configured tab name if specified, otherwise tabName or fallbacks (score, Score, lab, Sheet1)
+  let targetTab = config?.singleSheetTabName || tabName || subject;
 
-  // Use provided tabName, or configured tab name for single sheets, or fallback to subject code
-  let targetTab = tabName || config?.singleSheetTabName || subject;
-
-  targetTab = await resolveTabNameForSpreadsheet(spreadsheetId, targetTab, [subject, 'Sheet1']);
+  targetTab = await resolveTabNameForSpreadsheet(spreadsheetId, targetTab, [
+    config?.singleSheetTabName || '',
+    'score',
+    'Score',
+    'lab',
+    subject,
+    'Sheet1'
+  ].filter(Boolean));
   
   const cacheKey = `sheets_${spreadsheetId}_${targetTab}`;
   const cached = sheetsCache.get(cacheKey);
@@ -902,7 +905,7 @@ function resolveTabsForStudentIds(subject: string, config?: any): string[] {
     return ['Sec1', 'Sec2'];
   }
 
-  return [config?.singleSheetTabName || subject];
+  return [config?.singleSheetTabName || 'score', 'Score', 'lab', 'Sheet1', subject];
 }
 
 function extractPrefixesFromIdColumn(rows: any[][]): string[] {
