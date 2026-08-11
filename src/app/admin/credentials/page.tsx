@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, Key, Download, RefreshCw, CheckCircle, AlertCircle, Filter } from "lucide-react"
+import { ArrowLeft, Key, Download, RefreshCw, CheckCircle, AlertCircle, Filter, UserPlus } from "lucide-react"
 import Link from "next/link"
 import { AlertDialog } from "@/components/AlertDialog"
 
@@ -23,6 +23,14 @@ export default function UniversalCredentialsPage() {
   const [removing, setRemoving] = useState(false)
   const [credentials, setCredentials] = useState<StudentCredential[]>([])
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+  
+  // Individual Credential Form State
+  const [newStudentId, setNewStudentId] = useState("")
+  const [newCredential, setNewCredential] = useState("")
+  const [newName, setNewName] = useState("")
+  const [newSurname, setNewSurname] = useState("")
+  const [newSection, setNewSection] = useState("")
+  const [addingIndividual, setAddingIndividual] = useState(false)
   
   // Selection State
   const [subjects, setSubjects] = useState<string[]>([])
@@ -106,14 +114,17 @@ export default function UniversalCredentialsPage() {
          sheetStudents = sheetData.students || []
       }
 
-      // 3. Merge data: Only include students belonging to the selected subject roster
+      // 3. Merge data: Include students from Sheet AND any DB credentials for this subject
       const credMap = new Map((dbCredentials || []).map((c: any) => [c.studentId, c]))
+      const sheetSidSet = new Set<string>()
 
       const mergedList: StudentCredential[] = []
 
       // Add students from Sheet for the selected subject
       sheetStudents.forEach((student: any) => {
-        const sid = student.id || student.studentId
+        const sid = String(student.id || student.studentId || '').trim()
+        if (!sid) return
+        sheetSidSet.add(sid)
         const existing = credMap.get(sid)
         
         mergedList.push({
@@ -124,6 +135,26 @@ export default function UniversalCredentialsPage() {
           credential: existing?.credential || existing?.credentialCode || '',
           subject: selectedSubject
         })
+      })
+
+      // ALSO add any DB credentials for the selected subject that were NOT in the sheet
+      dbCredentials.forEach((c: any) => {
+        const sid = String(c.studentId || '').trim()
+        if (sid && !sheetSidSet.has(sid)) {
+          const credSub = c.subject ? String(c.subject).trim().toUpperCase() : ''
+          const selSub = String(selectedSubject).trim().toUpperCase()
+          if (!credSub || credSub === selSub || !selectedSubject) {
+            mergedList.push({
+              studentId: sid,
+              name: c.name || '',
+              surname: c.surname || '',
+              section: c.section || '',
+              credential: c.credential || c.credentialCode || '',
+              subject: selectedSubject
+            })
+            sheetSidSet.add(sid)
+          }
+        }
       })
 
       // For students with empty name (not in sheet), try to fetch from API
@@ -172,6 +203,65 @@ export default function UniversalCredentialsPage() {
       result += chars.charAt(Math.floor(Math.random() * chars.length))
     }
     return result
+  }
+
+  // Handler for adding an individual student credential
+  const handleAddIndividualCredential = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newStudentId.trim()) {
+      setMessage({ type: 'error', text: 'Student ID is required' })
+      return
+    }
+
+    setAddingIndividual(true)
+    setMessage(null)
+
+    try {
+      const finalCredential = newCredential.trim() || generateCredential()
+      const targetSubject = selectedSubject || subjects[0] || 'ITCS112'
+
+      const res = await fetch('/api/credentials', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', 'Pragma': 'no-cache' },
+        body: JSON.stringify({
+          subject: targetSubject,
+          overwriteExisting: true,
+          credentials: [{
+            studentId: newStudentId.trim(),
+            credential: finalCredential,
+            name: newName.trim(),
+            surname: newSurname.trim(),
+            section: newSection.trim()
+          }]
+        })
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to save individual credential')
+      }
+
+      setMessage({ 
+        type: 'success', 
+        text: `Successfully added credential for Student ID ${newStudentId.trim()} (${targetSubject})! Access Code: ${finalCredential}` 
+      })
+
+      // Reset form
+      setNewStudentId("")
+      setNewCredential("")
+      setNewName("")
+      setNewSurname("")
+      setNewSection("")
+
+      // Refresh credentials list
+      await loadExistingCredentials()
+    } catch (error: any) {
+      console.error('Failed to add individual credential:', error)
+      setMessage({ type: 'error', text: error.message || 'Failed to add credential' })
+    } finally {
+      setAddingIndividual(false)
+    }
   }
 
   const handleFetchAndGenerate = async () => {
@@ -520,6 +610,105 @@ export default function UniversalCredentialsPage() {
             <span>{message.text}</span>
           </div>
         )}
+
+        {/* Add Individual Credential Section */}
+        <div className="bg-[#161b22] rounded-xl p-6 border border-teal-500/30 shadow-lg space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-teal-400" />
+              Add Individual Student Credential
+            </h2>
+            <span className="text-xs text-slate-400">Add a single student without needing Google Sheets</span>
+          </div>
+
+          <form onSubmit={handleAddIndividualCredential} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+            <div className="lg:col-span-2">
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Student ID *</label>
+              <input
+                type="text"
+                required
+                value={newStudentId}
+                onChange={(e) => setNewStudentId(e.target.value)}
+                placeholder="e.g. 6788138"
+                className="w-full px-3 py-2 bg-[#0f1115] border border-slate-700 rounded-lg text-white font-mono text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+              />
+            </div>
+
+            <div className="lg:col-span-2">
+              <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                <span>Access Code (Credential)</span>
+                <button
+                  type="button"
+                  onClick={() => setNewCredential(generateCredential())}
+                  className="text-[10px] text-teal-400 hover:underline flex items-center gap-0.5"
+                >
+                  🎲 Auto-Generate
+                </button>
+              </label>
+              <input
+                type="text"
+                value={newCredential}
+                onChange={(e) => setNewCredential(e.target.value.toUpperCase())}
+                placeholder="Leave blank to auto-generate"
+                maxLength={10}
+                className="w-full px-3 py-2 bg-[#0f1115] border border-slate-700 rounded-lg text-white font-mono text-sm uppercase placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+              />
+            </div>
+
+            <div className="lg:col-span-1">
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Name (Optional)</label>
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Firstname"
+                className="w-full px-3 py-2 bg-[#0f1115] border border-slate-700 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+              />
+            </div>
+
+            <div className="lg:col-span-1">
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Surname (Optional)</label>
+              <input
+                type="text"
+                value={newSurname}
+                onChange={(e) => setNewSurname(e.target.value)}
+                placeholder="Lastname"
+                className="w-full px-3 py-2 bg-[#0f1115] border border-slate-700 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+              />
+            </div>
+
+            <div className="lg:col-span-1">
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Section (Optional)</label>
+              <input
+                type="text"
+                value={newSection}
+                onChange={(e) => setNewSection(e.target.value)}
+                placeholder="e.g. 1"
+                className="w-full px-3 py-2 bg-[#0f1115] border border-slate-700 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+              />
+            </div>
+
+            <div className="lg:col-span-5 flex items-end">
+              <button
+                type="submit"
+                disabled={addingIndividual || !newStudentId.trim()}
+                className="w-full py-2.5 px-4 bg-teal-600 hover:bg-teal-500 disabled:bg-slate-800 disabled:text-slate-600 disabled:cursor-not-allowed text-white font-bold text-sm rounded-lg transition-colors flex items-center justify-center gap-2 shadow-md cursor-pointer"
+              >
+                {addingIndividual ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Adding Credential...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    Add Individual Credential to {selectedSubject || 'Subject'}
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
 
         {/* Action Buttons */}
         <div className="bg-[#161b22] rounded-xl p-6 border border-white/5 space-y-4">
