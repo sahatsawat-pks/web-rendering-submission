@@ -14,6 +14,18 @@ export interface ParsedGiftQuestion {
 }
 
 /**
+ * Find the next unescaped character in a string starting at fromIndex
+ */
+function findUnescapedChar(str: string, char: string, fromIndex: number = 0): number {
+  for (let i = fromIndex; i < str.length; i++) {
+    if (str[i] === char && (i === 0 || str[i - 1] !== '\\')) {
+      return i
+    }
+  }
+  return -1
+}
+
+/**
  * Parse GIFT format text into question objects
  */
 export function parseGiftFormat(giftText: string): ParsedGiftQuestion[] {
@@ -43,25 +55,24 @@ export function parseGiftFormat(giftText: string): ParsedGiftQuestion[] {
     const categoryMatch = textToParse.match(/^\$CATEGORY:\s*([^\n]+)/i)
     if (categoryMatch) {
       currentCategory = categoryMatch[1].trim()
+      // Clean up category string (remove $course$/ prefix if present)
+      currentCategory = currentCategory.replace(/^\$course\$\//i, '').trim()
       textToParse = textToParse.replace(/^\$CATEGORY:\s*[^\n]+/i, '').trim()
     }
 
     if (!textToParse) continue
 
-    // Extract individual question blocks by finding { ... } pairs
+    // Extract individual question blocks by finding unescaped { ... } pairs
     let pos = 0
     while (pos < textToParse.length) {
-      const openBrace = textToParse.indexOf('{', pos)
+      const openBrace = findUnescapedChar(textToParse, '{', pos)
       if (openBrace === -1) break
 
-      const closeBrace = textToParse.indexOf('}', openBrace)
+      const closeBrace = findUnescapedChar(textToParse, '}', openBrace + 1)
       if (closeBrace === -1) break
 
-      // Question start is either 0 or right after the previous question's closing brace }
-      const prevClose = textToParse.lastIndexOf('}', openBrace - 1)
-      const qStart = prevClose === -1 ? 0 : prevClose + 1
-
-      const questionBlock = textToParse.substring(qStart, closeBrace + 1).trim()
+      // Question block spans from pos (or 0) up to closeBrace + 1
+      const questionBlock = textToParse.substring(pos, closeBrace + 1).trim()
       if (questionBlock) {
         const parsed = parseGiftQuestion(questionBlock, currentCategory)
         if (parsed) {
@@ -81,14 +92,29 @@ function parseGiftQuestion(text: string, defaultCategory?: string): ParsedGiftQu
   let category: string | undefined = defaultCategory
   const categoryMatch = text.match(/^\$CATEGORY:\s*(.+)$/m)
   if (categoryMatch) {
-    category = categoryMatch[1].trim()
+    category = categoryMatch[1].trim().replace(/^\$course\$\//i, '')
     text = text.replace(/^\$CATEGORY:.*$/m, '').trim()
   }
   
-  // Find the LAST { } pair which should be the answer block
-  // This allows HTML tags with { } in the question text
-  const lastOpenBrace = text.lastIndexOf('{')
-  const lastCloseBrace = text.lastIndexOf('}')
+  // Find the LAST unescaped { and } pair which marks the answer block
+  let lastOpenBrace = -1
+  let lastCloseBrace = -1
+
+  for (let i = text.length - 1; i >= 0; i--) {
+    if (text[i] === '}' && (i === 0 || text[i - 1] !== '\\')) {
+      lastCloseBrace = i
+      break
+    }
+  }
+
+  if (lastCloseBrace !== -1) {
+    for (let i = lastCloseBrace - 1; i >= 0; i--) {
+      if (text[i] === '{' && (i === 0 || text[i - 1] !== '\\')) {
+        lastOpenBrace = i
+        break
+      }
+    }
+  }
   
   if (lastOpenBrace === -1 || lastCloseBrace === -1 || lastOpenBrace >= lastCloseBrace) {
     return null
@@ -100,37 +126,64 @@ function parseGiftQuestion(text: string, defaultCategory?: string): ParsedGiftQu
   // Remove question name if present (::name::)
   questionText = questionText.replace(/^::.*?::\s*/, '')
   
-  // Handle HTML entities and formatting
+  // Decode escaped chars in question text AFTER splitting answer block
   questionText = decodeGiftText(questionText)
   
-  // Determine question type and parse answers
+  if (!questionText) return null
+
+  // 1. Numerical Question ({#5} or {#5:0.1} or {#=5})
+  if (answerPart.startsWith('#')) {
+    const numMatch = answerPart.substring(1).trim()
+    const [ans, feedback] = splitFeedback(numMatch)
+    const cleanAns = ans.replace(/^=/, '').trim()
+    return {
+      question: questionText,
+      type: 'short-answer',
+      correctAnswer: decodeGiftText(cleanAns),
+      explanation: feedback ? decodeGiftText(feedback) : undefined,
+      category
+    }
+  }
+
+  // 2. Short Answer / True-False or Multiple Choice / Multiple Answer
   if (answerPart.startsWith('=') && !answerPart.includes('~')) {
-    // Short answer or true/false
-    const answer = answerPart.substring(1).trim()
-    
-    if (answer.toLowerCase() === 'true' || answer.toLowerCase() === 'false' || answer.toLowerCase() === 't' || answer.toLowerCase() === 'f') {
-      // True/False question
-      const normalizedAnswer = (answer.toLowerCase() === 'true' || answer.toLowerCase() === 't') ? 'True' : 'False'
-      return {
-        question: questionText,
-        type: 'multiple-choice',
-        options: ['True', 'False'],
-        correctAnswer: normalizedAnswer,
-        category
+    // Short answer (can have multiple '=' correct choices, e.g. =2n =2*n)
+    const choices = answerPart.split(/(?<!\\)(?==)/).map(c => c.trim()).filter(Boolean)
+    const answers: string[] = []
+    let explanation: string | undefined
+
+    for (const choice of choices) {
+      if (choice.startsWith('=')) {
+        const answerText = choice.substring(1).trim()
+        const [ans, feedback] = splitFeedback(answerText)
+        answers.push(decodeGiftText(ans))
+        if (feedback && !explanation) explanation = decodeGiftText(feedback)
       }
-    } else {
-      // Short answer
+    }
+
+    if (answers.length > 0) {
+      const firstAns = answers[0].toLowerCase()
+      if ((answers.length === 1) && (firstAns === 'true' || firstAns === 'false' || firstAns === 't' || firstAns === 'f')) {
+        const normalizedAnswer = (firstAns === 'true' || firstAns === 't') ? 'True' : 'False'
+        return {
+          question: questionText,
+          type: 'multiple-choice',
+          options: ['True', 'False'],
+          correctAnswer: normalizedAnswer,
+          explanation,
+          category
+        }
+      }
+
       return {
         question: questionText,
         type: 'short-answer',
-        correctAnswer: decodeGiftText(answer),
+        correctAnswer: answers.length === 1 ? answers[0] : answers.join(' or '),
         category
       }
     }
   } else if (answerPart.includes('~') || answerPart.startsWith('=')) {
-    // Multiple choice or Multiple answer
-    // Split by ~ or = BUT NOT if preceded by \ (escaped)
-    // Using lookahead to keep the delimiter (= or ~) at the start of the next chunk
+    // Multiple Choice or Multiple Answer
     const choices = answerPart.split(/(?<!\\)(?=[~=])/)
     const options: string[] = []
     const correctAnswers: string[] = []
@@ -141,7 +194,6 @@ function parseGiftQuestion(text: string, defaultCategory?: string): ParsedGiftQu
       if (!trimmed) continue
       
       if (trimmed.startsWith('=')) {
-        // Correct answer
         const answerText = trimmed.substring(1).trim()
         const [answer, feedback] = splitFeedback(answerText)
         const decodedAnswer = decodeGiftText(answer)
@@ -151,10 +203,8 @@ function parseGiftQuestion(text: string, defaultCategory?: string): ParsedGiftQu
           explanation = decodeGiftText(feedback)
         }
       } else if (trimmed.startsWith('~')) {
-        // Wrong answer
         const answerText = trimmed.substring(1).trim()
         const [answer] = splitFeedback(answerText)
-        // Skip wrong answers with percentages (partial credit)
         if (!trimmed.match(/^~%/)) {
           options.push(decodeGiftText(answer))
         }
@@ -162,7 +212,6 @@ function parseGiftQuestion(text: string, defaultCategory?: string): ParsedGiftQu
     }
     
     if (options.length > 0 && correctAnswers.length > 0) {
-      // If multiple correct answers, it's a multiple-answer question
       const questionType = correctAnswers.length > 1 ? 'multiple-answer' : 'multiple-choice'
       return {
         question: questionText,
@@ -174,7 +223,6 @@ function parseGiftQuestion(text: string, defaultCategory?: string): ParsedGiftQu
       }
     }
   } else if (answerPart === '' || answerPart === 'ESSAY' || answerPart.toLowerCase() === 'essay') {
-    // Essay question - convert to short answer
     return {
       question: questionText,
       type: 'short-answer',
@@ -182,7 +230,20 @@ function parseGiftQuestion(text: string, defaultCategory?: string): ParsedGiftQu
       category
     }
   }
-  
+
+  // Single-line True/False e.g. {T} or {F}
+  const cleanAnsPart = answerPart.trim().toLowerCase()
+  if (cleanAnsPart === 't' || cleanAnsPart === 'true' || cleanAnsPart === 'f' || cleanAnsPart === 'false') {
+    const normalizedAnswer = (cleanAnsPart === 't' || cleanAnsPart === 'true') ? 'True' : 'False'
+    return {
+      question: questionText,
+      type: 'multiple-choice',
+      options: ['True', 'False'],
+      correctAnswer: normalizedAnswer,
+      category
+    }
+  }
+
   return null
 }
 

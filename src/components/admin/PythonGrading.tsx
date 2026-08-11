@@ -44,7 +44,7 @@ export default function PythonGrading({
   const [studentDetails, setStudentDetails] = useState<any>(null)
   const [isFilling, setIsFilling] = useState(false)
   const [prefixes, setPrefixes] = useState<string[]>([])
-  const [selectedPrefix, setSelectedPrefix] = useState("6788")
+  const [selectedPrefix, setSelectedPrefix] = useState("")
   const [remainingDigits, setRemainingDigits] = useState("")
   const [togglingQuiz, setTogglingQuiz] = useState<string | null>(null)
   const [localQuizSectionEnabled, setLocalQuizSectionEnabled] = useState(quizSectionEnabled)
@@ -207,6 +207,17 @@ export default function PythonGrading({
     }
     fetchAnnouncements()
   }, [subjectCode])
+
+  // Keep studentId in sync with selectedPrefix and remainingDigits
+  useEffect(() => {
+    if (selectedPrefix && remainingDigits) {
+      setStudentId(`${selectedPrefix}${remainingDigits}`);
+    } else if (remainingDigits) {
+      setStudentId(remainingDigits);
+    } else {
+      setStudentId("");
+    }
+  }, [selectedPrefix, remainingDigits]);
 
   async function toggleQuizSection() {
     setTogglingQuizSection(true)
@@ -779,10 +790,7 @@ export default function PythonGrading({
                 <div className="flex gap-2">
                   <select
                     value={selectedPrefix}
-                    onChange={(e) => {
-                      setSelectedPrefix(e.target.value)
-                      setStudentId(e.target.value + remainingDigits)
-                    }}
+                    onChange={(e) => setSelectedPrefix(e.target.value)}
                     className="w-28 px-3 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm font-mono"
                   >
                     {prefixes.map(prefix => (
@@ -792,11 +800,7 @@ export default function PythonGrading({
                   <input
                     type="text"
                     value={remainingDigits}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, '')
-                      setRemainingDigits(val)
-                      setStudentId(selectedPrefix + val)
-                    }}
+                    onChange={(e) => setRemainingDigits(e.target.value.replace(/\D/g, ''))}
                     placeholder="xxxxx"
                     maxLength={5}
                     required

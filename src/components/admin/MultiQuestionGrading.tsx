@@ -46,7 +46,7 @@ export default function MultiQuestionGrading({
   const [submittedScores, setSubmittedScores] = useState<{ lab?: number; challenge?: number }>({})
   
   const [prefixes, setPrefixes] = useState<string[]>([])
-  const [selectedPrefix, setSelectedPrefix] = useState("6788")
+  const [selectedPrefix, setSelectedPrefix] = useState("")
   const [remainingDigits, setRemainingDigits] = useState("")
   
   const [showNewLabDialog, setShowNewLabDialog] = useState(false)
@@ -157,6 +157,17 @@ export default function MultiQuestionGrading({
     }
     fetchAnnouncements()
   }, [subjectCode])
+
+  // Keep studentId in sync with selectedPrefix and remainingDigits
+  useEffect(() => {
+    if (selectedPrefix && remainingDigits) {
+      setStudentId(`${selectedPrefix}${remainingDigits}`);
+    } else if (remainingDigits) {
+      setStudentId(remainingDigits);
+    } else {
+      setStudentId("");
+    }
+  }, [selectedPrefix, remainingDigits]);
 
   // Fetch student details when studentId changes
   useEffect(() => {
@@ -670,7 +681,7 @@ export default function MultiQuestionGrading({
                <div className="flex gap-2">
                  <select
                    value={selectedPrefix}
-                   onChange={e=>{setSelectedPrefix(e.target.value); setStudentId(e.target.value+remainingDigits)}}
+                   onChange={e=>setSelectedPrefix(e.target.value)}
                    className="w-28 px-3 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 shadow-sm hover:border-orange-300 dark:hover:border-orange-600 transition-all font-mono"
                  >
                    {prefixes.map(p=><option key={p} value={p}>{p}</option>)}
@@ -678,7 +689,7 @@ export default function MultiQuestionGrading({
                  <input
                    type="text"
                    value={remainingDigits}
-                   onChange={e=>{const v=e.target.value.replace(/\D/g,''); setRemainingDigits(v); setStudentId(selectedPrefix+v)}}
+                   onChange={e=>setRemainingDigits(e.target.value.replace(/\D/g,''))}
                    maxLength={5}
                    placeholder="xxxxx"
                    required
