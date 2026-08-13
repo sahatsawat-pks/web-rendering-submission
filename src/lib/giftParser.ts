@@ -14,25 +14,27 @@ export interface ParsedGiftQuestion {
 }
 
 /**
- * Find the next unescaped character in a string starting at fromIndex
+ * GIFT Format Parser for Moodle Quiz Import
+ * Handles math equations, LaTeX delimiters \(...\), set notation {x|...},
+ * numerical questions, short answers, and multiple choice without truncation.
  */
-function findUnescapedChar(str: string, char: string, fromIndex: number = 0): number {
-  for (let i = fromIndex; i < str.length; i++) {
-    if (str[i] === char && (i === 0 || str[i - 1] !== '\\')) {
-      return i
-    }
-  }
-  return -1
+
+export interface ParsedGiftQuestion {
+  question: string
+  type: 'multiple-choice' | 'short-answer' | 'true-false' | 'essay' | 'multiple-answer'
+  options?: string[]
+  correctAnswer: string | string[]
+  explanation?: string
+  category?: string
+  imageUrl?: string
 }
 
-/**
- * Parse GIFT format text into question objects
- */
 export function parseGiftFormat(giftText: string): ParsedGiftQuestion[] {
   const questions: ParsedGiftQuestion[] = []
-  
-  // Remove comment lines (starting with //)
-  const lines = giftText.split('\n')
+  let currentCategory: string | undefined
+
+  // Split into raw lines, filtering out pure comment lines
+  const lines = giftText.split(/\r?\n/)
   const cleanedLines: string[] = []
   for (const line of lines) {
     const trimmed = line.trim()
@@ -42,96 +44,86 @@ export function parseGiftFormat(giftText: string): ParsedGiftQuestion[] {
   }
   const cleanedText = cleanedLines.join('\n')
 
-  let currentCategory: string | undefined
+  // Split content into blocks by double newlines or category headers
+  const rawParagraphs = cleanedText.split(/\n\s*\n+/)
 
-  // Split content into chunks by $CATEGORY: declarations
-  const chunks = cleanedText.split(/(?=\$CATEGORY:)/i)
+  for (const rawParagraph of rawParagraphs) {
+    let para = rawParagraph.trim()
+    if (!para) continue
 
-  for (const chunk of chunks) {
-    let textToParse = chunk.trim()
-    if (!textToParse) continue
-
-    // Extract category header if present at start of chunk
-    const categoryMatch = textToParse.match(/^\$CATEGORY:\s*([^\n]+)/i)
+    // Extract category if paragraph contains $CATEGORY:
+    const categoryMatch = para.match(/\$CATEGORY:\s*([^\n]+)/i)
     if (categoryMatch) {
-      currentCategory = categoryMatch[1].trim()
-      // Clean up category string (remove $course$/ prefix if present)
-      currentCategory = currentCategory.replace(/^\$course\$\//i, '').trim()
-      textToParse = textToParse.replace(/^\$CATEGORY:\s*[^\n]+/i, '').trim()
+      currentCategory = categoryMatch[1].trim().replace(/^\$course\$\//i, '')
+      para = para.replace(/\$CATEGORY:\s*[^\n]+/gi, '').trim()
+      if (!para) continue
     }
 
-    if (!textToParse) continue
-
-    // Extract individual question blocks by finding unescaped { ... } pairs
-    let pos = 0
-    while (pos < textToParse.length) {
-      const openBrace = findUnescapedChar(textToParse, '{', pos)
-      if (openBrace === -1) break
-
-      const closeBrace = findUnescapedChar(textToParse, '}', openBrace + 1)
-      if (closeBrace === -1) break
-
-      // Question block spans from pos (or 0) up to closeBrace + 1
-      const questionBlock = textToParse.substring(pos, closeBrace + 1).trim()
-      if (questionBlock) {
-        const parsed = parseGiftQuestion(questionBlock, currentCategory)
-        if (parsed) {
-          questions.push(parsed)
-        }
+    const parsed = parseGiftQuestionBlock(para, currentCategory)
+    if (parsed) {
+      if (Array.isArray(parsed)) {
+        questions.push(...parsed)
+      } else {
+        questions.push(parsed)
       }
-
-      pos = closeBrace + 1
     }
   }
-  
+
   return questions
 }
 
-function parseGiftQuestion(text: string, defaultCategory?: string): ParsedGiftQuestion | null {
-  // Extract category if present in question itself
-  let category: string | undefined = defaultCategory
+function parseGiftQuestionBlock(text: string, defaultCategory?: string): ParsedGiftQuestion | ParsedGiftQuestion[] | null {
+  if (text.includes('$CATEGORY:')) {
+    const results: ParsedGiftQuestion[] = []
+    const chunks = text.split(/(?=\$CATEGORY:)/i)
+    let cat = defaultCategory
+    for (const chunk of chunks) {
+      let t = chunk.trim()
+      if (!t) continue
+      const catMatch = t.match(/^\$CATEGORY:\s*([^\n]+)/i)
+      if (catMatch) {
+        cat = catMatch[1].trim().replace(/^\$course\$\//i, '')
+        t = t.replace(/^\$CATEGORY:\s*[^\n]+/i, '').trim()
+      }
+      if (!t) continue
+      const q = parseSingleQuestion(t, cat)
+      if (q) results.push(q)
+    }
+    return results.length > 0 ? results : null
+  }
+
+  return parseSingleQuestion(text, defaultCategory)
+}
+
+function parseSingleQuestion(text: string, category?: string): ParsedGiftQuestion | null {
+  text = text.trim()
+  if (!text) return null
+
+  // Extract category if present at start
   const categoryMatch = text.match(/^\$CATEGORY:\s*(.+)$/m)
   if (categoryMatch) {
     category = categoryMatch[1].trim().replace(/^\$course\$\//i, '')
     text = text.replace(/^\$CATEGORY:.*$/m, '').trim()
   }
-  
-  // Find the LAST unescaped { and } pair which marks the answer block
-  let lastOpenBrace = -1
-  let lastCloseBrace = -1
 
-  for (let i = text.length - 1; i >= 0; i--) {
-    if (text[i] === '}' && (i === 0 || text[i - 1] !== '\\')) {
-      lastCloseBrace = i
-      break
-    }
+  // Find true GIFT answer block { ... }
+  const answerBlockMatch = findAnswerBlock(text)
+  if (!answerBlockMatch) return null
+
+  let questionText = text.substring(0, answerBlockMatch.startIndex).trim()
+  const answerPart = answerBlockMatch.content.trim()
+  const textAfter = text.substring(answerBlockMatch.endIndex).trim()
+
+  if (textAfter) {
+    questionText = questionText ? `${questionText} _____ ${textAfter}` : textAfter
   }
 
-  if (lastCloseBrace !== -1) {
-    for (let i = lastCloseBrace - 1; i >= 0; i--) {
-      if (text[i] === '{' && (i === 0 || text[i - 1] !== '\\')) {
-        lastOpenBrace = i
-        break
-      }
-    }
-  }
-  
-  if (lastOpenBrace === -1 || lastCloseBrace === -1 || lastOpenBrace >= lastCloseBrace) {
-    return null
-  }
-  
-  let questionText = text.substring(0, lastOpenBrace).trim()
-  const answerPart = text.substring(lastOpenBrace + 1, lastCloseBrace).trim()
-  
-  // Remove question name if present (::name::)
   questionText = questionText.replace(/^::.*?::\s*/, '')
-  
-  // Decode escaped chars in question text AFTER splitting answer block
   questionText = decodeGiftText(questionText)
-  
+
   if (!questionText) return null
 
-  // 1. Numerical Question ({#5} or {#5:0.1} or {#=5})
+  // 1. Numerical Question ({#5} or {#-53} or {#5:0.1})
   if (answerPart.startsWith('#')) {
     const numMatch = answerPart.substring(1).trim()
     const [ans, feedback] = splitFeedback(numMatch)
@@ -145,32 +137,38 @@ function parseGiftQuestion(text: string, defaultCategory?: string): ParsedGiftQu
     }
   }
 
-  // 2. Short Answer / True-False or Multiple Choice / Multiple Answer
-  if (answerPart.startsWith('=') && !answerPart.includes('~')) {
-    // Short answer (can have multiple '=' correct choices, e.g. =2n =2*n)
-    const choices = answerPart.split(/(?<!\\)(?==)/).map(c => c.trim()).filter(Boolean)
-    const answers: string[] = []
-    let explanation: string | undefined
-
-    for (const choice of choices) {
-      if (choice.startsWith('=')) {
-        const answerText = choice.substring(1).trim()
-        const [ans, feedback] = splitFeedback(answerText)
-        answers.push(decodeGiftText(ans))
-        if (feedback && !explanation) explanation = decodeGiftText(feedback)
-      }
+  // 2. Single-line True/False e.g. {T} or {F} or {TRUE} or {FALSE}
+  const cleanAnsPart = answerPart.trim().toLowerCase()
+  if (['t', 'true', 'f', 'false'].includes(cleanAnsPart)) {
+    const isTrue = cleanAnsPart === 't' || cleanAnsPart === 'true'
+    return {
+      question: questionText,
+      type: 'multiple-choice',
+      options: ['True', 'False'],
+      correctAnswer: isTrue ? 'True' : 'False',
+      category
     }
+  }
 
-    if (answers.length > 0) {
+  // 3. Short Answer / Multiple Choice / Multiple Answer
+  const choices = parseAnswerChoices(answerPart)
+
+  if (choices.length > 0) {
+    const correctChoices = choices.filter(c => c.isCorrect)
+    const wrongChoices = choices.filter(c => !c.isCorrect)
+
+    if (wrongChoices.length === 0 && correctChoices.length > 0) {
+      const answers = correctChoices.map(c => c.text)
       const firstAns = answers[0].toLowerCase()
-      if ((answers.length === 1) && (firstAns === 'true' || firstAns === 'false' || firstAns === 't' || firstAns === 'f')) {
-        const normalizedAnswer = (firstAns === 'true' || firstAns === 't') ? 'True' : 'False'
+
+      if (answers.length === 1 && ['true', 'false', 't', 'f'].includes(firstAns)) {
+        const isTrue = firstAns === 'true' || firstAns === 't'
         return {
           question: questionText,
           type: 'multiple-choice',
           options: ['True', 'False'],
-          correctAnswer: normalizedAnswer,
-          explanation,
+          correctAnswer: isTrue ? 'True' : 'False',
+          explanation: correctChoices[0].feedback,
           category
         }
       }
@@ -179,38 +177,15 @@ function parseGiftQuestion(text: string, defaultCategory?: string): ParsedGiftQu
         question: questionText,
         type: 'short-answer',
         correctAnswer: answers.length === 1 ? answers[0] : answers.join(' or '),
+        explanation: correctChoices[0]?.feedback,
         category
       }
     }
-  } else if (answerPart.includes('~') || answerPart.startsWith('=')) {
-    // Multiple Choice or Multiple Answer
-    const choices = answerPart.split(/(?<!\\)(?=[~=])/)
-    const options: string[] = []
-    const correctAnswers: string[] = []
-    let explanation: string | undefined
-    
-    for (const choice of choices) {
-      const trimmed = choice.trim()
-      if (!trimmed) continue
-      
-      if (trimmed.startsWith('=')) {
-        const answerText = trimmed.substring(1).trim()
-        const [answer, feedback] = splitFeedback(answerText)
-        const decodedAnswer = decodeGiftText(answer)
-        correctAnswers.push(decodedAnswer)
-        options.push(decodedAnswer)
-        if (feedback && !explanation) {
-          explanation = decodeGiftText(feedback)
-        }
-      } else if (trimmed.startsWith('~')) {
-        const answerText = trimmed.substring(1).trim()
-        const [answer] = splitFeedback(answerText)
-        if (!trimmed.match(/^~%/)) {
-          options.push(decodeGiftText(answer))
-        }
-      }
-    }
-    
+
+    const options = choices.map(c => c.text)
+    const correctAnswers = correctChoices.map(c => c.text)
+    const explanation = choices.find(c => c.feedback)?.feedback
+
     if (options.length > 0 && correctAnswers.length > 0) {
       const questionType = correctAnswers.length > 1 ? 'multiple-answer' : 'multiple-choice'
       return {
@@ -222,7 +197,10 @@ function parseGiftQuestion(text: string, defaultCategory?: string): ParsedGiftQu
         category
       }
     }
-  } else if (answerPart === '' || answerPart === 'ESSAY' || answerPart.toLowerCase() === 'essay') {
+  }
+
+  // 4. Essay
+  if (answerPart === '' || answerPart.toUpperCase() === 'ESSAY') {
     return {
       question: questionText,
       type: 'short-answer',
@@ -231,20 +209,117 @@ function parseGiftQuestion(text: string, defaultCategory?: string): ParsedGiftQu
     }
   }
 
-  // Single-line True/False e.g. {T} or {F}
-  const cleanAnsPart = answerPart.trim().toLowerCase()
-  if (cleanAnsPart === 't' || cleanAnsPart === 'true' || cleanAnsPart === 'f' || cleanAnsPart === 'false') {
-    const normalizedAnswer = (cleanAnsPart === 't' || cleanAnsPart === 'true') ? 'True' : 'False'
-    return {
-      question: questionText,
-      type: 'multiple-choice',
-      options: ['True', 'False'],
-      correctAnswer: normalizedAnswer,
-      category
+  return null
+}
+
+/**
+ * Find the true GIFT answer block `{ ... }` in a question string.
+ */
+function findAnswerBlock(text: string): { content: string; startIndex: number; endIndex: number } | null {
+  let pos = 0
+  while (pos < text.length) {
+    const openIndex = text.indexOf('{', pos)
+    if (openIndex === -1) break
+
+    if (openIndex > 0 && text[openIndex - 1] === '\\') {
+      pos = openIndex + 1
+      continue
     }
+
+    const closeIndex = text.indexOf('}', openIndex + 1)
+    if (closeIndex === -1) break
+
+    const content = text.substring(openIndex + 1, closeIndex).trim()
+
+    const isAnswerBlock = 
+      content === '' ||
+      /^[=~#]/m.test(content) ||
+      /^(T|F|TRUE|FALSE|ESSAY)$/i.test(content) ||
+      content.startsWith('//')
+
+    if (isAnswerBlock) {
+      return {
+        content,
+        startIndex: openIndex,
+        endIndex: closeIndex + 1
+      }
+    }
+
+    pos = closeIndex + 1
   }
 
   return null
+}
+
+interface ParsedChoice {
+  isCorrect: boolean
+  text: string
+  feedback?: string
+}
+
+/**
+ * Safely parse choices inside a GIFT answer block `{ ... }`.
+ * Splits choices by line breaks starting with = or ~ so equations like b_n = b_(n-1) are preserved.
+ */
+function parseAnswerChoices(answerPart: string): ParsedChoice[] {
+  const results: ParsedChoice[] = []
+  const lines = answerPart.split(/\r?\n/)
+  let currentChoice: { isCorrect: boolean; rawText: string } | null = null
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+
+    if (trimmed.startsWith('=') || trimmed.startsWith('~')) {
+      if (currentChoice) {
+        const choiceObj = processChoiceRaw(currentChoice.isCorrect, currentChoice.rawText)
+        if (choiceObj) results.push(choiceObj)
+      }
+
+      currentChoice = {
+        isCorrect: trimmed.startsWith('='),
+        rawText: trimmed.substring(1).trim()
+      }
+    } else if (currentChoice) {
+      currentChoice.rawText += ' ' + trimmed
+    } else {
+      const inlineTokens = answerPart.split(/(?<!\\)(?=[~=])/)
+      for (const token of inlineTokens) {
+        const t = token.trim()
+        if (!t) continue
+        if (t.startsWith('=')) {
+          const choiceObj = processChoiceRaw(true, t.substring(1).trim())
+          if (choiceObj) results.push(choiceObj)
+        } else if (t.startsWith('~')) {
+          const choiceObj = processChoiceRaw(false, t.substring(1).trim())
+          if (choiceObj) results.push(choiceObj)
+        }
+      }
+      return results
+    }
+  }
+
+  if (currentChoice) {
+    const choiceObj = processChoiceRaw(currentChoice.isCorrect, currentChoice.rawText)
+    if (choiceObj) results.push(choiceObj)
+  }
+
+  return results
+}
+
+function processChoiceRaw(isCorrect: boolean, rawText: string): ParsedChoice | null {
+  if (!rawText && !isCorrect) return null
+  if (rawText.match(/^%\d+%/)) return null
+
+  const [ansText, feedback] = splitFeedback(rawText)
+  const decodedText = decodeGiftText(ansText)
+  if (!decodedText) return null
+
+  return {
+    isCorrect,
+    text: decodedText,
+    feedback: feedback ? decodeGiftText(feedback) : undefined
+  }
 }
 
 function splitFeedback(text: string): [string, string | undefined] {
