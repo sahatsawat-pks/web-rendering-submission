@@ -629,7 +629,7 @@ export default function UniversalCredentialsPage() {
                 required
                 value={newStudentId}
                 onChange={(e) => setNewStudentId(e.target.value)}
-                placeholder="e.g. 6788138"
+                placeholder="e.g. 6988000"
                 className="w-full px-3 py-2 bg-[#0f1115] border border-slate-700 rounded-lg text-white font-mono text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
               />
             </div>
@@ -649,7 +649,7 @@ export default function UniversalCredentialsPage() {
                 type="text"
                 value={newCredential}
                 onChange={(e) => setNewCredential(e.target.value.toUpperCase())}
-                placeholder="Leave blank to auto-generate"
+                placeholder="e.g. ABCDEF"
                 maxLength={10}
                 className="w-full px-3 py-2 bg-[#0f1115] border border-slate-700 rounded-lg text-white font-mono text-sm uppercase placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
               />
