@@ -212,9 +212,6 @@ function parseSingleQuestion(text: string, category?: string): ParsedGiftQuestio
   return null
 }
 
-/**
- * Find the true GIFT answer block `{ ... }` in a question string.
- */
 function findAnswerBlock(text: string): { content: string; startIndex: number; endIndex: number } | null {
   let pos = 0
   while (pos < text.length) {
@@ -226,7 +223,8 @@ function findAnswerBlock(text: string): { content: string; startIndex: number; e
       continue
     }
 
-    const closeIndex = text.indexOf('}', openIndex + 1)
+    // Find the true matching closing brace for this opening brace
+    const closeIndex = findMatchingCloseBrace(text, openIndex)
     if (closeIndex === -1) break
 
     const content = text.substring(openIndex + 1, closeIndex).trim()
@@ -249,6 +247,21 @@ function findAnswerBlock(text: string): { content: string; startIndex: number; e
   }
 
   return null
+}
+
+function findMatchingCloseBrace(text: string, openIndex: number): number {
+  let depth = 0
+  for (let i = openIndex; i < text.length; i++) {
+    if (i > 0 && text[i - 1] === '\\') {
+      continue // Skip escaped brace
+    }
+    if (text[i] === '{') depth++
+    else if (text[i] === '}') {
+      depth--
+      if (depth === 0) return i
+    }
+  }
+  return text.lastIndexOf('}')
 }
 
 interface ParsedChoice {

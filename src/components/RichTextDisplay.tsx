@@ -6,9 +6,10 @@ import { useEffect, useState, useRef } from 'react'
 interface RichTextDisplayProps {
   content: string
   className?: string
+  inline?: boolean
 }
 
-export default function RichTextDisplay({ content, className = '' }: RichTextDisplayProps) {
+export default function RichTextDisplay({ content, className = '', inline = false }: RichTextDisplayProps) {
   const [sanitizedContent, setSanitizedContent] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -75,16 +76,31 @@ export default function RichTextDisplay({ content, className = '' }: RichTextDis
         }
       }
 
-      // Try rendering immediately if script ready, otherwise retry shortly
       const win = window as any
       if (win.renderMathInElement) {
         renderMath()
       } else {
-        const timer = setTimeout(renderMath, 400)
-        return () => clearTimeout(timer)
+        const timer1 = setTimeout(renderMath, 200)
+        const timer2 = setTimeout(renderMath, 600)
+        const timer3 = setTimeout(renderMath, 1200)
+        return () => {
+          clearTimeout(timer1)
+          clearTimeout(timer2)
+          clearTimeout(timer3)
+        }
       }
     }
   }, [sanitizedContent])
+
+  if (inline) {
+    return (
+      <span 
+        ref={containerRef}
+        className={className}
+        dangerouslySetInnerHTML={{ __html: sanitizedContent }}
+      />
+    )
+  }
 
   return (
     <div 
