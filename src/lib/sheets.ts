@@ -263,15 +263,30 @@ async function getSpreadsheetMimeType(spreadsheetId: string): Promise<string | n
   }
 }
 
+const tabNamesCache = new Map<string, { tabs: string[], timestamp: number }>();
+const TAB_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 async function listGoogleSheetTabNames(spreadsheetId: string): Promise<string[]> {
-  const sheets = await getSheetsClient();
-  const info = await sheets.spreadsheets.get({
-    spreadsheetId,
-    fields: 'sheets.properties.title',
-  });
-  return (info.data.sheets || [])
-    .map((s: { properties?: { title?: string | null } }) => s.properties?.title || '')
-    .filter((title: string) => title.length > 0);
+  const cached = tabNamesCache.get(spreadsheetId);
+  if (cached && Date.now() - cached.timestamp < TAB_CACHE_TTL) {
+    return cached.tabs;
+  }
+  try {
+    const sheets = await getSheetsClient();
+    const info = await sheets.spreadsheets.get({
+      spreadsheetId,
+      fields: 'sheets.properties.title',
+    });
+    const tabs = (info.data.sheets || [])
+      .map((s: { properties?: { title?: string | null } }) => s.properties?.title || '')
+      .filter((title: string) => title.length > 0);
+    tabNamesCache.set(spreadsheetId, { tabs, timestamp: Date.now() });
+    return tabs;
+  } catch (err) {
+    // If fetching fails and we have cached data (even stale), return it as fallback
+    if (cached) return cached.tabs;
+    throw err;
+  }
 }
 
 async function resolveGoogleSheetTabName(
@@ -316,11 +331,34 @@ function formatSheetUpdateError(tabName: string, err: any, availableTabs?: strin
 }
 
 function studentIdsMatch(sheetId: string | undefined, inputId: string): boolean {
-  const a = String(sheetId ?? '').trim();
-  const b = String(inputId ?? '').trim();
-  if (!a || !b) return false;
-  if (a === b) return true;
-  return a.replace(/^[uU]/, '') === b.replace(/^[uU]/, '');
+  if (sheetId === undefined || sheetId === null || inputId === undefined || inputId === null) return false;
+  const rawA = String(sheetId).trim();
+  const rawB = String(inputId).trim();
+  if (!rawA || !rawB) return false;
+  if (rawA === rawB) return true;
+  if (rawA.toLowerCase() === rawB.toLowerCase()) return true;
+
+  // Strip email domains (e.g. 6488123@mahidol.ac.th -> 6488123)
+  const cleanEmailA = rawA.split('@')[0].trim();
+  const cleanEmailB = rawB.split('@')[0].trim();
+  if (cleanEmailA === cleanEmailB) return true;
+
+  // Strip u/U prefix
+  const stripUA = cleanEmailA.replace(/^[uU]/, '');
+  const stripUB = cleanEmailB.replace(/^[uU]/, '');
+  if (stripUA === stripUB) return true;
+
+  // Strip decimal trailing zeroes (e.g. 6488123.0 -> 6488123)
+  const numA = stripUA.replace(/\.0+$/, '');
+  const numB = stripUB.replace(/\.0+$/, '');
+  if (numA === numB) return true;
+
+  // Strip non-alphanumeric characters
+  const normA = numA.replace(/[^a-zA-Z0-9]/g, '');
+  const normB = numB.replace(/[^a-zA-Z0-9]/g, '');
+  if (normA && normB && normA === normB) return true;
+
+  return false;
 }
 
 const MULTI_SECTION_SUBJECTS = new Set([
@@ -1696,6 +1734,7 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
         insertDataOption: 'INSERT_ROWS',
         requestBody: { values: [newRow] },
       });
+      clearSheetsCache(subject);
       return;
     } catch (err: any) {
       if (isUnsupportedSpreadsheetDocumentError(err)) {
@@ -1705,6 +1744,20 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
           }
         });
         return await updateXlsxData(spreadsheetId, resolvedTab, xlsxUpdates);
+      }
+      if (isGridLimitsError(err)) {
+        const expanded = await addBlankRowsToSheet(spreadsheetId, resolvedTab, 100);
+        if (expanded) {
+          await sheets.spreadsheets.values.append({
+            spreadsheetId,
+            range: `${resolvedTab}!A:A`,
+            valueInputOption: 'RAW',
+            insertDataOption: 'INSERT_ROWS',
+            requestBody: { values: [newRow] },
+          });
+          clearSheetsCache(subject);
+          return;
+        }
       }
       const availableTabs = await listGoogleSheetTabNames(spreadsheetId).catch(() => undefined);
       throw formatSheetUpdateError(resolvedTab, err, availableTabs);
@@ -1754,20 +1807,62 @@ async function updateSpecificTab(subject: string, tabName: string, username: str
               }
           });
       }
+      clearSheetsCache(subject);
       return; 
   } catch (err: any) {
        if (isUnsupportedSpreadsheetDocumentError(err)) {
            return await updateXlsxData(spreadsheetId, resolvedTab, xlsxUpdates);
        }
        if (isGridLimitsError(err)) {
-         throw new Error(
-           `Cannot write to row ${actualSheetRow} on tab "${resolvedTab}" (sheet has reached its row limit). ` +
-           `Add a blank row at the bottom of the sheet or ask an admin to expand the grid.`
-         );
+         const expanded = await addBlankRowsToSheet(spreadsheetId, resolvedTab, 100);
+         if (expanded && pendingUpdates.length > 0) {
+           await sheets.spreadsheets.values.batchUpdate({
+             spreadsheetId,
+             requestBody: {
+               valueInputOption: 'RAW',
+               data: pendingUpdates
+             }
+           });
+           clearSheetsCache(subject);
+           return;
+         }
        }
        const availableTabs = await listGoogleSheetTabNames(spreadsheetId).catch(() => undefined);
        throw formatSheetUpdateError(resolvedTab, err, availableTabs);
   }
+}
+
+async function addBlankRowsToSheet(spreadsheetId: string, tabName: string, numRows: number = 100): Promise<boolean> {
+  try {
+    const sheets = await getSheetsClient();
+    const info = await sheets.spreadsheets.get({
+      spreadsheetId,
+      fields: 'sheets.properties.sheetId,sheets.properties.title',
+    });
+    const sheetObj = (info.data.sheets || []).find(
+      (s: any) => s.properties?.title === tabName
+    );
+    if (sheetObj && sheetObj.properties?.sheetId !== undefined) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [
+            {
+              appendDimension: {
+                sheetId: sheetObj.properties.sheetId,
+                dimension: 'ROWS',
+                length: numRows,
+              },
+            },
+          ],
+        },
+      });
+      return true;
+    }
+  } catch (e) {
+    console.error(`[addBlankRowsToSheet] Failed to auto-expand rows for ${tabName}:`, e);
+  }
+  return false;
 }
 
 export async function batchUpdateScores(updates: {username: string, labNumber: string, score: number, feedback?: string, sheetName?: string, subject?: string}[]) {
