@@ -16,7 +16,8 @@ const NO_CACHE_HEADERS = {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const subject = searchParams.get('subject');
+    const rawSubject = searchParams.get('subject');
+    const subject = getCanonicalSubjectCodeOrDefault(rawSubject) || rawSubject || undefined;
     const credential = searchParams.get('credential');
     const studentId = searchParams.get('studentId');
 

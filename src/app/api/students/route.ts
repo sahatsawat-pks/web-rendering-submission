@@ -30,7 +30,8 @@ export async function GET(request: NextRequest) {
 
     // If not found in ITCS113, search across all subjects via Google Sheets
     // Try fetching from scores API with list_all for each subject
-    const subjects = ['ITCS251', 'ITCS255', 'ITCS258', 'ITCS283', 'ITDS283', 'ITDS382'];
+    const subjects = ['ITCS223', 'ITDS242', 'ITCS251', 'ITCS255', 'ITCS258', 'ITCS283', 'ITDS283', 'ITDS382', 'ITCS123', 'ITGE162', 'ITCS227', 'ITCS113'];
+    const cleanTargetId = studentId.trim().toLowerCase().replace(/^[uU]/, '');
     
     for (const subject of subjects) {
       try {
@@ -42,9 +43,10 @@ export async function GET(request: NextRequest) {
         if (response.ok) {
           const data = await response.json();
           if (data.students) {
-            const student = data.students.find((s: any) => 
-              s.id === studentId || s.studentId === studentId
-            );
+            const student = data.students.find((s: any) => {
+              const sid = String(s.id || s.studentId || s.username || '').trim().toLowerCase().replace(/^[uU]/, '');
+              return sid === cleanTargetId;
+            });
             
             if (student) {
               return NextResponse.json({

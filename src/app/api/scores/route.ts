@@ -10,6 +10,7 @@ import {
   batchUpdateScores,
   batchUpdateCriteriaScores,
   fillMissingScores,
+  studentIdsMatch,
 } from "@/lib/sheets";
 
 export async function GET(request: NextRequest) {
@@ -101,20 +102,15 @@ export async function GET(request: NextRequest) {
         let allScores = await getAllScores(subject, bypassCache);
         
         if (targetUsername) {
-             // Flexible matching: Try exact match, or match without 'u' prefix
-             const student = allScores.find(s => {
-                const sheetId = String(s.username || '').trim();
-                const inputId = String(targetUsername).trim();
-                const inputIdNoU = inputId.replace(/^[uU]/, '');
-                const sheetIdNoU = sheetId.replace(/^[uU]/, '');
-                
-                return sheetId === inputId || sheetIdNoU === inputIdNoU;
-             });
+             // Flexible matching: Use studentIdsMatch for robust student matching
+             const student = allScores.find(s => 
+                studentIdsMatch(s.username, targetUsername)
+             );
              
              if (!student) {
                  return NextResponse.json({ 
                      success: false, 
-                     error: `Student ID ${targetUsername} not found in ITCS223 records. Please verify your student ID.` 
+                     error: `Student ID ${targetUsername} not found in records. Please verify your student ID.` 
                  });
              }
              

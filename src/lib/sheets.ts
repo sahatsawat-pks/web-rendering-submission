@@ -35,19 +35,22 @@ export function clearSubjectsCache() {
 // Helper function to clear the sheets data cache
 export function clearSheetsCache(subject?: string) {
     if (subject) {
-        // Clear cache for specific subject
+        const canonical = toCanonicalSubject(subject);
+        // Clear cache for specific subject and its canonical code
         for (const key of sheetsCache.keys()) {
             if (
               key.includes(`_${subject}_`) ||
               key.includes(`_${subject}`) ||
-              key === `prefixes_${subject}`
+              (canonical && (key.includes(`_${canonical}_`) || key.includes(`_${canonical}`))) ||
+              key === `prefixes_${subject}` ||
+              (canonical && key === `prefixes_${canonical}`)
             ) {
                 sheetsCache.delete(key);
             }
         }
         // Also clear student row cache for this subject
         for (const key of studentRowCache.keys()) {
-            if (key.includes(subject)) {
+            if (key.includes(subject) || (canonical && key.includes(canonical))) {
                 studentRowCache.delete(key);
             }
         }
@@ -56,6 +59,13 @@ export function clearSheetsCache(subject?: string) {
         sheetsCache.clear();
         studentRowCache.clear();
     }
+}
+
+// Helper to get canonical subject code or fallback
+export function toCanonicalSubject(subject: string): string {
+    if (!subject) return '';
+    const upper = normalizeSubjectCode(subject) || subject.toUpperCase().trim();
+    return getCanonicalSubjectCode(upper) || upper;
 }
 
 // Helper to find target subject resolving case, canonical codes, and aliases
@@ -330,7 +340,7 @@ function formatSheetUpdateError(tabName: string, err: any, availableTabs?: strin
   return new Error(`Failed to update sheet tab "${tabName}": ${base}`);
 }
 
-function studentIdsMatch(sheetId: string | undefined, inputId: string): boolean {
+export function studentIdsMatch(sheetId: string | undefined, inputId: string): boolean {
   if (sheetId === undefined || sheetId === null || inputId === undefined || inputId === null) return false;
   const rawA = String(sheetId).trim();
   const rawB = String(inputId).trim();
@@ -362,7 +372,7 @@ function studentIdsMatch(sheetId: string | undefined, inputId: string): boolean 
 }
 
 const MULTI_SECTION_SUBJECTS = new Set([
-  'ITCS123', 'ITCS223', 'ITCS251', 'ITCS255', 'ITDS283', 'ITCS113', 'ITCS258',
+  'ITCS123', 'ITCS223', 'ITCS251', 'ITCS255', 'ITDS283', 'ITCS113', 'ITCS258', 'ITDS242',
 ]);
 
 /** Parse admin-configured student ID column (letter, 1-based number, or header name). */
@@ -409,6 +419,7 @@ function resolveIdColumnIndex(
     if (fromConfig !== -1) return fromConfig;
   }
 
+  const canonicalSubject = toCanonicalSubject(subject);
   const headerIndices = new Map<string, number>();
   headers.forEach((h: string, idx: number) => {
     const lowerH = String(h ?? '').toLowerCase().trim();
@@ -434,12 +445,12 @@ function resolveIdColumnIndex(
     return 1;
   }
 
-  if (subject === 'ITDS283') {
+  if (canonicalSubject === 'ITDS283' || subject === 'ITDS283') {
     const found = headers.findIndex((h: string) => String(h).toLowerCase().trim() === 'id');
     if (found !== -1) return found;
   }
 
-  if (MULTI_SECTION_SUBJECTS.has(subject)) {
+  if (MULTI_SECTION_SUBJECTS.has(canonicalSubject) || MULTI_SECTION_SUBJECTS.has(subject)) {
     if (headerIndices.has('name') || headerIndices.has('firstname')) {
       return 0;
     }
@@ -773,6 +784,7 @@ async function getSubjectConfig(subjectCode: string) {
 // Helper to map raw rows to student objects with optimized header matching
 function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] {
   if (rows.length === 0) return [];
+  const canonicalSubject = toCanonicalSubject(subject);
 
   // Determine header row index (0-based)
   const headerRowIndex = (config?.headerRow || 1) - 1;
@@ -806,7 +818,7 @@ function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] 
   
   // ITCS123 Auto-detect column indices by header matching
   let itcs123Indices = { name: -1, surname: -1, nickname: -1, email: -1 };
-  if (subject === 'ITCS123') {
+  if (canonicalSubject === 'ITCS123') {
       // Try to find columns by header names
       headers.forEach((h: string, idx: number) => {
           const lowerH = String(h).toLowerCase();
@@ -833,21 +845,21 @@ function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] 
     const student: any = { username: rawUsername ? String(rawUsername).trim() : "" };
     
     // Subject-specific name extraction
-    if (subject === 'ITCS123') {
+    if (canonicalSubject === 'ITCS123') {
         // Use auto-detected indices or fallback
         student['name'] = itcs123Indices.name !== -1 ? fixMashedName(row[itcs123Indices.name]) : '';
         student['surname'] = itcs123Indices.surname !== -1 ? fixMashedName(row[itcs123Indices.surname]) : '';
         student['nickname'] = itcs123Indices.nickname !== -1 ? row[itcs123Indices.nickname] : '';
         student['email'] = itcs123Indices.email !== -1 ? row[itcs123Indices.email] : '';
-    } else if (subject === 'ITCS223') {
+    } else if (canonicalSubject === 'ITCS223') {
         student['name'] = fixMashedName(row[2]);
         student['surname'] = fixMashedName(row[3]);
-    } else if (subject === 'ITCS251' || subject === 'ITCS255') {
+    } else if (canonicalSubject === 'ITCS251' || canonicalSubject === 'ITCS255') {
         student['name'] = fixMashedName(row[2]);
         student['surname'] = fixMashedName(row[3]);
-    } else if (subject === 'ITCS227') {
+    } else if (canonicalSubject === 'ITCS227') {
         student['Section'] = row[5]; 
-    } else if (subject === 'ITDS283') {
+    } else if (canonicalSubject === 'ITDS283') {
         student['title'] = row[2];
         student['name'] = fixMashedName(row[3]);
         student['surname'] = fixMashedName(row[4]);
@@ -925,7 +937,7 @@ function mapRowsToStudents(rows: any[][], subject: string, config?: any): any[] 
     });
     
     // ITCS223 Specific Calculation
-    if (subject === 'ITCS223' && !student['total']) {
+    if ((canonicalSubject === 'ITCS223' || subject === 'ITCS223') && !student['total']) {
         const totalScoreVal = Object.keys(student).reduce((acc, key) => {
             if (key.startsWith('Lab ')) {
                 return acc + (parseFloat(student[key]) || 0);
@@ -950,19 +962,20 @@ function resolveTabsForStudentIds(subject: string, config?: any): string[] {
     return ['Lab1'];
   }
 
+  const canonicalSubject = toCanonicalSubject(subject);
   const isMultiSection =
     config?.dataSourceType === 'tab_per_section' ||
-    subject === 'ITCS123' ||
-    subject === 'ITCS223' ||
-    subject === 'ITDS283';
+    canonicalSubject === 'ITCS123' ||
+    canonicalSubject === 'ITCS223' ||
+    canonicalSubject === 'ITDS283';
 
   if (isMultiSection) {
     if (config?.sheetTabs) {
       return config.sheetTabs.split(',').map((t: string) => t.trim()).filter(Boolean);
     }
-    if (subject === 'ITCS123') return ['Sec1', 'Sec2', 'Sec3'];
-    if (subject === 'ITCS223') return ['Section 1', 'Section 2', 'Section 3'];
-    if (subject === 'ITDS283') return ['Section 1', 'Section 2'];
+    if (canonicalSubject === 'ITCS123') return ['Sec1', 'Sec2', 'Sec3'];
+    if (canonicalSubject === 'ITCS223') return ['Section 1', 'Section 2', 'Section 3'];
+    if (canonicalSubject === 'ITDS283') return ['Section 1', 'Section 2'];
     return ['Sec1', 'Sec2'];
   }
 
@@ -1218,8 +1231,9 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
   }
 
   // Strategy: Tab per Section - parallel fetching
+  const canonicalSubject = toCanonicalSubject(subject);
   const isMultiSection = (config?.dataSourceType === 'tab_per_section') || 
-                         (subject === 'ITCS123' || subject === 'ITCS223' || subject === 'ITDS283');
+                         (canonicalSubject === 'ITCS123' || canonicalSubject === 'ITCS223' || canonicalSubject === 'ITDS283');
                          
   if (isMultiSection) {
       let tabs: string[] = [];
@@ -1227,15 +1241,19 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
       if (config?.sheetTabs) {
           tabs = config.sheetTabs.split(',').map((t: string) => t.trim());
       } else {
-          if (subject === 'ITCS123') tabs = ['Sec1', 'Sec2', 'Sec3'];
-          else if (subject === 'ITCS223') tabs = ['Section 1', 'Section 2', 'Section 3'];
-          else if (subject === 'ITDS283') tabs = ['Section 1', 'Section 2'];
+          if (canonicalSubject === 'ITCS123') tabs = ['Sec1', 'Sec2', 'Sec3'];
+          else if (canonicalSubject === 'ITCS223') tabs = ['Section 1', 'Section 2', 'Section 3'];
+          else if (canonicalSubject === 'ITDS283') tabs = ['Section 1', 'Section 2'];
           else tabs = ['Sec1', 'Sec2'];
       }
 
       // Try to fetch with initially configured tabs
       let promises = tabs.map(tab => 
-        getSheetData(subject, tab, bypassCache).catch(e => [])
+          getSheetData(subject, tab, bypassCache)
+              .then(rows => mapRowsToStudents(rows, subject, config))
+              .catch(err => {
+                  return [];
+              })
       );
       
       let results = await Promise.all(promises);
@@ -1253,7 +1271,9 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
               
               // Try all available tabs
               promises = allTabNames.map((tab: string) => 
-                getSheetData(subject, tab, bypassCache).catch((e: any) => [])
+                getSheetData(subject, tab, bypassCache)
+                    .then(rows => mapRowsToStudents(rows, subject, config))
+                    .catch((e: any) => [])
               );
               
               results = await Promise.all(promises);
@@ -1267,7 +1287,7 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
       
       results.forEach((rows, i) => {
           if (rows.length > 0) {
-              const studs = mapRowsToStudents(rows, subject, config);
+              const studs = rows;
               const tabName = tabs[i];
               let secId = '-';
               
@@ -1285,7 +1305,7 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
                   secId = secMatch ? secMatch[0] : searchName.trim();
               }
               
-              studs.forEach(s => s.Section = secId);
+              studs.forEach((s: any) => s.Section = secId);
               allStudents = [...allStudents, ...studs];
           }
       });
@@ -1298,7 +1318,7 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
   let students = mapRowsToStudents(rows, subject, config);
   
   // Special handling for ITCS113: fetch name/surname from separate sheet
-  if (subject === 'ITCS113') {
+  if (canonicalSubject === 'ITCS113' || subject === 'ITCS113') {
     try {
       const nameSheetId = '1Sa8K_SPKuhqDHFuwlIrH_8lSdA3aMPqzuKsadwEkCXc';
       const sheets = await getSheetsClient();
@@ -1347,7 +1367,7 @@ export async function getAllScores(subject: string = 'Sheet1', bypassCache: bool
 
 export async function getStudentAllScores(username: string, sheetName: string = 'Sheet1', bypassCache: boolean = false) {
     const scores = await getAllScores(sheetName, bypassCache);
-    return scores.find((s: any) => s.username === username) || null;
+    return scores.find((s: any) => studentIdsMatch(s.username, username)) || null;
 }
 
 export async function getStudentLabScore(username: string, labNumber: string, sheetName: string = 'Sheet1') {
