@@ -271,7 +271,9 @@ export function adaptSubjectConfig(subject: Subject): SubjectConfig {
   const displayCode = subject.displaySubjectId || subject.code
   
   const cards: SubjectCard[] = []
-  const hasRendering = false
+  const upperCode = subject.code?.toUpperCase() || ''
+  const aliases = (subject.aliases || []).map(a => a.toUpperCase())
+  const hasRendering = upperCode === 'ITCS223' || upperCode === 'ITDS242' || aliases.includes('ITCS223') || aliases.includes('ITDS242')
 
   if (hasRendering) {
     cards.push({

@@ -27,7 +27,8 @@ export async function middleware(request: NextRequest) {
         if (response.ok) {
           const data = await response.json()
           const subject = data.subjects?.find((s: any) => 
-            s.code.toLowerCase() === subjectMatch.toLowerCase()
+            s.code.toLowerCase() === subjectMatch.toLowerCase() ||
+            (s.aliases || []).some((a: string) => a.toLowerCase() === subjectMatch.toLowerCase())
           )
           
           // If subject exists and is not visible, redirect to home

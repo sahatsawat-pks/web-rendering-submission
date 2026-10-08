@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchRepositoryFile } from "@/lib/github";
 import { getLabByNumber } from "@/lib/db";
+import { getCanonicalSubjectCodeOrDefault } from "@/lib/subjectConfig";
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,7 +26,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Get lab configuration to find the file name
-    const lab = await getLabByNumber(labNumber, subject);
+    const resolvedSubject = getCanonicalSubjectCodeOrDefault(subject) || subject;
+    const lab = await getLabByNumber(labNumber, resolvedSubject);
     if (!lab) {
       return NextResponse.json(
         { error: "Lab not found" },

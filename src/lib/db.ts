@@ -30,6 +30,7 @@ export interface Lab {
   quizTimeLimit?: number; // Time limit in minutes (0 = no limit)
   quizTimeLimitEnabled?: boolean; // Whether time limit is enabled
   quizShuffleChoices?: boolean; // Whether to shuffle answer choices for each student
+  quizShowAnswers?: boolean; // Whether to show correct answers after submission
   quizShuffleQuestions?: boolean; // Whether to shuffle question order in each category for each student
   challengeEnabled?: boolean; // Whether challenge is enabled for this lab (for lab_challenge grading type)
   createdAt: string;
@@ -325,6 +326,15 @@ async function ensureTables() {
                 END IF; 
             END $$;
         `);
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'labs' AND column_name = 'quiz_show_answers') THEN 
+                    ALTER TABLE labs ADD COLUMN quiz_show_answers BOOLEAN DEFAULT FALSE; 
+                END IF; 
+            END $$;
+        `);
+
 
         await client.query(`
             DO $$ 
@@ -1054,6 +1064,7 @@ export async function getAllLabs(activeOnly: boolean = false, subject?: string):
             quizTimeLimit: r.quiz_time_limit,
             quizTimeLimitEnabled: r.quiz_time_limit_enabled,
             quizShuffleChoices: r.quiz_shuffle_choices,
+            quizShowAnswers: r.quiz_show_answers,
             quizShuffleQuestions: r.quiz_shuffle_questions,
             challengeEnabled: r.challenge_enabled,
             createdAt: r.created_at.toString()
@@ -1089,6 +1100,7 @@ export async function getLabById(id: string): Promise<Lab | undefined> {
             quizTimeLimit: r.quiz_time_limit,
             quizTimeLimitEnabled: r.quiz_time_limit_enabled,
             quizShuffleChoices: r.quiz_shuffle_choices,
+            quizShowAnswers: r.quiz_show_answers,
             quizShuffleQuestions: r.quiz_shuffle_questions,
             challengeEnabled: r.challenge_enabled,
             createdAt: r.created_at.toString()
@@ -1145,6 +1157,7 @@ export async function getLabByNumber(
               quizTimeLimit: r.quiz_time_limit,
               quizTimeLimitEnabled: r.quiz_time_limit_enabled,
               quizShuffleChoices: r.quiz_shuffle_choices,
+            quizShowAnswers: r.quiz_show_answers,
               quizShuffleQuestions: r.quiz_shuffle_questions,
               challengeEnabled: r.challenge_enabled,
               createdAt: r.created_at.toString()
@@ -1230,6 +1243,7 @@ export async function updateLab(
         if (updates.quizTimeLimit !== undefined) { fields.push(`quiz_time_limit = $${idx++}`); values.push(updates.quizTimeLimit); }
         if (updates.quizTimeLimitEnabled !== undefined) { fields.push(`quiz_time_limit_enabled = $${idx++}`); values.push(updates.quizTimeLimitEnabled); }
         if (updates.quizShuffleChoices !== undefined) { fields.push(`quiz_shuffle_choices = $${idx++}`); values.push(updates.quizShuffleChoices); }
+        if (updates.quizShowAnswers !== undefined) { fields.push(`quiz_show_answers = $${idx++}`); values.push(updates.quizShowAnswers); }
         if (updates.quizShuffleQuestions !== undefined) { fields.push(`quiz_shuffle_questions = $${idx++}`); values.push(updates.quizShuffleQuestions); }
         if (updates.challengeEnabled !== undefined) { fields.push(`challenge_enabled = $${idx++}`); values.push(updates.challengeEnabled); }
 
@@ -1263,6 +1277,7 @@ export async function updateLab(
             quizTimeLimit: r.quiz_time_limit,
             quizTimeLimitEnabled: r.quiz_time_limit_enabled,
             quizShuffleChoices: r.quiz_shuffle_choices,
+            quizShowAnswers: r.quiz_show_answers,
             quizShuffleQuestions: r.quiz_shuffle_questions,
             challengeEnabled: r.challenge_enabled,
             createdAt: r.created_at.toString()

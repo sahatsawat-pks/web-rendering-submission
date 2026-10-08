@@ -60,6 +60,7 @@ export default function QuizManagementPage({
   const [timeLimit, setTimeLimit] = useState(0)
   const [timeLimitEnabled, setTimeLimitEnabled] = useState(false)
   const [quizShuffleChoices, setQuizShuffleChoices] = useState(false)
+  const [quizShowAnswers, setQuizShowAnswers] = useState(false)
   const [quizShuffleQuestions, setQuizShuffleQuestions] = useState(false)
 
   // Create Lab Modal
@@ -167,6 +168,7 @@ export default function QuizManagementPage({
         setTimeLimit(data.quizTimeLimit || 0)
         setTimeLimitEnabled(data.quizTimeLimitEnabled || false)
         setQuizShuffleChoices(data.quizShuffleChoices || false)
+        setQuizShowAnswers(data.quizShowAnswers || false)
         setQuizShuffleQuestions(data.quizShuffleQuestions || false)
 
         if (data.sets && data.sets.length > 0) {
@@ -261,7 +263,8 @@ export default function QuizManagementPage({
           quizTimeLimit: timeLimit,
           quizTimeLimitEnabled: timeLimitEnabled,
           quizShuffleChoices,
-          quizShuffleQuestions
+          quizShuffleQuestions,
+          quizShowAnswers
         })
       })
       
@@ -779,6 +782,16 @@ export default function QuizManagementPage({
                     className="w-5 h-5 accent-purple-600 rounded"
                   />
                   <span>🔀 Shuffle Answer Choices / Options for Each Student</span>
+                </label>
+
+                <label className="flex items-center gap-3 font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={quizShowAnswers}
+                    onChange={(e) => setQuizShowAnswers(e.target.checked)}
+                    className="w-5 h-5 accent-purple-600 rounded"
+                  />
+                  <span>✅ Show Correct Answers After Submission</span>
                 </label>
 
                 <label className="flex items-center gap-3 font-medium text-slate-700 dark:text-slate-300 cursor-pointer">

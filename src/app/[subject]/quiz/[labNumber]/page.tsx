@@ -50,6 +50,7 @@ export default function QuizTakingPage() {
   const [answers, setAnswers] = useState<{ [key: string]: string | string[] }>({})
   const [timeLimit, setTimeLimit] = useState(0)
   const [timeLimitEnabled, setTimeLimitEnabled] = useState(false)
+  const [quizShowAnswers, setQuizShowAnswers] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [showReview, setShowReview] = useState(false)
   const [showResults, setShowResults] = useState(false)
@@ -297,6 +298,7 @@ function shuffleChoices<T>(array: T[], seedStr: string): T[] {
         setCategories(data.categories || [])
         setLabTitle(data.labTitle || "")
         setTimeLimitEnabled(data.quizTimeLimitEnabled || false)
+        setQuizShowAnswers(data.quizShowAnswers || false)
         const limit = data.quizTimeLimit || 0
         setTimeLimit(limit)
         setTimeRemaining(limit * 60) // Convert to seconds
@@ -615,7 +617,7 @@ function shuffleChoices<T>(array: T[], seedStr: string): T[] {
                               <div
                                 key={i}
                                 className={`p-4 rounded-xl border-2 transition-all shadow-sm ${
-                                  isThisCorrect
+                                  (isThisCorrect && (isUserChoice || quizShowAnswers))
                                     ? 'bg-gradient-to-r from-cyan-50 to-cyan-50 dark:from-cyan-900/30 dark:to-cyan-900/30 border-cyan-500 shadow-cyan-500/20'
                                     : isUserChoice
                                     ? 'bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/30 dark:to-orange-900/30 border-red-500 shadow-red-500/20'
@@ -624,7 +626,7 @@ function shuffleChoices<T>(array: T[], seedStr: string): T[] {
                               >
                                 <div className="flex items-center gap-3">
                                   <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-bold flex-shrink-0 ${
-                                    isThisCorrect
+                                    (isThisCorrect && (isUserChoice || quizShowAnswers))
                                       ? 'bg-cyan-500 text-white'
                                       : isUserChoice
                                       ? 'bg-red-500 text-white'
@@ -633,7 +635,7 @@ function shuffleChoices<T>(array: T[], seedStr: string): T[] {
                                     {String.fromCharCode(65 + i)}
                                   </span>
                                   <span className={`flex-1 font-medium ${
-                                    isThisCorrect
+                                    (isThisCorrect && (isUserChoice || quizShowAnswers))
                                       ? 'text-cyan-800 dark:text-cyan-200'
                                       : isUserChoice
                                       ? 'text-red-800 dark:text-red-200'
@@ -641,7 +643,7 @@ function shuffleChoices<T>(array: T[], seedStr: string): T[] {
                                   }`}>
                                     {opt}
                                   </span>
-                                  {isThisCorrect && (
+                                  {(isThisCorrect && (isUserChoice || quizShowAnswers)) && (
                                     <svg className="w-6 h-6 text-cyan-600 dark:text-cyan-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                     </svg>
@@ -668,7 +670,7 @@ function shuffleChoices<T>(array: T[], seedStr: string): T[] {
                               <div
                                 key={i}
                                 className={`p-4 rounded-xl border-2 transition-all shadow-sm ${
-                                  isThisCorrect
+                                  (isThisCorrect && (isUserChoice || quizShowAnswers))
                                     ? 'bg-gradient-to-r from-cyan-50 to-cyan-50 dark:from-cyan-900/30 dark:to-cyan-900/30 border-cyan-500 shadow-cyan-500/20'
                                     : isUserChoice
                                     ? 'bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/30 dark:to-orange-900/30 border-red-500 shadow-red-500/20'
@@ -677,7 +679,7 @@ function shuffleChoices<T>(array: T[], seedStr: string): T[] {
                               >
                                 <div className="flex items-center gap-3">
                                   <span className={`flex-1 font-medium text-lg ${
-                                    isThisCorrect
+                                    (isThisCorrect && (isUserChoice || quizShowAnswers))
                                       ? 'text-cyan-800 dark:text-cyan-200'
                                       : isUserChoice
                                       ? 'text-red-800 dark:text-red-200'
@@ -685,7 +687,7 @@ function shuffleChoices<T>(array: T[], seedStr: string): T[] {
                                   }`}>
                                     {opt}
                                   </span>
-                                  {isThisCorrect && (
+                                  {(isThisCorrect && (isUserChoice || quizShowAnswers)) && (
                                     <svg className="w-6 h-6 text-cyan-600 dark:text-cyan-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                     </svg>
@@ -714,7 +716,7 @@ function shuffleChoices<T>(array: T[], seedStr: string): T[] {
                               <div
                                 key={i}
                                 className={`p-4 rounded-xl border-2 transition-all shadow-sm ${
-                                  isThisCorrect
+                                  (isThisCorrect && (isUserChoice || quizShowAnswers))
                                     ? 'bg-gradient-to-r from-cyan-50 to-cyan-50 dark:from-cyan-900/30 dark:to-cyan-900/30 border-cyan-500 shadow-cyan-500/20'
                                     : isUserChoice
                                     ? 'bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/30 dark:to-orange-900/30 border-red-500 shadow-red-500/20'
@@ -723,7 +725,7 @@ function shuffleChoices<T>(array: T[], seedStr: string): T[] {
                               >
                                 <div className="flex items-center gap-3">
                                   <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-bold flex-shrink-0 ${
-                                    isThisCorrect
+                                    (isThisCorrect && (isUserChoice || quizShowAnswers))
                                       ? 'bg-cyan-500 text-white'
                                       : isUserChoice
                                       ? 'bg-red-500 text-white'
@@ -732,7 +734,7 @@ function shuffleChoices<T>(array: T[], seedStr: string): T[] {
                                     {String.fromCharCode(65 + i)}
                                   </span>
                                   <span className={`flex-1 font-medium ${
-                                    isThisCorrect
+                                    (isThisCorrect && (isUserChoice || quizShowAnswers))
                                       ? 'text-cyan-800 dark:text-cyan-200'
                                       : isUserChoice
                                       ? 'text-red-800 dark:text-red-200'
@@ -740,7 +742,7 @@ function shuffleChoices<T>(array: T[], seedStr: string): T[] {
                                   }`}>
                                     {opt}
                                   </span>
-                                  {isThisCorrect && (
+                                  {(isThisCorrect && (isUserChoice || quizShowAnswers)) && (
                                     <svg className="w-6 h-6 text-cyan-600 dark:text-cyan-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                     </svg>
@@ -768,18 +770,20 @@ function shuffleChoices<T>(array: T[], seedStr: string): T[] {
                             </span>
                             <p className="text-sm text-slate-800 dark:text-slate-200 mt-2 font-medium">{displayUserAnswer || '(No answer)'}</p>
                           </div>
-                          <div className="p-4 rounded-xl bg-gradient-to-r from-cyan-50 to-cyan-50 dark:from-cyan-900/30 dark:to-cyan-900/30 border-2 border-cyan-500 shadow-sm shadow-cyan-500/20">
-                            <span className="text-xs font-bold text-cyan-700 dark:text-cyan-400 uppercase tracking-wide flex items-center gap-2">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                              Correct Answer</span>
-                            <p className="text-sm text-cyan-800 dark:text-cyan-200 mt-2 font-medium">{displayCorrectAnswer}</p>
-                          </div>
+                          {quizShowAnswers && (
+                            <div className="p-4 rounded-xl bg-gradient-to-r from-cyan-50 to-cyan-50 dark:from-cyan-900/30 dark:to-cyan-900/30 border-2 border-cyan-500 shadow-sm shadow-cyan-500/20">
+                              <span className="text-xs font-bold text-cyan-700 dark:text-cyan-400 uppercase tracking-wide flex items-center gap-2">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                Correct Answer</span>
+                              <p className="text-sm text-cyan-800 dark:text-cyan-200 mt-2 font-medium">{displayCorrectAnswer}</p>
+                            </div>
+                          )}
                         </div>
                       )}
                       
-                      {question.explanation && (
+                      {question.explanation && quizShowAnswers && (
                         <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border-2 border-blue-200 dark:border-blue-800 shadow-sm">
                           <span className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide flex items-center gap-2">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
